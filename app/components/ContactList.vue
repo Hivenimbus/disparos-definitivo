@@ -70,9 +70,18 @@
               </span>
             </td>
             <td class="px-4 py-3">
-              <button class="text-blue-600 hover:text-blue-800 transition-colors">
-                Editar
-              </button>
+              <div class="flex items-center space-x-2">
+                <button @click="openEditModal(contact)" class="text-blue-600 hover:text-blue-800 transition-colors">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                </button>
+                <button @click="deleteContact(contact.id)" class="text-red-600 hover:text-red-800 transition-colors">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
+              </div>
             </td>
           </tr>
         </tbody>
@@ -122,6 +131,57 @@
         </div>
       </div>
     </div>
+
+    <div v-if="isEditModalOpen" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" @click.self="closeEditModal">
+      <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+        <div class="flex items-center justify-between mb-6">
+          <h3 class="text-xl font-semibold text-gray-800">Editar Contato</h3>
+          <button @click="closeEditModal" class="text-gray-400 hover:text-gray-600">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div class="space-y-4 mb-6">
+          <div>
+            <label class="block text-gray-700 font-medium mb-2">Nome</label>
+            <input
+              v-model="editForm.name"
+              type="text"
+              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="Nome do contato"
+            >
+          </div>
+
+          <div>
+            <label class="block text-gray-700 font-medium mb-2">WhatsApp</label>
+            <input
+              v-model="editForm.whatsapp"
+              type="text"
+              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="Número do WhatsApp"
+            >
+          </div>
+        </div>
+
+        <div class="flex justify-end space-x-3">
+          <button
+            @click="closeEditModal"
+            class="px-6 py-2 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            @click="saveEdit"
+            :disabled="!editForm.name.trim() || !editForm.whatsapp.trim()"
+            class="px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Salvar
+          </button>
+        </div>
+      </div>
+    </div>
   </section>
 </template>
 
@@ -131,6 +191,12 @@ import { ref, computed } from 'vue'
 const contacts = ref([])
 const isImportModalOpen = ref(false)
 const contactListText = ref('')
+const isEditModalOpen = ref(false)
+const editForm = ref({
+  id: null,
+  name: '',
+  whatsapp: ''
+})
 
 const totalContacts = computed(() => contacts.value.length)
 const validContacts = computed(() => contacts.value.filter(c => c.status === 'valid').length)
@@ -142,6 +208,38 @@ const openImportModal = () => {
 const closeImportModal = () => {
   isImportModalOpen.value = false
   contactListText.value = ''
+}
+
+const openEditModal = (contact) => {
+  editForm.value = {
+    id: contact.id,
+    name: contact.name,
+    whatsapp: contact.whatsapp
+  }
+  isEditModalOpen.value = true
+}
+
+const closeEditModal = () => {
+  isEditModalOpen.value = false
+  editForm.value = {
+    id: null,
+    name: '',
+    whatsapp: ''
+  }
+}
+
+const saveEdit = () => {
+  const index = contacts.value.findIndex(c => c.id === editForm.value.id)
+  if (index !== -1) {
+    const isValid = validateWhatsApp(editForm.value.whatsapp)
+    contacts.value[index] = {
+      ...contacts.value[index],
+      name: editForm.value.name,
+      whatsapp: editForm.value.whatsapp,
+      status: isValid ? 'valid' : 'invalid'
+    }
+  }
+  closeEditModal()
 }
 
 const parseContactLine = (line) => {
@@ -201,5 +299,9 @@ const importContacts = () => {
   closeImportModal()
   
   console.log(`Importados ${newContacts.length} contatos`)
+}
+
+const deleteContact = (id) => {
+  contacts.value = contacts.value.filter(contact => contact.id !== id)
 }
 </script>
