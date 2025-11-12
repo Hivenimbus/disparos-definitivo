@@ -179,7 +179,7 @@ const menuItems = [
   },
   {
     name: 'Contatos',
-    path: '/contatos',
+    path: '/#contatos',
     icon: 'IconContacts'
   },
   {
