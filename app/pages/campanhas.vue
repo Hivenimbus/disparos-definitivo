@@ -8,7 +8,7 @@
         <h2 class="text-xl font-semibold text-gray-800">Histórico de Campanhas</h2>
       </div>
 
-      <div class="space-y-4">
+      <div class="space-y-6">
         <div
           v-for="campanha in campanhas"
           :key="campanha.id"
