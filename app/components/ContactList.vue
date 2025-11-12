@@ -9,7 +9,7 @@
       </div>
 
       <div class="flex items-center space-x-3">
-        <button class="flex items-center space-x-2 px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+        <button @click="openImportModal" class="flex items-center space-x-2 px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
           <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
@@ -26,11 +26,11 @@
 
     <div class="grid grid-cols-2 gap-4 mb-6">
       <div class="bg-gray-100 rounded-lg p-6 text-center">
-        <div class="text-4xl font-bold text-blue-600 mb-2">0</div>
+        <div class="text-4xl font-bold text-blue-600 mb-2">{{ totalContacts }}</div>
         <div class="text-gray-600 text-sm">Total de Contatos</div>
       </div>
       <div class="bg-gray-100 rounded-lg p-6 text-center">
-        <div class="text-4xl font-bold text-blue-600 mb-2">0</div>
+        <div class="text-4xl font-bold text-blue-600 mb-2">{{ validContacts }}</div>
         <div class="text-gray-600 text-sm">Contatos Válidos</div>
       </div>
     </div>
@@ -78,11 +78,128 @@
         </tbody>
       </table>
     </div>
+
+    <div v-if="isImportModalOpen" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" @click.self="closeImportModal">
+      <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6">
+        <div class="flex items-center justify-between mb-6">
+          <h3 class="text-xl font-semibold text-gray-800">Importar Contatos Manualmente</h3>
+          <button @click="closeImportModal" class="text-gray-400 hover:text-gray-600">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div class="mb-4">
+          <label class="block text-gray-700 font-medium mb-2">
+            Cole a lista de contatos (um por linha):
+          </label>
+          <p class="text-sm text-gray-500 mb-3">
+            Formato: Número, Nome ou Número
+          </p>
+          <textarea
+            v-model="contactListText"
+            placeholder="Ex: 5511999999999&#10;João Silva, 551198888888&#10;Maria Santos      5511977777777"
+            rows="12"
+            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none font-mono text-sm"
+          ></textarea>
+        </div>
+
+        <div class="flex justify-end space-x-3">
+          <button
+            @click="closeImportModal"
+            class="px-6 py-2 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            @click="importContacts"
+            :disabled="!contactListText.trim()"
+            class="px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Importar
+          </button>
+        </div>
+      </div>
+    </div>
   </section>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 
 const contacts = ref([])
+const isImportModalOpen = ref(false)
+const contactListText = ref('')
+
+const totalContacts = computed(() => contacts.value.length)
+const validContacts = computed(() => contacts.value.filter(c => c.status === 'valid').length)
+
+const openImportModal = () => {
+  isImportModalOpen.value = true
+}
+
+const closeImportModal = () => {
+  isImportModalOpen.value = false
+  contactListText.value = ''
+}
+
+const parseContactLine = (line) => {
+  line = line.trim()
+  if (!line) return null
+  
+  const commaMatch = line.match(/^(.+?),\s*(\d+)$/)
+  if (commaMatch) {
+    return {
+      name: commaMatch[1].trim(),
+      whatsapp: commaMatch[2].trim()
+    }
+  }
+  
+  const spaceMatch = line.match(/^(.+?)\s+(\d+)$/)
+  if (spaceMatch) {
+    return {
+      name: spaceMatch[1].trim(),
+      whatsapp: spaceMatch[2].trim()
+    }
+  }
+  
+  const numberOnly = line.match(/^(\d+)$/)
+  if (numberOnly) {
+    return {
+      name: `Contato ${numberOnly[1].slice(-4)}`,
+      whatsapp: numberOnly[1].trim()
+    }
+  }
+  
+  return null
+}
+
+const validateWhatsApp = (number) => {
+  const cleaned = number.replace(/\D/g, '')
+  return cleaned.length >= 10 && cleaned.length <= 15
+}
+
+const importContacts = () => {
+  const lines = contactListText.value.split('\n')
+  const newContacts = []
+  
+  lines.forEach((line, index) => {
+    const parsed = parseContactLine(line)
+    if (parsed) {
+      const isValid = validateWhatsApp(parsed.whatsapp)
+      newContacts.push({
+        id: Date.now() + index,
+        name: parsed.name,
+        whatsapp: parsed.whatsapp,
+        status: isValid ? 'valid' : 'invalid'
+      })
+    }
+  })
+  
+  contacts.value = [...contacts.value, ...newContacts]
+  closeImportModal()
+  
+  console.log(`Importados ${newContacts.length} contatos`)
+}
 </script>
