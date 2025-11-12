@@ -202,7 +202,7 @@ const menuItems = [
 
 const dropdownOptions = [
   { name: 'Meu Perfil', path: '/perfil' },
-  { name: 'Sair', path: '#' }
+  { name: 'Sair', path: '/login' }
 ]
 
 const toggleDropdown = () => {
