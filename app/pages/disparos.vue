@@ -69,9 +69,9 @@
         <span class="text-sm text-gray-500">Atualizando em tempo real</span>
       </div>
 
-      <div class="space-y-3 max-h-[600px] overflow-y-auto pr-2">
+      <div class="space-y-3">
         <div
-          v-for="(disparo, index) in listaDisparos"
+          v-for="(disparo, index) in paginatedDisparos"
           :key="index"
           class="border rounded-lg p-4 transition-all hover:shadow-md"
           :class="disparo.status === 'sucesso' ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'"
@@ -133,11 +133,53 @@
           </div>
         </div>
 
-        <div v-if="listaDisparos.length === 0" class="text-center py-12">
+        <div v-if="paginatedDisparos.length === 0" class="text-center py-12">
           <svg xmlns="http://www.w3.org/2000/svg" class="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
           </svg>
           <p class="text-gray-500">Nenhum disparo realizado ainda</p>
+        </div>
+      </div>
+
+      <div v-if="listaDisparos.length > 0" class="mt-6 flex items-center justify-between border-t pt-4">
+        <div class="text-sm text-gray-600">
+          Mostrando {{ startIndex + 1 }} a {{ endIndex }} de {{ listaDisparos.length }} disparos
+        </div>
+
+        <div class="flex items-center space-x-2">
+          <button
+            @click="previousPage"
+            :disabled="currentPage === 1"
+            class="px-3 py-2 border rounded-lg text-sm font-medium transition-colors"
+            :class="currentPage === 1 ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-700 hover:bg-gray-50'"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+
+          <div class="flex items-center space-x-1">
+            <button
+              v-for="page in visiblePages"
+              :key="page"
+              @click="goToPage(page)"
+              class="px-3 py-2 border rounded-lg text-sm font-medium transition-colors"
+              :class="currentPage === page ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 hover:bg-gray-50'"
+            >
+              {{ page }}
+            </button>
+          </div>
+
+          <button
+            @click="nextPage"
+            :disabled="currentPage === totalPages"
+            class="px-3 py-2 border rounded-lg text-sm font-medium transition-colors"
+            :class="currentPage === totalPages ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-700 hover:bg-gray-50'"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
         </div>
       </div>
     </section>
@@ -149,6 +191,9 @@ import { ref, computed } from 'vue'
 
 const totalDisparos = ref(150)
 const disparosRealizados = ref(0)
+const currentPage = ref(1)
+const itemsPerPage = 10
+
 const listaDisparos = ref([
   {
     numero: '+55 11 98765-4321',
@@ -191,6 +236,89 @@ const listaDisparos = ref([
     anexos: [],
     status: 'sucesso',
     timestamp: '12/11/2025 14:32:27'
+  },
+  {
+    numero: '+55 11 91234-5678',
+    mensagem: 'Sua encomenda foi despachada e está a caminho.',
+    anexos: [
+      { tipo: 'imagem', nome: 'rastreio.jpg' }
+    ],
+    status: 'sucesso',
+    timestamp: '12/11/2025 14:32:30'
+  },
+  {
+    numero: '+55 47 99999-8888',
+    mensagem: 'Obrigado pela sua compra! Avalie nosso atendimento.',
+    anexos: [],
+    status: 'sucesso',
+    timestamp: '12/11/2025 14:32:33'
+  },
+  {
+    numero: '+55 19 97777-6666',
+    mensagem: 'Promoção relâmpago! 50% de desconto até meia-noite.',
+    anexos: [
+      { tipo: 'imagem', nome: 'promo.jpg' }
+    ],
+    status: 'falha',
+    timestamp: '12/11/2025 14:32:36'
+  },
+  {
+    numero: '+55 62 95555-4444',
+    mensagem: 'Confirmação de pagamento recebida. Pedido #4567.',
+    anexos: [
+      { tipo: 'documento', nome: 'comprovante.pdf' }
+    ],
+    status: 'sucesso',
+    timestamp: '12/11/2025 14:32:39'
+  },
+  {
+    numero: '+55 71 93333-2222',
+    mensagem: 'Feliz aniversário! Aproveite seu desconto especial.',
+    anexos: [],
+    status: 'sucesso',
+    timestamp: '12/11/2025 14:32:42'
+  },
+  {
+    numero: '+55 81 91111-0000',
+    mensagem: 'Novo produto disponível! Confira agora em nossa loja.',
+    anexos: [
+      { tipo: 'imagem', nome: 'produto.jpg' },
+      { tipo: 'video', nome: 'demo.mp4' }
+    ],
+    status: 'sucesso',
+    timestamp: '12/11/2025 14:32:45'
+  },
+  {
+    numero: '+55 51 98888-9999',
+    mensagem: 'Lembrete: Sua assinatura vence em 3 dias.',
+    anexos: [],
+    status: 'falha',
+    timestamp: '12/11/2025 14:32:48'
+  },
+  {
+    numero: '+55 27 97777-8888',
+    mensagem: 'Obrigado por participar da nossa pesquisa!',
+    anexos: [
+      { tipo: 'documento', nome: 'resultado.pdf' }
+    ],
+    status: 'sucesso',
+    timestamp: '12/11/2025 14:32:51'
+  },
+  {
+    numero: '+55 48 96666-7777',
+    mensagem: 'Seu pedido foi entregue com sucesso!',
+    anexos: [],
+    status: 'sucesso',
+    timestamp: '12/11/2025 14:32:54'
+  },
+  {
+    numero: '+55 61 95555-6666',
+    mensagem: 'Nova mensagem do suporte técnico.',
+    anexos: [
+      { tipo: 'audio', nome: 'mensagem.mp3' }
+    ],
+    status: 'sucesso',
+    timestamp: '12/11/2025 14:32:57'
   }
 ])
 
@@ -206,4 +334,64 @@ const sucessoCount = computed(() => {
 const falhaCount = computed(() => {
   return listaDisparos.value.filter(d => d.status === 'falha').length
 })
+
+const totalPages = computed(() => {
+  return Math.ceil(listaDisparos.value.length / itemsPerPage)
+})
+
+const startIndex = computed(() => {
+  return (currentPage.value - 1) * itemsPerPage
+})
+
+const endIndex = computed(() => {
+  const end = startIndex.value + itemsPerPage
+  return end > listaDisparos.value.length ? listaDisparos.value.length : end
+})
+
+const paginatedDisparos = computed(() => {
+  return listaDisparos.value.slice(startIndex.value, endIndex.value)
+})
+
+const visiblePages = computed(() => {
+  const pages = []
+  const maxVisible = 5
+  
+  if (totalPages.value <= maxVisible) {
+    for (let i = 1; i <= totalPages.value; i++) {
+      pages.push(i)
+    }
+  } else {
+    if (currentPage.value <= 3) {
+      for (let i = 1; i <= maxVisible; i++) {
+        pages.push(i)
+      }
+    } else if (currentPage.value >= totalPages.value - 2) {
+      for (let i = totalPages.value - maxVisible + 1; i <= totalPages.value; i++) {
+        pages.push(i)
+      }
+    } else {
+      for (let i = currentPage.value - 2; i <= currentPage.value + 2; i++) {
+        pages.push(i)
+      }
+    }
+  }
+  
+  return pages
+})
+
+const previousPage = () => {
+  if (currentPage.value > 1) {
+    currentPage.value--
+  }
+}
+
+const nextPage = () => {
+  if (currentPage.value < totalPages.value) {
+    currentPage.value++
+  }
+}
+
+const goToPage = (page) => {
+  currentPage.value = page
+}
 </script>
