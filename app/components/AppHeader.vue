@@ -7,12 +7,12 @@
         </h1>
         
         <nav class="flex items-center space-x-8">
-          <a
+          <NuxtLink
             v-for="item in menuItems"
             :key="item.name"
-            href="#"
+            :to="item.path"
             class="flex items-center space-x-2.5 font-semibold transition-colors"
-            :class="item.active ? 'text-blue-600' : 'text-gray-700 hover:text-blue-600'"
+            :class="$route.path === item.path ? 'text-blue-600' : 'text-gray-700 hover:text-blue-600'"
           >
             <svg v-if="item.icon === 'IconDashboard'" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
@@ -31,7 +31,7 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
             <span class="text-base">{{ item.name }}</span>
-          </a>
+          </NuxtLink>
         </nav>
       </div>
 
@@ -77,27 +77,27 @@ const isDropdownOpen = ref(false)
 const menuItems = [
   {
     name: 'Dashboard',
-    active: true,
+    path: '/',
     icon: 'IconDashboard'
   },
   {
     name: 'Contatos',
-    active: false,
+    path: '/contatos',
     icon: 'IconContacts'
   },
   {
     name: 'Campanhas',
-    active: false,
+    path: '/campanhas',
     icon: 'IconCampaigns'
   },
   {
     name: 'Disparos',
-    active: false,
+    path: '/disparos',
     icon: 'IconDisparos'
   },
   {
     name: 'Configurações',
-    active: false,
+    path: '/configuracoes',
     icon: 'IconSettings'
   }
 ]
