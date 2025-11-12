@@ -66,14 +66,15 @@
             v-if="isDropdownOpen"
             class="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-10"
           >
-            <a
+            <NuxtLink
               v-for="option in dropdownOptions"
               :key="option.name"
-              href="#"
+              :to="option.path"
+              @click="isDropdownOpen = false"
               class="block px-4 py-2 text-base text-gray-700 hover:bg-gray-100 transition-colors"
             >
               {{ option.name }}
-            </a>
+            </NuxtLink>
           </div>
         </div>
       </div>
@@ -200,9 +201,8 @@ const menuItems = [
 ]
 
 const dropdownOptions = [
-  { name: 'Meu Perfil' },
-  { name: 'Configurações' },
-  { name: 'Sair' }
+  { name: 'Meu Perfil', path: '/perfil' },
+  { name: 'Sair', path: '#' }
 ]
 
 const toggleDropdown = () => {
