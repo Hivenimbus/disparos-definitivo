@@ -24,7 +24,7 @@
         </div>
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div class="bg-blue-50 rounded-lg p-4">
           <div class="flex items-center justify-between">
             <div>
@@ -69,7 +69,7 @@
         <span class="text-sm text-gray-500">Atualizando em tempo real</span>
       </div>
 
-      <div class="space-y-3 max-h-[600px] overflow-y-auto">
+      <div class="space-y-3 max-h-[600px] overflow-y-auto pr-2">
         <div
           v-for="(disparo, index) in listaDisparos"
           :key="index"
