@@ -63,14 +63,18 @@
     </div>
 
     <div v-if="attachments.length > 0" class="bg-gray-100 rounded-lg p-4 mb-6">
-      <div class="flex flex-wrap gap-2">
+      <div class="flex flex-wrap gap-3">
         <div
           v-for="(attachment, index) in attachments"
           :key="index"
-          class="bg-white px-3 py-2 rounded-lg text-sm flex items-center space-x-2"
+          class="bg-white px-4 py-3 rounded-lg text-sm flex items-start space-x-3 max-w-xs"
         >
-          <span>{{ attachment.name }}</span>
-          <button @click="removeAttachment(index)" class="text-red-500 hover:text-red-700">
+          <div class="flex-1">
+            <p class="font-medium text-gray-800">{{ attachment.name }}</p>
+            <p class="text-xs text-gray-500 mt-1">{{ formatFileSize(attachment.size) }}</p>
+            <p v-if="attachment.caption" class="text-gray-600 mt-2 text-xs italic">"{{ attachment.caption }}"</p>
+          </div>
+          <button @click="removeAttachment(index)" class="text-red-500 hover:text-red-700 flex-shrink-0">
             <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -101,17 +105,154 @@
         <span>Enviar Mensagem</span>
       </button>
     </div>
+
+    <div v-if="isModalOpen" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" @click.self="closeModal">
+      <div class="bg-white rounded-lg shadow-xl max-w-lg w-full p-6">
+        <div class="flex items-center justify-between mb-6">
+          <h3 class="text-xl font-semibold text-gray-800">Adicionar {{ attachmentTypeLabel }}</h3>
+          <button @click="closeModal" class="text-gray-400 hover:text-gray-600">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div class="mb-4">
+          <label class="block text-gray-700 font-medium mb-2">Selecionar Arquivo</label>
+          <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-500 transition-colors">
+            <input
+              type="file"
+              :accept="acceptedFileTypes"
+              @change="handleFileSelect"
+              class="hidden"
+              id="fileInput"
+            >
+            <label for="fileInput" class="cursor-pointer">
+              <div v-if="!selectedFile">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 text-gray-400 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                </svg>
+                <p class="text-gray-600 font-medium">Clique para selecionar arquivo</p>
+                <p class="text-gray-400 text-sm mt-1">ou arraste e solte aqui</p>
+              </div>
+              <div v-else class="text-left">
+                <div class="flex items-center space-x-3 bg-blue-50 p-4 rounded-lg">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <div class="flex-1">
+                    <p class="font-medium text-gray-800">{{ selectedFile.name }}</p>
+                    <p class="text-sm text-gray-500">{{ formatFileSize(selectedFile.size) }}</p>
+                  </div>
+                  <button @click.prevent="selectedFile = null" class="text-red-500 hover:text-red-700">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <div class="mb-6">
+          <label class="block text-gray-700 font-medium mb-2">Legenda (opcional)</label>
+          <textarea
+            v-model="caption"
+            placeholder="Adicione uma legenda ao seu arquivo..."
+            rows="3"
+            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+          ></textarea>
+        </div>
+
+        <div class="flex justify-end space-x-3">
+          <button
+            @click="closeModal"
+            class="px-6 py-2 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            @click="confirmAttachment"
+            :disabled="!selectedFile"
+            class="px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Adicionar
+          </button>
+        </div>
+      </div>
+    </div>
   </section>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 
 const message = ref('')
 const attachments = ref([])
+const isModalOpen = ref(false)
+const currentAttachmentType = ref('')
+const selectedFile = ref(null)
+const caption = ref('')
+
+const acceptedFileTypes = computed(() => {
+  const types = {
+    image: 'image/*',
+    video: 'video/*',
+    audio: 'audio/*',
+    document: '.pdf,.doc,.docx,.txt,.xls,.xlsx'
+  }
+  return types[currentAttachmentType.value] || '*'
+})
+
+const attachmentTypeLabel = computed(() => {
+  const labels = {
+    image: 'Imagem',
+    video: 'Vídeo',
+    audio: 'Áudio',
+    document: 'Documento'
+  }
+  return labels[currentAttachmentType.value] || 'Anexo'
+})
 
 const handleAttachment = (type) => {
-  console.log(`Anexar ${type}`)
+  currentAttachmentType.value = type
+  isModalOpen.value = true
+}
+
+const handleFileSelect = (event) => {
+  const file = event.target.files[0]
+  if (file) {
+    selectedFile.value = file
+  }
+}
+
+const formatFileSize = (bytes) => {
+  if (bytes === 0) return '0 Bytes'
+  const k = 1024
+  const sizes = ['Bytes', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i]
+}
+
+const confirmAttachment = () => {
+  if (selectedFile.value) {
+    attachments.value.push({
+      type: currentAttachmentType.value,
+      name: selectedFile.value.name,
+      size: selectedFile.value.size,
+      caption: caption.value,
+      file: selectedFile.value
+    })
+    closeModal()
+  }
+}
+
+const closeModal = () => {
+  isModalOpen.value = false
+  selectedFile.value = null
+  caption.value = ''
+  currentAttachmentType.value = ''
 }
 
 const removeAttachment = (index) => {
