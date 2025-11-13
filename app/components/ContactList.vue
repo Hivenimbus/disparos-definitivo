@@ -15,7 +15,7 @@
           </svg>
           <span>Importar Manualmente</span>
         </button>
-        <button class="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+        <button @click="openFileImportModal" class="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
           <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
           </svg>
@@ -182,16 +182,90 @@
         </div>
       </div>
     </div>
+
+    <div v-if="isFileImportModalOpen" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" @click.self="closeFileImportModal">
+      <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+        <div class="flex items-center justify-between mb-6">
+          <h3 class="text-xl font-semibold text-gray-800">Importar Arquivo</h3>
+          <button @click="closeFileImportModal" class="text-gray-400 hover:text-gray-600">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div class="mb-6">
+          <label class="block text-gray-700 font-medium mb-3">
+            Selecione um arquivo para importar:
+          </label>
+          <p class="text-sm text-gray-500 mb-4">
+            Formatos aceitos: TXT, CSV, XLS, XLSX
+          </p>
+          
+          <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-500 transition-colors">
+            <input
+              type="file"
+              id="fileInput"
+              accept=".txt,.csv,.xls,.xlsx"
+              @change="handleFileSelect"
+              class="hidden"
+            >
+            <label for="fileInput" class="cursor-pointer">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 mx-auto mb-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+              </svg>
+              <span class="text-blue-600 hover:text-blue-700 font-medium">
+                Clique para selecionar
+              </span>
+              <p class="text-gray-500 text-sm mt-1">ou arraste o arquivo aqui</p>
+            </label>
+          </div>
+
+          <div v-if="selectedFile" class="mt-4 p-3 bg-blue-50 rounded-lg flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <span class="text-sm text-gray-700">{{ selectedFile.name }}</span>
+            </div>
+            <button @click="selectedFile = null" class="text-red-500 hover:text-red-700">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="flex justify-end space-x-3">
+          <button
+            @click="closeFileImportModal"
+            class="px-6 py-2 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            @click="processFile"
+            :disabled="!selectedFile"
+            class="px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Importar
+          </button>
+        </div>
+      </div>
+    </div>
   </section>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
+import * as XLSX from 'xlsx'
 
 const contacts = ref([])
 const isImportModalOpen = ref(false)
 const contactListText = ref('')
 const isEditModalOpen = ref(false)
+const isFileImportModalOpen = ref(false)
+const selectedFile = ref(null)
 const editForm = ref({
   id: null,
   name: '',
@@ -303,5 +377,87 @@ const importContacts = () => {
 
 const deleteContact = (id) => {
   contacts.value = contacts.value.filter(contact => contact.id !== id)
+}
+
+const openFileImportModal = () => {
+  isFileImportModalOpen.value = true
+  selectedFile.value = null
+}
+
+const closeFileImportModal = () => {
+  isFileImportModalOpen.value = false
+  selectedFile.value = null
+}
+
+const handleFileSelect = (event) => {
+  const file = event.target.files[0]
+  if (file) {
+    selectedFile.value = file
+  }
+}
+
+const processFile = async () => {
+  if (!selectedFile.value) return
+
+  const file = selectedFile.value
+  const fileName = file.name.toLowerCase()
+  const newContacts = []
+
+  try {
+    if (fileName.endsWith('.txt') || fileName.endsWith('.csv')) {
+      const text = await file.text()
+      const lines = text.split('\n')
+      
+      lines.forEach((line, index) => {
+        const parsed = parseContactLine(line)
+        if (parsed) {
+          const isValid = validateWhatsApp(parsed.whatsapp)
+          newContacts.push({
+            id: Date.now() + index,
+            name: parsed.name,
+            whatsapp: parsed.whatsapp,
+            status: isValid ? 'valid' : 'invalid'
+          })
+        }
+      })
+    } else if (fileName.endsWith('.xls') || fileName.endsWith('.xlsx')) {
+      const data = await file.arrayBuffer()
+      const workbook = XLSX.read(data, { type: 'array' })
+      const firstSheet = workbook.Sheets[workbook.SheetNames[0]]
+      const rows = XLSX.utils.sheet_to_json(firstSheet, { header: 1 })
+
+      rows.forEach((row, index) => {
+        if (!row || row.length === 0) return
+
+        let name = ''
+        let whatsapp = ''
+
+        if (row.length === 1) {
+          whatsapp = String(row[0]).trim()
+          name = `Contato ${whatsapp.slice(-4)}`
+        } else {
+          name = String(row[0] || '').trim()
+          whatsapp = String(row[1] || '').trim()
+        }
+
+        if (whatsapp) {
+          const isValid = validateWhatsApp(whatsapp)
+          newContacts.push({
+            id: Date.now() + index,
+            name: name || `Contato ${whatsapp.slice(-4)}`,
+            whatsapp: whatsapp,
+            status: isValid ? 'valid' : 'invalid'
+          })
+        }
+      })
+    }
+
+    contacts.value = [...contacts.value, ...newContacts]
+    closeFileImportModal()
+    console.log(`Importados ${newContacts.length} contatos do arquivo`)
+  } catch (error) {
+    console.error('Erro ao processar arquivo:', error)
+    alert('Erro ao processar arquivo. Verifique o formato e tente novamente.')
+  }
 }
 </script>

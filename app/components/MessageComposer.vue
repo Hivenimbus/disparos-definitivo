@@ -182,6 +182,71 @@
         </div>
       </div>
     </div>
+
+    <div v-if="isPreviewModalOpen" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" @click.self="closePreviewModal">
+      <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
+        <div class="flex items-center justify-between mb-6">
+          <h3 class="text-xl font-semibold text-gray-800">Preview da Mensagem</h3>
+          <button @click="closePreviewModal" class="text-gray-400 hover:text-gray-600">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div v-if="message || attachments.length > 0" class="space-y-4">
+          <div v-if="message" class="bg-gray-50 rounded-lg p-4">
+            <h4 class="text-sm font-semibold text-gray-700 mb-2">Texto da Mensagem</h4>
+            <p class="text-gray-800 whitespace-pre-wrap">{{ message }}</p>
+          </div>
+
+          <div v-if="attachments.length > 0" class="space-y-3">
+            <h4 class="text-sm font-semibold text-gray-700">Anexos ({{ attachments.length }})</h4>
+            <div
+              v-for="(attachment, index) in attachments"
+              :key="index"
+              class="bg-white border border-gray-200 rounded-lg p-4"
+            >
+              <div class="flex items-start space-x-4">
+                <div v-if="getImagePreview(attachment.file)" class="flex-shrink-0">
+                  <img :src="getImagePreview(attachment.file)" alt="Preview" class="w-24 h-24 object-cover rounded-lg">
+                </div>
+                <div v-else class="flex-shrink-0">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
+                    <path :d="getAttachmentIcon(attachment.type)" />
+                  </svg>
+                </div>
+                <div class="flex-1">
+                  <div class="flex items-center space-x-2 mb-1">
+                    <span class="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded">{{ attachment.type }}</span>
+                  </div>
+                  <p class="font-medium text-gray-800">{{ attachment.name }}</p>
+                  <p class="text-sm text-gray-500 mt-1">{{ formatFileSize(attachment.size) }}</p>
+                  <p v-if="attachment.caption" class="text-gray-700 mt-3 p-3 bg-gray-50 rounded-lg italic text-sm">"{{ attachment.caption }}"</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div v-else class="text-center py-12">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+          </svg>
+          <p class="text-gray-500 font-medium">Nenhuma mensagem ou anexo para visualizar</p>
+          <p class="text-gray-400 text-sm mt-2">Adicione texto ou anexos para ver o preview</p>
+        </div>
+
+        <div class="flex justify-end mt-6">
+          <button
+            @click="closePreviewModal"
+            class="px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Fechar
+          </button>
+        </div>
+      </div>
+    </div>
   </section>
 </template>
 
@@ -191,6 +256,7 @@ import { ref, computed } from 'vue'
 const message = ref('')
 const attachments = ref([])
 const isModalOpen = ref(false)
+const isPreviewModalOpen = ref(false)
 const currentAttachmentType = ref('')
 const selectedFile = ref(null)
 const caption = ref('')
@@ -260,7 +326,28 @@ const removeAttachment = (index) => {
 }
 
 const previewMessage = () => {
-  console.log('Visualizar mensagem:', message.value)
+  isPreviewModalOpen.value = true
+}
+
+const closePreviewModal = () => {
+  isPreviewModalOpen.value = false
+}
+
+const getAttachmentIcon = (type) => {
+  const icons = {
+    image: 'M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z',
+    video: 'M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z',
+    audio: 'M12 3v9.28c-.47-.17-.97-.28-1.5-.28C8.01 12 6 14.01 6 16.5S8.01 21 10.5 21c2.31 0 4.2-1.75 4.45-4H15V6h4V3h-7z',
+    document: 'M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z'
+  }
+  return icons[type] || icons.document
+}
+
+const getImagePreview = (file) => {
+  if (file && file.type?.startsWith('image/')) {
+    return URL.createObjectURL(file)
+  }
+  return null
 }
 
 const sendMessage = () => {

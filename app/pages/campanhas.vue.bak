@@ -8,6 +8,12 @@
         <h2 class="text-xl font-semibold text-gray-800">Histórico de Campanhas</h2>
       </div>
 
+<script setup>
+definePageMeta({
+  middleware: 'auth'
+})
+</script>
+
       <div class="space-y-6">
         <div
           v-for="campanha in paginatedCampanhas"
@@ -142,10 +148,6 @@
 
 <script setup>
 import { ref, computed } from 'vue'
-
-definePageMeta({
-  middleware: 'auth'
-})
 
 const currentPage = ref(1)
 const itemsPerPage = 10

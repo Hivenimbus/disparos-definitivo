@@ -75,6 +75,12 @@
             >
               {{ option.name }}
             </NuxtLink>
+            <button
+              @click="handleLogout"
+              class="w-full text-left px-4 py-2 text-base text-red-600 hover:bg-gray-100 transition-colors"
+            >
+              Sair
+            </button>
           </div>
         </div>
       </div>
@@ -200,13 +206,25 @@ const menuItems = [
   }
 ]
 
+const supabase = useSupabase()
+const router = useRouter()
+
 const dropdownOptions = [
   { name: 'Meu Perfil', path: '/perfil' },
-  { name: 'Sair', path: '/login' }
+  { name: 'Painel Admin', path: '/admin' }
 ]
 
 const toggleDropdown = () => {
   isDropdownOpen.value = !isDropdownOpen.value
+}
+
+const handleLogout = async () => {
+  try {
+    await supabase.auth.signOut()
+    await router.push('/login')
+  } catch (error) {
+    console.error('Erro ao fazer logout:', error)
+  }
 }
 
 const toggleConfigPanel = () => {

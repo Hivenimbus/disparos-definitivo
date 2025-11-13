@@ -63,6 +63,9 @@ definePageMeta({
   layout: 'auth'
 })
 
+const supabase = useSupabase()
+const router = useRouter()
+
 const form = ref({
   email: '',
   password: '',
@@ -88,15 +91,62 @@ const handleLogin = async () => {
 
   isLoading.value = true
 
-  setTimeout(() => {
-    console.log('Login:', form.value)
+  try {
+    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+      email: form.value.email,
+      password: form.value.password
+    })
     
-    if (form.value.email === 'admin@hive.com' && form.value.password === '12345678') {
-      navigateTo('/')
-    } else {
-      errorMessage.value = 'Email ou senha incorretos'
-      isLoading.value = false
+    if (authError) throw authError
+    
+    const { data: profile, error: profileError } = await supabase
+      .from('user_profiles')
+      .select(`
+        *,
+        companies:empresa_id (
+          nome,
+          data_vencimento
+        )
+      `)
+      .eq('id', authData.user.id)
+      .single()
+    
+    if (profileError) throw new Error('Perfil não encontrado')
+    
+    if (profile.status === 'bloqueado') {
+      await supabase.auth.signOut()
+      throw new Error('Usuário bloqueado. Entre em contato com o administrador.')
     }
-  }, 1000)
+    
+    const dataVencimento = new Date(profile.data_vencimento)
+    const hoje = new Date()
+    hoje.setHours(0, 0, 0, 0)
+    
+    if (dataVencimento < hoje) {
+      await supabase.auth.signOut()
+      throw new Error('Acesso expirado. Entre em contato com o administrador.')
+    }
+    
+    if (profile.companies) {
+      const empresaVencimento = new Date(profile.companies.data_vencimento)
+      empresaVencimento.setHours(0, 0, 0, 0)
+      
+      if (empresaVencimento < hoje) {
+        await supabase.auth.signOut()
+        throw new Error('Empresa com acesso expirado. Entre em contato com o administrador.')
+      }
+    }
+    
+    if (profile.role === 'admin') {
+      await router.push('/admin')
+    } else {
+      await router.push('/')
+    }
+    
+  } catch (error) {
+    console.error('Erro no login:', error)
+    errorMessage.value = error.message || 'Email ou senha incorretos'
+    isLoading.value = false
+  }
 }
 </script>
