@@ -143,10 +143,6 @@
 <script setup>
 import { ref, computed } from 'vue'
 
-definePageMeta({
-  middleware: 'auth'
-})
-
 const currentPage = ref(1)
 const itemsPerPage = 10
 

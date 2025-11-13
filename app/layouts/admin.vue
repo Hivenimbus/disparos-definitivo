@@ -24,15 +24,15 @@
             </svg>
             <span>Voltar ao Sistema</span>
           </NuxtLink>
-          <button
-            @click="handleLogout"
+          <NuxtLink
+            to="/login"
             class="flex items-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
           >
             <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
             </svg>
             <span>Sair</span>
-          </button>
+          </NuxtLink>
         </div>
       </div>
     </header>
@@ -44,15 +44,4 @@
 </template>
 
 <script setup>
-const supabase = useSupabase()
-const router = useRouter()
-
-const handleLogout = async () => {
-  try {
-    await supabase.auth.signOut()
-    await router.push('/login')
-  } catch (error) {
-    console.error('Erro ao fazer logout:', error)
-  }
-}
 </script>

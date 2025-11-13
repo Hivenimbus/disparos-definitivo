@@ -240,11 +240,44 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed } from 'vue'
 
-const supabase = useSupabase()
-const companies = ref([])
-const loading = ref(false)
+const companies = ref([
+  {
+    id: 1,
+    nome: 'Tech Solutions Ltda',
+    dataVencimento: '2025-12-31',
+    maxUsuarios: 10,
+    usuariosAtuais: 3,
+    celular: '(11) 98765-4321',
+    cpfCnpj: '12.345.678/0001-90',
+    status: 'ativo',
+    dataCriacao: '2025-01-10'
+  },
+  {
+    id: 2,
+    nome: 'Inovação Digital',
+    dataVencimento: '2025-06-30',
+    maxUsuarios: 5,
+    usuariosAtuais: 5,
+    celular: '(21) 99876-5432',
+    cpfCnpj: '98.765.432/0001-10',
+    status: 'ativo',
+    dataCriacao: '2025-02-15'
+  },
+  {
+    id: 3,
+    nome: 'Marketing Pro',
+    dataVencimento: '2025-10-01',
+    maxUsuarios: 20,
+    usuariosAtuais: 0,
+    celular: '',
+    cpfCnpj: '',
+    status: 'vencido',
+    dataCriacao: '2024-11-20'
+  }
+])
+
 const searchQuery = ref('')
 const isModalOpen = ref(false)
 const isDeleteModalOpen = ref(false)
@@ -258,35 +291,6 @@ const companyForm = ref({
   celular: '',
   cpfCnpj: ''
 })
-
-const fetchCompanies = async () => {
-  loading.value = true
-  try {
-    const { data, error } = await supabase
-      .from('companies_with_stats')
-      .select('*')
-      .order('created_at', { ascending: false })
-    
-    if (error) throw error
-    
-    companies.value = data.map(c => ({
-      id: c.id,
-      nome: c.nome,
-      dataVencimento: c.data_vencimento,
-      maxUsuarios: c.max_usuarios,
-      usuariosAtuais: c.usuarios_atuais,
-      celular: c.celular,
-      cpfCnpj: c.cpf_cnpj,
-      status: c.status,
-      dataCriacao: c.created_at
-    }))
-  } catch (error) {
-    console.error('Erro ao buscar empresas:', error)
-    alert('Erro ao carregar empresas. Verifique a conexão com o Supabase.')
-  } finally {
-    loading.value = false
-  }
-}
 
 const totalCompanies = computed(() => companies.value.length)
 const activeCompanies = computed(() => companies.value.filter(c => c.status === 'ativo').length)
@@ -352,41 +356,41 @@ const closeModal = () => {
   }
 }
 
-const saveCompany = async () => {
-  try {
-    if (isEditMode.value) {
-      const { error } = await supabase
-        .from('companies')
-        .update({
-          nome: companyForm.value.nome,
-          data_vencimento: companyForm.value.dataVencimento,
-          max_usuarios: companyForm.value.maxUsuarios,
-          celular: companyForm.value.celular,
-          cpf_cnpj: companyForm.value.cpfCnpj
-        })
-        .eq('id', companyForm.value.id)
-      
-      if (error) throw error
-    } else {
-      const { error } = await supabase
-        .from('companies')
-        .insert({
-          nome: companyForm.value.nome,
-          data_vencimento: companyForm.value.dataVencimento,
-          max_usuarios: companyForm.value.maxUsuarios,
-          celular: companyForm.value.celular,
-          cpf_cnpj: companyForm.value.cpfCnpj
-        })
-      
-      if (error) throw error
+const saveCompany = () => {
+  const now = new Date().toISOString().split('T')[0]
+  const expirationDate = new Date(companyForm.value.dataVencimento)
+  const currentDate = new Date()
+  const calculatedStatus = expirationDate < currentDate ? 'vencido' : 'ativo'
+
+  if (isEditMode.value) {
+    const index = companies.value.findIndex(c => c.id === companyForm.value.id)
+    if (index !== -1) {
+      const existingCompany = companies.value[index]
+      companies.value[index] = {
+        ...existingCompany,
+        nome: companyForm.value.nome,
+        dataVencimento: companyForm.value.dataVencimento,
+        maxUsuarios: companyForm.value.maxUsuarios,
+        celular: companyForm.value.celular,
+        cpfCnpj: companyForm.value.cpfCnpj,
+        status: calculatedStatus
+      }
     }
-    
-    await fetchCompanies()
-    closeModal()
-  } catch (error) {
-    console.error('Erro ao salvar empresa:', error)
-    alert('Erro ao salvar empresa: ' + error.message)
+  } else {
+    companies.value.push({
+      id: Date.now(),
+      nome: companyForm.value.nome,
+      dataVencimento: companyForm.value.dataVencimento,
+      maxUsuarios: companyForm.value.maxUsuarios,
+      usuariosAtuais: 0,
+      celular: companyForm.value.celular,
+      cpfCnpj: companyForm.value.cpfCnpj,
+      status: calculatedStatus,
+      dataCriacao: now
+    })
   }
+
+  closeModal()
 }
 
 const openDeleteModal = (company) => {
@@ -399,29 +403,12 @@ const closeDeleteModal = () => {
   companyToDelete.value = null
 }
 
-const confirmDelete = async () => {
-  try {
-    const { error } = await supabase
-      .from('companies')
-      .delete()
-      .eq('id', companyToDelete.value.id)
-    
-    if (error) throw error
-    
-    await fetchCompanies()
-    closeDeleteModal()
-  } catch (error) {
-    console.error('Erro ao deletar empresa:', error)
-    alert('Erro ao deletar empresa: ' + error.message)
-  }
+const confirmDelete = () => {
+  companies.value = companies.value.filter(c => c.id !== companyToDelete.value.id)
+  closeDeleteModal()
 }
 
-onMounted(() => {
-  fetchCompanies()
-})
-
 defineExpose({
-  companies,
-  fetchCompanies
+  companies
 })
 </script>

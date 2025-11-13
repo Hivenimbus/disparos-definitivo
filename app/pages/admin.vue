@@ -42,8 +42,7 @@
 import { ref } from 'vue'
 
 definePageMeta({
-  layout: 'admin',
-  middleware: ['auth', 'admin']
+  layout: 'admin'
 })
 
 const activeTab = ref('usuarios')

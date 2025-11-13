@@ -277,12 +277,74 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed } from 'vue'
 
-const supabase = useSupabase()
-const users = ref([])
-const companies = ref([])
-const loading = ref(false)
+const companies = ref([
+  {
+    id: 1,
+    nome: 'Tech Solutions Ltda',
+    maxUsuarios: 10,
+    usuariosAtuais: 2
+  },
+  {
+    id: 2,
+    nome: 'Inovação Digital',
+    maxUsuarios: 5,
+    usuariosAtuais: 1
+  },
+  {
+    id: 3,
+    nome: 'Marketing Pro',
+    maxUsuarios: 20,
+    usuariosAtuais: 0
+  }
+])
+
+const users = ref([
+  {
+    id: 1,
+    nome: 'João Silva',
+    empresaId: 1,
+    email: 'joao@exemplo.com',
+    celular: '(11) 98765-4321',
+    cpf: '123.456.789-00',
+    senha: '12345678',
+    dataVencimento: '2025-12-31',
+    status: 'ativo',
+    role: 'admin',
+    dataCriacao: '2025-01-15',
+    ultimoAcesso: '2025-11-13'
+  },
+  {
+    id: 2,
+    nome: 'Maria Santos',
+    empresaId: 1,
+    email: 'maria@exemplo.com',
+    celular: '(21) 99876-5432',
+    cpf: '',
+    senha: '12345678',
+    dataVencimento: '2025-06-30',
+    status: 'ativo',
+    role: 'usuario',
+    dataCriacao: '2025-02-10',
+    ultimoAcesso: '2025-11-12'
+  },
+  {
+    id: 3,
+    nome: 'Pedro Oliveira',
+    empresaId: 2,
+    email: 'pedro@exemplo.com',
+    celular: '',
+    cpf: '987.654.321-00',
+    senha: '12345678',
+    dataVencimento: '2025-10-01',
+    status: 'vencido',
+    role: 'usuario',
+    dataCriacao: '2024-12-05',
+    ultimoAcesso: '2025-10-15'
+  }
+])
+
 const searchQuery = ref('')
 const isModalOpen = ref(false)
 const isDeleteModalOpen = ref(false)
@@ -300,63 +362,6 @@ const userForm = ref({
   status: 'ativo',
   role: 'usuario'
 })
-
-const fetchUsers = async () => {
-  loading.value = true
-  try {
-    const { data, error } = await supabase
-      .from('user_profiles')
-      .select(`
-        *,
-        companies:empresa_id (
-          nome
-        )
-      `)
-      .order('created_at', { ascending: false })
-    
-    if (error) throw error
-    
-    users.value = data.map(u => ({
-      id: u.id,
-      nome: u.nome,
-      empresaId: u.empresa_id,
-      empresaNome: u.companies?.nome || 'Sem empresa',
-      email: u.email || '',
-      celular: u.celular,
-      cpf: u.cpf,
-      dataVencimento: u.data_vencimento,
-      status: u.status,
-      role: u.role,
-      dataCriacao: u.created_at,
-      ultimoAcesso: u.updated_at
-    }))
-  } catch (error) {
-    console.error('Erro ao buscar usuários:', error)
-    alert('Erro ao carregar usuários. Verifique a conexão com o Supabase.')
-  } finally {
-    loading.value = false
-  }
-}
-
-const fetchCompanies = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('companies_with_stats')
-      .select('*')
-      .order('nome')
-    
-    if (error) throw error
-    
-    companies.value = data.map(c => ({
-      id: c.id,
-      nome: c.nome,
-      maxUsuarios: c.max_usuarios,
-      usuariosAtuais: c.usuarios_atuais
-    }))
-  } catch (error) {
-    console.error('Erro ao buscar empresas:', error)
-  }
-}
 
 const totalUsers = computed(() => users.value.length)
 const activeUsers = computed(() => users.value.filter(u => u.status === 'ativo').length)
@@ -376,7 +381,7 @@ const filteredUsers = computed(() => {
   const query = searchQuery.value.toLowerCase()
   return users.value.filter(u => 
     u.nome.toLowerCase().includes(query) || 
-    (u.email && u.email.toLowerCase().includes(query))
+    u.email.toLowerCase().includes(query)
   )
 })
 
@@ -399,8 +404,9 @@ const formatDate = (dateString) => {
   return date.toLocaleDateString('pt-BR')
 }
 
-const getCompanyName = (user) => {
-  return user.empresaNome || 'Sem empresa'
+const getCompanyName = (empresaId) => {
+  const company = companies.value.find(c => c.id === empresaId)
+  return company ? company.nome : 'Sem empresa'
 }
 
 const openAddModal = () => {
@@ -453,83 +459,73 @@ const closeModal = () => {
   }
 }
 
-const saveUser = async () => {
-  try {
-    const company = companies.value.find(c => c.id === userForm.value.empresaId)
-    
-    if (!isEditMode.value && company) {
-      if (company.usuariosAtuais >= company.maxUsuarios) {
-        alert(`Limite de usuários atingido para a empresa ${company.nome}. Máximo: ${company.maxUsuarios}`)
-        return
-      }
+const saveUser = () => {
+  const company = companies.value.find(c => c.id === userForm.value.empresaId)
+  
+  if (!isEditMode.value && company) {
+    const currentUsers = users.value.filter(u => u.empresaId === userForm.value.empresaId).length
+    if (currentUsers >= company.maxUsuarios) {
+      alert(`Limite de usuários atingido para a empresa ${company.nome}. Máximo: ${company.maxUsuarios}`)
+      return
     }
-
-    const expirationDate = new Date(userForm.value.dataVencimento)
-    const currentDate = new Date()
-    const calculatedStatus = expirationDate < currentDate ? 'vencido' : userForm.value.status
-
-    if (isEditMode.value) {
-      const { error } = await supabase
-        .from('user_profiles')
-        .update({
-          empresa_id: userForm.value.empresaId,
-          nome: userForm.value.nome,
-          celular: userForm.value.celular,
-          cpf: userForm.value.cpf,
-          data_vencimento: userForm.value.dataVencimento,
-          status: calculatedStatus,
-          role: userForm.value.role
-        })
-        .eq('id', userForm.value.id)
-      
-      if (error) throw error
-      
-      if (userForm.value.senha.trim()) {
-        const { error: passwordError } = await supabase.auth.updateUser({
-          password: userForm.value.senha
-        })
-        if (passwordError) {
-          console.error('Erro ao atualizar senha:', passwordError)
-        }
-      }
-    } else {
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: userForm.value.email,
-        password: userForm.value.senha,
-        options: {
-          emailRedirectTo: window.location.origin
-        }
-      })
-      
-      if (authError) throw authError
-      
-      if (!authData.user) {
-        throw new Error('Erro ao criar usuário no Auth')
-      }
-      
-      const { error: profileError } = await supabase
-        .from('user_profiles')
-        .insert({
-          id: authData.user.id,
-          empresa_id: userForm.value.empresaId,
-          nome: userForm.value.nome,
-          celular: userForm.value.celular,
-          cpf: userForm.value.cpf,
-          data_vencimento: userForm.value.dataVencimento,
-          status: calculatedStatus,
-          role: userForm.value.role
-        })
-      
-      if (profileError) throw profileError
-    }
-    
-    await fetchUsers()
-    await fetchCompanies()
-    closeModal()
-  } catch (error) {
-    console.error('Erro ao salvar usuário:', error)
-    alert('Erro ao salvar usuário: ' + error.message)
   }
+
+  const now = new Date().toISOString().split('T')[0]
+  const expirationDate = new Date(userForm.value.dataVencimento)
+  const currentDate = new Date()
+  const calculatedStatus = expirationDate < currentDate ? 'vencido' : userForm.value.status
+
+  if (isEditMode.value) {
+    const index = users.value.findIndex(u => u.id === userForm.value.id)
+    if (index !== -1) {
+      const existingUser = users.value[index]
+      const oldEmpresaId = existingUser.empresaId
+      
+      users.value[index] = {
+        ...existingUser,
+        nome: userForm.value.nome,
+        empresaId: userForm.value.empresaId,
+        email: userForm.value.email,
+        celular: userForm.value.celular,
+        cpf: userForm.value.cpf,
+        senha: userForm.value.senha.trim() ? userForm.value.senha : existingUser.senha,
+        dataVencimento: userForm.value.dataVencimento,
+        status: calculatedStatus,
+        role: userForm.value.role
+      }
+
+      if (oldEmpresaId !== userForm.value.empresaId) {
+        const oldCompany = companies.value.find(c => c.id === oldEmpresaId)
+        if (oldCompany) oldCompany.usuariosAtuais--
+        if (company) company.usuariosAtuais++
+      }
+    }
+  } else {
+    const emailExists = users.value.some(u => u.email === userForm.value.email)
+    if (emailExists) {
+      alert('Este email já está cadastrado!')
+      return
+    }
+
+    users.value.push({
+      id: Date.now(),
+      nome: userForm.value.nome,
+      empresaId: userForm.value.empresaId,
+      email: userForm.value.email,
+      celular: userForm.value.celular,
+      cpf: userForm.value.cpf,
+      senha: userForm.value.senha,
+      dataVencimento: userForm.value.dataVencimento,
+      status: calculatedStatus,
+      role: userForm.value.role,
+      dataCriacao: now,
+      ultimoAcesso: now
+    })
+
+    if (company) company.usuariosAtuais++
+  }
+
+  closeModal()
 }
 
 const openDeleteModal = (user) => {
@@ -542,34 +538,12 @@ const closeDeleteModal = () => {
   userToDelete.value = null
 }
 
-const confirmDelete = async () => {
-  try {
-    const { error: profileError } = await supabase
-      .from('user_profiles')
-      .delete()
-      .eq('id', userToDelete.value.id)
-    
-    if (profileError) throw profileError
-    
-    const { error: authError } = await supabase.auth.admin.deleteUser(
-      userToDelete.value.id
-    )
-    
-    if (authError) {
-      console.error('Erro ao deletar do Auth:', authError)
-    }
-    
-    await fetchUsers()
-    await fetchCompanies()
-    closeDeleteModal()
-  } catch (error) {
-    console.error('Erro ao deletar usuário:', error)
-    alert('Erro ao deletar usuário: ' + error.message)
-  }
+const confirmDelete = () => {
+  const user = userToDelete.value
+  const company = companies.value.find(c => c.id === user.empresaId)
+  if (company) company.usuariosAtuais--
+  
+  users.value = users.value.filter(u => u.id !== user.id)
+  closeDeleteModal()
 }
-
-onMounted(() => {
-  fetchUsers()
-  fetchCompanies()
-})
 </script>
