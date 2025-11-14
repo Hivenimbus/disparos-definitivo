@@ -6,7 +6,12 @@
       "mcp__supabase__list_migrations",
       "mcp__supabase__get_advisors",
       "mcp__supabase__get_logs",
-      "mcp__supabase__search_docs"
+      "mcp__supabase__search_docs",
+      "mcp__supabase__apply_migration",
+      "WebSearch",
+      "WebFetch(domain:nuxt.com)",
+      "Bash(find:*)",
+      "WebFetch(domain:supabase.nuxtjs.org)"
     ],
     "deny": [],
     "ask": []
