@@ -69,7 +69,8 @@
 import { ref } from 'vue'
 
 definePageMeta({
-  layout: 'auth'
+  layout: 'auth',
+  middleware: ['guest']
 })
 
 const form = ref({
@@ -101,7 +102,7 @@ const handleLogin = async () => {
   isLoading.value = true
 
   try {
-    await request('/api/auth/login', {
+    const { user } = await request('/api/auth/login', {
       method: 'POST',
       body: {
         email: form.value.email,
@@ -109,7 +110,10 @@ const handleLogin = async () => {
       }
     })
 
-    navigateTo('/admin')
+    const authUser = useAuthUser()
+    authUser.value = user
+
+    await navigateTo('/dashboard', { replace: true })
   } catch (error) {
     const message = (error as { statusMessage?: string })?.statusMessage
     errorMessage.value = message || 'Email ou senha incorretos'

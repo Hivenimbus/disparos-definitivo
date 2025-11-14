@@ -189,6 +189,10 @@
 <script setup>
 import { ref, computed } from 'vue'
 
+definePageMeta({
+  middleware: ['auth']
+})
+
 const totalDisparos = ref(150)
 const disparosRealizados = ref(0)
 const currentPage = ref(1)

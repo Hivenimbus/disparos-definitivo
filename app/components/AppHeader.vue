@@ -75,6 +75,13 @@
             >
               {{ option.name }}
             </NuxtLink>
+          <button
+            type="button"
+            @click="handleLogout"
+            class="w-full text-left px-4 py-2 text-base text-red-600 hover:bg-red-50 transition-colors"
+          >
+            Sair
+          </button>
           </div>
         </div>
       </div>
@@ -162,6 +169,8 @@
 <script setup>
 import { ref } from 'vue'
 
+const logout = useLogout()
+
 const isDropdownOpen = ref(false)
 const isConfigOpen = ref(false)
 
@@ -175,12 +184,12 @@ const configForm = ref({
 const menuItems = [
   {
     name: 'Dashboard',
-    path: '/',
+    path: '/dashboard',
     icon: 'IconDashboard'
   },
   {
     name: 'Contatos',
-    path: '/#contatos',
+    path: '/dashboard#contatos',
     icon: 'IconContacts'
   },
   {
@@ -202,8 +211,7 @@ const menuItems = [
 
 const dropdownOptions = [
   { name: 'Meu Perfil', path: '/perfil' },
-  { name: 'Painel Admin', path: '/admin' },
-  { name: 'Sair', path: '/login' }
+  { name: 'Painel Admin', path: '/admin' }
 ]
 
 const toggleDropdown = () => {
@@ -216,6 +224,11 @@ const toggleConfigPanel = () => {
 
 const saveConfigurations = () => {
   console.log('Configurações salvas:', configForm.value)
+}
+
+const handleLogout = async () => {
+  isDropdownOpen.value = false
+  await logout()
 }
 
 const IconDashboard = {

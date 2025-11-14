@@ -16,7 +16,7 @@
 
         <div class="flex items-center space-x-3">
           <NuxtLink
-            to="/"
+            to="/dashboard"
             class="flex items-center space-x-2 px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
           >
             <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -24,15 +24,15 @@
             </svg>
             <span>Voltar ao Sistema</span>
           </NuxtLink>
-          <NuxtLink
-            to="/login"
+          <button
+            @click="handleLogout"
             class="flex items-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
           >
             <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
             </svg>
             <span>Sair</span>
-          </NuxtLink>
+          </button>
         </div>
       </div>
     </header>
@@ -44,4 +44,6 @@
 </template>
 
 <script setup>
+const logout = useLogout()
+const handleLogout = () => logout()
 </script>
