@@ -59,59 +59,71 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-if="filteredUsers.length === 0">
+          <tr v-if="loadingTable">
+            <td colspan="8" class="px-4 py-8 text-center text-gray-500">
+              Carregando usuários...
+            </td>
+          </tr>
+          <tr v-else-if="listError">
+            <td colspan="8" class="px-4 py-8 text-center text-red-600">
+              Ocorreu um erro ao carregar os usuários.
+            </td>
+          </tr>
+          <tr v-else-if="filteredUsers.length === 0">
             <td colspan="8" class="px-4 py-8 text-center text-gray-500">
               Nenhum usuário cadastrado
             </td>
           </tr>
-          <tr
-            v-for="user in filteredUsers"
-            :key="user.id"
-            class="border-b border-gray-200 hover:bg-gray-50 transition-colors"
-          >
-            <td class="px-4 py-3 text-gray-800">{{ user.nome }}</td>
-            <td class="px-4 py-3 text-gray-600">{{ getCompanyName(user.empresaId) }}</td>
-            <td class="px-4 py-3 text-gray-600">{{ user.email }}</td>
-            <td class="px-4 py-3 text-gray-600">{{ user.celular || '-' }}</td>
-            <td class="px-4 py-3 text-gray-600">{{ formatDate(user.dataVencimento) }}</td>
-            <td class="px-4 py-3">
-              <span
-                class="px-3 py-1 rounded-full text-xs font-medium"
-                :class="{
-                  'bg-green-100 text-green-700': user.status === 'ativo',
-                  'bg-red-100 text-red-700': user.status === 'vencido',
-                  'bg-gray-100 text-gray-700': user.status === 'bloqueado'
-                }"
-              >
-                {{ user.status.charAt(0).toUpperCase() + user.status.slice(1) }}
-              </span>
-            </td>
-            <td class="px-4 py-3">
-              <span
-                class="px-3 py-1 rounded-full text-xs font-medium"
-                :class="{
-                  'bg-blue-100 text-blue-700': user.role === 'admin',
-                  'bg-gray-100 text-gray-700': user.role === 'usuario'
-                }"
-              >
-                {{ user.role === 'admin' ? 'Admin' : 'Usuário' }}
-              </span>
-            </td>
-            <td class="px-4 py-3">
-              <div class="flex items-center space-x-2">
-                <button @click="openEditModal(user)" class="text-blue-600 hover:text-blue-800 transition-colors">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                  </svg>
-                </button>
-                <button @click="openDeleteModal(user)" class="text-red-600 hover:text-red-800 transition-colors">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                </button>
-              </div>
-            </td>
-          </tr>
+          <template v-else>
+            <tr
+              v-for="user in filteredUsers"
+              :key="user.id"
+              class="border-b border-gray-200 hover:bg-gray-50 transition-colors"
+            >
+              <td class="px-4 py-3 text-gray-800">{{ user.nome }}</td>
+              <td class="px-4 py-3 text-gray-600">{{ getCompanyName(user) }}</td>
+              <td class="px-4 py-3 text-gray-600">{{ user.email }}</td>
+              <td class="px-4 py-3 text-gray-600">{{ user.celular || '-' }}</td>
+              <td class="px-4 py-3 text-gray-600">{{ formatDate(user.dataVencimento) }}</td>
+              <td class="px-4 py-3">
+                <span
+                  class="px-3 py-1 rounded-full text-xs font-medium"
+                  :class="{
+                    'bg-green-100 text-green-700': user.statusLabel === 'ativo',
+                    'bg-yellow-100 text-yellow-700': user.statusLabel === 'vencido',
+                    'bg-red-100 text-red-700': user.statusLabel === 'bloqueado'
+                  }"
+                >
+                  {{ user.statusLabel.charAt(0).toUpperCase() + user.statusLabel.slice(1) }}
+                </span>
+              </td>
+              <td class="px-4 py-3">
+                <span
+                  class="px-3 py-1 rounded-full text-xs font-medium"
+                  :class="{
+                    'bg-blue-100 text-blue-700': user.role === 'admin',
+                    'bg-gray-100 text-gray-700': user.role === 'usuario'
+                  }"
+                >
+                  {{ user.role === 'admin' ? 'Admin' : 'Usuário' }}
+                </span>
+              </td>
+              <td class="px-4 py-3">
+                <div class="flex items-center space-x-2">
+                  <button @click="openEditModal(user)" class="text-blue-600 hover:text-blue-800 transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                  </button>
+                  <button @click="openDeleteModal(user)" class="text-red-600 hover:text-red-800 transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </template>
         </tbody>
       </table>
     </div>
@@ -128,6 +140,13 @@
         </div>
 
         <div class="space-y-4 mb-6">
+          <div
+            v-if="formError"
+            class="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 text-sm"
+          >
+            {{ formError }}
+          </div>
+
           <div>
             <label class="block text-gray-700 font-medium mb-2">Nome</label>
             <input
@@ -144,9 +163,15 @@
               v-model="userForm.empresaId"
               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
-              <option :value="null">Selecione uma empresa</option>
-              <option v-for="company in companies" :key="company.id" :value="company.id">
+              <option :value="null">Sem empresa</option>
+              <option
+                v-for="company in companies"
+                :key="company.id"
+                :value="company.id"
+                :disabled="!canSelectCompany(company.id)"
+              >
                 {{ company.nome }} ({{ company.usuariosAtuais }}/{{ company.maxUsuarios }})
+                <span v-if="!canSelectCompany(company.id) && originalCompanyId !== company.id"> - Lotado</span>
               </option>
             </select>
           </div>
@@ -232,10 +257,11 @@
           </button>
           <button
             @click="saveUser"
-            :disabled="!isFormValid"
+            :disabled="!isFormValid || isSaving"
             class="px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Salvar
+            <span v-if="!isSaving">Salvar</span>
+            <span v-else>Salvando...</span>
           </button>
         </div>
       </div>
@@ -256,6 +282,9 @@
           Tem certeza que deseja deletar o usuário <strong>{{ userToDelete?.nome }}</strong>?
           Esta ação não pode ser desfeita.
         </p>
+        <p v-if="deleteError" class="text-red-600 text-center mb-4">
+          {{ deleteError }}
+        </p>
 
         <div class="flex justify-end space-x-3">
           <button
@@ -266,9 +295,11 @@
           </button>
           <button
             @click="confirmDelete"
-            class="px-6 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors"
+            :disabled="isDeleting"
+            class="px-6 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Confirmar Exclusão
+            <span v-if="!isDeleting">Confirmar Exclusão</span>
+            <span v-else>Excluindo...</span>
           </button>
         </div>
       </div>
@@ -276,81 +307,60 @@
   </section>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed } from 'vue'
 
-const companies = ref([
-  {
-    id: 1,
-    nome: 'Tech Solutions Ltda',
-    maxUsuarios: 10,
-    usuariosAtuais: 2
-  },
-  {
-    id: 2,
-    nome: 'Inovação Digital',
-    maxUsuarios: 5,
-    usuariosAtuais: 1
-  },
-  {
-    id: 3,
-    nome: 'Marketing Pro',
-    maxUsuarios: 20,
-    usuariosAtuais: 0
-  }
-])
+type UiRole = 'admin' | 'usuario'
+type UiStatus = 'ativo' | 'bloqueado'
+type StatusLabel = 'ativo' | 'bloqueado' | 'vencido'
 
-const users = ref([
-  {
-    id: 1,
-    nome: 'João Silva',
-    empresaId: 1,
-    email: 'joao@exemplo.com',
-    celular: '(11) 98765-4321',
-    cpf: '123.456.789-00',
-    senha: '12345678',
-    dataVencimento: '2025-12-31',
-    status: 'ativo',
-    role: 'admin',
-    dataCriacao: '2025-01-15',
-    ultimoAcesso: '2025-11-13'
-  },
-  {
-    id: 2,
-    nome: 'Maria Santos',
-    empresaId: 1,
-    email: 'maria@exemplo.com',
-    celular: '(21) 99876-5432',
-    cpf: '',
-    senha: '12345678',
-    dataVencimento: '2025-06-30',
-    status: 'ativo',
-    role: 'usuario',
-    dataCriacao: '2025-02-10',
-    ultimoAcesso: '2025-11-12'
-  },
-  {
-    id: 3,
-    nome: 'Pedro Oliveira',
-    empresaId: 2,
-    email: 'pedro@exemplo.com',
-    celular: '',
-    cpf: '987.654.321-00',
-    senha: '12345678',
-    dataVencimento: '2025-10-01',
-    status: 'vencido',
-    role: 'usuario',
-    dataCriacao: '2024-12-05',
-    ultimoAcesso: '2025-10-15'
-  }
-])
+type AdminUserItem = {
+  id: string
+  nome: string
+  email: string
+  empresaId: string | null
+  empresaNome: string | null
+  celular: string | null
+  cpf: string | null
+  dataVencimento: string | null
+  status: UiStatus
+  statusLabel: StatusLabel
+  role: UiRole
+  createdAt: string | null
+}
+
+type CompanyItem = {
+  id: string
+  nome: string
+  maxUsuarios: number
+  usuariosAtuais: number
+}
+
+type UserFormState = {
+  id: string | null
+  nome: string
+  empresaId: string | null
+  email: string
+  celular: string
+  cpf: string
+  senha: string
+  dataVencimento: string
+  status: UiStatus
+  role: UiRole
+}
 
 const searchQuery = ref('')
 const isModalOpen = ref(false)
 const isDeleteModalOpen = ref(false)
 const isEditMode = ref(false)
-const userToDelete = ref(null)
-const userForm = ref({
+const userToDelete = ref<AdminUserItem | null>(null)
+const formError = ref('')
+const deleteError = ref('')
+const isSaving = ref(false)
+const isDeleting = ref(false)
+const originalCompanyId = ref<string | null>(null)
+
+const defaultForm = (): UserFormState => ({
   id: null,
   nome: '',
   empresaId: null,
@@ -363,15 +373,41 @@ const userForm = ref({
   role: 'usuario'
 })
 
+const userForm = ref<UserFormState>(defaultForm())
+
+const {
+  data: usersData,
+  pending: usersPending,
+  error: usersError,
+  refresh: refreshUsers
+} = await useAsyncData<AdminUserItem[]>('admin-users-list', async () => {
+  const response = await $fetch('/api/admin/users')
+  return response.users
+})
+
+const {
+  data: companiesData,
+  pending: companiesPending,
+  error: companiesError,
+  refresh: refreshCompanies
+} = await useAsyncData<CompanyItem[]>('admin-users-companies', async () => {
+  const response = await $fetch('/api/companies')
+  return response.companies
+})
+
+const users = computed<AdminUserItem[]>(() => usersData.value ?? [])
+const companies = computed<CompanyItem[]>(() => companiesData.value ?? [])
+
 const totalUsers = computed(() => users.value.length)
-const activeUsers = computed(() => users.value.filter(u => u.status === 'ativo').length)
-const expiredUsers = computed(() => users.value.filter(u => u.status === 'vencido').length)
+const activeUsers = computed(() => users.value.filter((u) => u.statusLabel === 'ativo').length)
+const expiredUsers = computed(() => users.value.filter((u) => u.statusLabel === 'vencido').length)
 const newUsersThisMonth = computed(() => {
   const now = new Date()
   const currentMonth = now.getMonth()
   const currentYear = now.getFullYear()
-  return users.value.filter(u => {
-    const createdDate = new Date(u.dataCriacao)
+  return users.value.filter((u) => {
+    if (!u.createdAt) return false
+    const createdDate = new Date(u.createdAt)
     return createdDate.getMonth() === currentMonth && createdDate.getFullYear() === currentYear
   }).length
 })
@@ -379,64 +415,70 @@ const newUsersThisMonth = computed(() => {
 const filteredUsers = computed(() => {
   if (!searchQuery.value) return users.value
   const query = searchQuery.value.toLowerCase()
-  return users.value.filter(u => 
-    u.nome.toLowerCase().includes(query) || 
-    u.email.toLowerCase().includes(query)
-  )
+  return users.value.filter((u) => u.nome.toLowerCase().includes(query) || u.email.toLowerCase().includes(query))
 })
+
+const loadingTable = computed(() => usersPending.value || companiesPending.value)
+const listError = computed(() => usersError.value || companiesError.value)
 
 const isFormValid = computed(() => {
-  if (isEditMode.value) {
-    return userForm.value.nome.trim() && 
-           userForm.value.empresaId !== null &&
-           userForm.value.email.trim() && 
-           userForm.value.dataVencimento
-  }
-  return userForm.value.nome.trim() && 
-         userForm.value.empresaId !== null &&
-         userForm.value.email.trim() && 
-         userForm.value.senha.trim() && 
-         userForm.value.dataVencimento
+  if (!userForm.value.nome.trim()) return false
+  if (!userForm.value.email.trim()) return false
+  if (!userForm.value.dataVencimento) return false
+  if (!isEditMode.value && userForm.value.senha.trim().length < 8) return false
+  if (isEditMode.value && userForm.value.senha && userForm.value.senha.length < 8) return false
+  return true
 })
 
-const formatDate = (dateString) => {
+const formatDate = (dateString?: string | null) => {
+  if (!dateString) return '-'
   const date = new Date(dateString)
   return date.toLocaleDateString('pt-BR')
 }
 
-const getCompanyName = (empresaId) => {
-  const company = companies.value.find(c => c.id === empresaId)
-  return company ? company.nome : 'Sem empresa'
+const findCompany = (companyId: string | null) => {
+  if (!companyId) return null
+  return companies.value.find((company) => company.id === companyId) || null
+}
+
+const getCompanyName = (user: AdminUserItem) => {
+  return findCompany(user.empresaId)?.nome || user.empresaNome || 'Sem empresa'
+}
+
+const resetForm = () => {
+  userForm.value = defaultForm()
+  originalCompanyId.value = null
+  formError.value = ''
+}
+
+const canSelectCompany = (companyId: string) => {
+  const company = findCompany(companyId)
+  if (!company) return false
+  if (isEditMode.value && originalCompanyId.value === companyId) {
+    return true
+  }
+  return company.usuariosAtuais < company.maxUsuarios
 }
 
 const openAddModal = () => {
   isEditMode.value = false
-  userForm.value = {
-    id: null,
-    nome: '',
-    empresaId: null,
-    email: '',
-    celular: '',
-    cpf: '',
-    senha: '',
-    dataVencimento: '',
-    status: 'ativo',
-    role: 'usuario'
-  }
+  resetForm()
   isModalOpen.value = true
 }
 
-const openEditModal = (user) => {
+const openEditModal = (user: AdminUserItem) => {
   isEditMode.value = true
+  formError.value = ''
+  originalCompanyId.value = user.empresaId || null
   userForm.value = {
     id: user.id,
     nome: user.nome,
-    empresaId: user.empresaId,
+    empresaId: user.empresaId || null,
     email: user.email,
     celular: user.celular || '',
     cpf: user.cpf || '',
     senha: '',
-    dataVencimento: user.dataVencimento,
+    dataVencimento: user.dataVencimento || '',
     status: user.status,
     role: user.role
   }
@@ -445,90 +487,87 @@ const openEditModal = (user) => {
 
 const closeModal = () => {
   isModalOpen.value = false
-  userForm.value = {
-    id: null,
-    nome: '',
-    empresaId: null,
-    email: '',
-    celular: '',
-    cpf: '',
-    senha: '',
-    dataVencimento: '',
-    status: 'ativo',
-    role: 'usuario'
+  resetForm()
+}
+
+const ensureCapacity = () => {
+  if (!userForm.value.empresaId) {
+    return true
+  }
+  const company = findCompany(userForm.value.empresaId)
+  if (!company) {
+    formError.value = 'Empresa selecionada não foi encontrada.'
+    return false
+  }
+  if (isEditMode.value && originalCompanyId.value === userForm.value.empresaId) {
+    return true
+  }
+  if (company.usuariosAtuais >= company.maxUsuarios) {
+    formError.value = `Limite de usuários atingido para a empresa ${company.nome}.`
+    return false
+  }
+  return true
+}
+
+const buildPayload = (isEdit: boolean) => {
+  const payload: Record<string, any> = {
+    nome: userForm.value.nome,
+    email: userForm.value.email,
+    role: userForm.value.role,
+    status: userForm.value.status,
+    companyId: userForm.value.empresaId,
+    dataVencimento: userForm.value.dataVencimento,
+    celular: userForm.value.celular || null,
+    cpf: userForm.value.cpf || null
+  }
+
+  if (!isEdit || userForm.value.senha.trim()) {
+    payload.password = userForm.value.senha
+  }
+
+  return payload
+}
+
+const saveUser = async () => {
+  if (!isFormValid.value) {
+    return
+  }
+
+  formError.value = ''
+
+  if (!ensureCapacity()) {
+    return
+  }
+
+  isSaving.value = true
+
+  try {
+    const payload = buildPayload(isEditMode.value)
+
+    if (isEditMode.value && userForm.value.id) {
+      await $fetch(`/api/admin/users/${userForm.value.id}`, {
+        method: 'PUT',
+        body: payload
+      })
+    } else {
+      await $fetch('/api/admin/users', {
+        method: 'POST',
+        body: payload
+      })
+    }
+
+    await Promise.all([refreshUsers(), refreshCompanies()])
+    closeModal()
+  } catch (error) {
+    const message = error?.statusMessage || 'Erro ao salvar usuário.'
+    formError.value = message
+  } finally {
+    isSaving.value = false
   }
 }
 
-const saveUser = () => {
-  const company = companies.value.find(c => c.id === userForm.value.empresaId)
-  
-  if (!isEditMode.value && company) {
-    const currentUsers = users.value.filter(u => u.empresaId === userForm.value.empresaId).length
-    if (currentUsers >= company.maxUsuarios) {
-      alert(`Limite de usuários atingido para a empresa ${company.nome}. Máximo: ${company.maxUsuarios}`)
-      return
-    }
-  }
-
-  const now = new Date().toISOString().split('T')[0]
-  const expirationDate = new Date(userForm.value.dataVencimento)
-  const currentDate = new Date()
-  const calculatedStatus = expirationDate < currentDate ? 'vencido' : userForm.value.status
-
-  if (isEditMode.value) {
-    const index = users.value.findIndex(u => u.id === userForm.value.id)
-    if (index !== -1) {
-      const existingUser = users.value[index]
-      const oldEmpresaId = existingUser.empresaId
-      
-      users.value[index] = {
-        ...existingUser,
-        nome: userForm.value.nome,
-        empresaId: userForm.value.empresaId,
-        email: userForm.value.email,
-        celular: userForm.value.celular,
-        cpf: userForm.value.cpf,
-        senha: userForm.value.senha.trim() ? userForm.value.senha : existingUser.senha,
-        dataVencimento: userForm.value.dataVencimento,
-        status: calculatedStatus,
-        role: userForm.value.role
-      }
-
-      if (oldEmpresaId !== userForm.value.empresaId) {
-        const oldCompany = companies.value.find(c => c.id === oldEmpresaId)
-        if (oldCompany) oldCompany.usuariosAtuais--
-        if (company) company.usuariosAtuais++
-      }
-    }
-  } else {
-    const emailExists = users.value.some(u => u.email === userForm.value.email)
-    if (emailExists) {
-      alert('Este email já está cadastrado!')
-      return
-    }
-
-    users.value.push({
-      id: Date.now(),
-      nome: userForm.value.nome,
-      empresaId: userForm.value.empresaId,
-      email: userForm.value.email,
-      celular: userForm.value.celular,
-      cpf: userForm.value.cpf,
-      senha: userForm.value.senha,
-      dataVencimento: userForm.value.dataVencimento,
-      status: calculatedStatus,
-      role: userForm.value.role,
-      dataCriacao: now,
-      ultimoAcesso: now
-    })
-
-    if (company) company.usuariosAtuais++
-  }
-
-  closeModal()
-}
-
-const openDeleteModal = (user) => {
+const openDeleteModal = (user: AdminUserItem) => {
+  deleteError.value = ''
   userToDelete.value = user
   isDeleteModalOpen.value = true
 }
@@ -536,14 +575,25 @@ const openDeleteModal = (user) => {
 const closeDeleteModal = () => {
   isDeleteModalOpen.value = false
   userToDelete.value = null
+  deleteError.value = ''
 }
 
-const confirmDelete = () => {
-  const user = userToDelete.value
-  const company = companies.value.find(c => c.id === user.empresaId)
-  if (company) company.usuariosAtuais--
-  
-  users.value = users.value.filter(u => u.id !== user.id)
-  closeDeleteModal()
+const confirmDelete = async () => {
+  if (!userToDelete.value) return
+
+  isDeleting.value = true
+  deleteError.value = ''
+
+  try {
+    await $fetch(`/api/admin/users/${userToDelete.value.id}`, {
+      method: 'DELETE'
+    })
+    await Promise.all([refreshUsers(), refreshCompanies()])
+    closeDeleteModal()
+  } catch (error) {
+    deleteError.value = error?.statusMessage || 'Erro ao excluir usuário.'
+  } finally {
+    isDeleting.value = false
+  }
 }
 </script>
