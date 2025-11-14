@@ -127,6 +127,16 @@
       </button>
 
       <button
+        @click="sendMessage"
+        class="flex items-center space-x-2 px-6 py-3 text-gray-700 bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 transition-colors"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+        </svg>
+        <span>Enviar Mensagem</span>
+      </button>
+
+      <button
         @click="saveMessage"
         :disabled="isSubmitting"
         class="flex items-center space-x-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
@@ -360,95 +370,14 @@
       </div>
     </div>
     </section>
-
-    <section class="bg-white rounded-lg shadow p-6">
-      <div class="flex items-center justify-between mb-6">
-        <div class="flex items-center space-x-2">
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2v-7H3v7a2 2 0 002 2z" />
-          </svg>
-          <h2 class="text-xl font-semibold text-gray-800">Histórico de Mensagens</h2>
-        </div>
-        <button
-          @click="fetchMessages"
-          :disabled="isLoadingMessages"
-          class="flex items-center space-x-2 px-4 py-2 text-sm font-medium rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8 8 0 104.582 9M20 4v5h-.581" />
-          </svg>
-          <span>{{ isLoadingMessages ? 'Atualizando...' : 'Atualizar' }}</span>
-        </button>
-      </div>
-
-      <div v-if="historyError" class="mb-4 rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-        {{ historyError }}
-      </div>
-
-      <div v-if="isLoadingMessages" class="text-gray-500">Carregando mensagens...</div>
-      <div v-else-if="messages.length === 0" class="text-gray-500">Nenhuma mensagem cadastrada.</div>
-      <div v-else class="space-y-4">
-        <article
-          v-for="messageItem in messages"
-          :key="messageItem.id"
-          class="border border-gray-200 rounded-lg p-4 hover:border-blue-200 transition-colors"
-        >
-          <div class="flex items-center justify-between gap-4">
-            <div>
-              <p class="text-sm text-gray-500">{{ formatDateTime(messageItem.createdAt) }}</p>
-              <p v-if="messageItem.caption" class="text-xs text-gray-500 mt-1 italic">Legenda: {{ messageItem.caption }}</p>
-            </div>
-            <span
-              class="px-2 py-1 text-xs font-semibold rounded-full capitalize"
-              :class="statusBadgeClass(messageItem.status)"
-            >
-              {{ statusLabel(messageItem.status) }}
-            </span>
-          </div>
-
-          <p class="mt-4 text-gray-800 whitespace-pre-wrap">{{ messageItem.body }}</p>
-
-          <div
-            v-if="messageItem.attachments && messageItem.attachments.length > 0"
-            class="mt-4 pt-4 border-t border-gray-100 space-y-2"
-          >
-            <p class="text-sm font-medium text-gray-700">
-              Anexos ({{ messageItem.attachments.length }})
-            </p>
-            <div
-              v-for="attachment in messageItem.attachments"
-              :key="attachment.id"
-              class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 rounded-lg border border-gray-100 bg-gray-50 px-4 py-3"
-            >
-              <div>
-                <p class="text-sm font-semibold text-gray-800">{{ attachment.fileName }}</p>
-                <p class="text-xs text-gray-500">
-                  {{ formatFileSize(attachment.fileSizeBytes) }} — {{ attachment.mimeType }}
-                </p>
-                <p v-if="attachment.caption" class="text-xs text-gray-600 italic mt-1">"{{ attachment.caption }}"</p>
-              </div>
-              <a
-                :href="attachment.publicUrl"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="text-sm font-medium text-blue-600 hover:text-blue-700"
-              >
-                Abrir
-              </a>
-            </div>
-          </div>
-        </article>
-      </div>
-    </section>
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, ref } from 'vue'
 
 const message = ref('')
 const attachments = ref([])
-const messages = ref([])
 const isModalOpen = ref(false)
 const isPreviewModalOpen = ref(false)
 const currentAttachmentType = ref('')
@@ -459,16 +388,6 @@ const fileInputRef = ref(null)
 const isSubmitting = ref(false)
 const formError = ref('')
 const formSuccess = ref('')
-const isLoadingMessages = ref(false)
-const historyError = ref('')
-
-const dateFormatter = new Intl.DateTimeFormat('pt-BR', {
-  day: '2-digit',
-  month: '2-digit',
-  year: 'numeric',
-  hour: '2-digit',
-  minute: '2-digit'
-})
 
 const generateAttachmentId = () => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -476,22 +395,6 @@ const generateAttachmentId = () => {
   }
   return `att-${Date.now()}-${Math.random().toString(16).slice(2)}`
 }
-
-const fetchMessages = async () => {
-  historyError.value = ''
-  isLoadingMessages.value = true
-  try {
-    const response = await $fetch('/api/dashboard/messages')
-    messages.value = response?.messages ?? []
-  } catch (error) {
-    console.error('[dashboard/messages] fetch error', error)
-    historyError.value = error?.data?.statusMessage || 'Erro ao carregar mensagens'
-  } finally {
-    isLoadingMessages.value = false
-  }
-}
-
-onMounted(fetchMessages)
 
 // Spintax states
 const isSpintaxModalOpen = ref(false)
@@ -550,11 +453,6 @@ const handleFileSelect = (event) => {
   if (input) {
     input.value = ''
   }
-}
-
-const formatDateTime = (value) => {
-  if (!value) return ''
-  return dateFormatter.format(new Date(value))
 }
 
 const formatFileSize = (bytes = 0) => {
@@ -673,25 +571,21 @@ const saveMessage = async () => {
   }
 
   try {
-    const response = await $fetch('/api/dashboard/messages', {
+    await $fetch('/api/dashboard/messages', {
       method: 'POST',
       body: formData
     })
-    const createdMessage = response?.message
-    if (createdMessage) {
-      messages.value = [createdMessage, ...messages.value]
-    } else {
-      await fetchMessages()
-    }
     formSuccess.value = 'Mensagem salva com sucesso!'
-    message.value = ''
-    attachments.value = []
   } catch (error) {
     console.error('[dashboard/messages] send error', error)
     formError.value = error?.data?.statusMessage || 'Erro ao salvar mensagem'
   } finally {
     isSubmitting.value = false
   }
+}
+
+const sendMessage = () => {
+  console.log('Enviar mensagem:', message.value, attachments.value)
 }
 
 // Spintax methods
