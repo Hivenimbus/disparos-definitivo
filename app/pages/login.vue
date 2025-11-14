@@ -53,6 +53,15 @@
         <span v-else>Entrando...</span>
       </button>
     </form>
+
+    <div class="mt-6 text-center">
+      <span class="text-sm text-gray-600">
+        Não tem uma conta?
+        <NuxtLink to="/register" class="text-blue-600 hover:text-blue-700 font-medium">
+          Criar conta
+        </NuxtLink>
+      </span>
+    </div>
   </div>
 </template>
 

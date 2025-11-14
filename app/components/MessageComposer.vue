@@ -17,6 +17,18 @@
       ></textarea>
     </div>
 
+    <div class="mb-4 flex justify-end">
+      <button
+        @click="openSpintaxModal"
+        class="flex items-center space-x-2 px-4 py-2 text-blue-600 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+        </svg>
+        <span>Spintax</span>
+      </button>
+    </div>
+
     <div class="mb-6">
       <h3 class="text-gray-700 font-medium mb-4">Anexos</h3>
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -247,6 +259,85 @@
         </div>
       </div>
     </div>
+
+    <!-- Modal Spintax -->
+    <div v-if="isSpintaxModalOpen" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" @click.self="closeSpintaxModal">
+      <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
+        <div class="flex items-center justify-between mb-6">
+          <div class="flex items-center space-x-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            <h3 class="text-xl font-semibold text-gray-800">Gerar Spintax</h3>
+          </div>
+          <button @click="closeSpintaxModal" class="text-gray-400 hover:text-gray-600">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div class="mb-4">
+          <p class="text-gray-600 text-sm">Adicione variações de palavras para criar mensagens dinâmicas. Cada campo receberá uma única palavra.</p>
+        </div>
+
+        <div class="mb-6">
+          <div class="flex items-center justify-between mb-4">
+            <label class="text-gray-700 font-medium">Variações de Palavras</label>
+            <span class="text-sm text-gray-500">{{ spintaxFields.length }} de 9 campos utilizados</span>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div
+              v-for="(field, index) in spintaxFields"
+              :key="index"
+              class="space-y-2"
+            >
+              <label class="block text-sm text-gray-600">Variação {{ index + 1 }}</label>
+              <input
+                v-model="field.value"
+                type="text"
+                :placeholder="`Palavra ${index + 1}`"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                @input="handleFieldInput(index)"
+              >
+            </div>
+          </div>
+
+          <button
+            v-if="spintaxFields.length < 9"
+            @click="addSpintaxField"
+            class="w-full py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-blue-400 hover:text-blue-600 transition-colors flex items-center justify-center space-x-2"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+            </svg>
+            <span>Adicionar campo</span>
+          </button>
+        </div>
+
+        <div v-if="spintaxPreview" class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <p class="text-sm text-blue-700 font-medium mb-2">Preview da Spintax:</p>
+          <code class="text-blue-800">{{ spintaxPreview }}</code>
+        </div>
+
+        <div class="flex justify-end space-x-3">
+          <button
+            @click="closeSpintaxModal"
+            class="px-6 py-2 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            @click="generateSpintax"
+            :disabled="!hasValidSpintaxFields"
+            class="px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Gerar Spintax
+          </button>
+        </div>
+      </div>
+    </div>
   </section>
 </template>
 
@@ -260,6 +351,14 @@ const isPreviewModalOpen = ref(false)
 const currentAttachmentType = ref('')
 const selectedFile = ref(null)
 const caption = ref('')
+
+// Spintax states
+const isSpintaxModalOpen = ref(false)
+const spintaxFields = ref([
+  { value: '' },
+  { value: '' },
+  { value: '' }
+])
 
 const acceptedFileTypes = computed(() => {
   const types = {
@@ -279,6 +378,21 @@ const attachmentTypeLabel = computed(() => {
     document: 'Documento'
   }
   return labels[currentAttachmentType.value] || 'Anexo'
+})
+
+// Spintax computed properties
+const hasValidSpintaxFields = computed(() => {
+  return spintaxFields.value.filter(field => field.value.trim() !== '').length >= 2
+})
+
+const spintaxPreview = computed(() => {
+  const validFields = spintaxFields.value
+    .filter(field => field.value.trim() !== '')
+    .map(field => field.value.trim())
+
+  if (validFields.length < 2) return ''
+
+  return `{${validFields.join('|')}}`
 })
 
 const handleAttachment = (type) => {
@@ -352,5 +466,66 @@ const getImagePreview = (file) => {
 
 const sendMessage = () => {
   console.log('Enviar mensagem:', message.value, attachments.value)
+}
+
+// Spintax methods
+const openSpintaxModal = () => {
+  isSpintaxModalOpen.value = true
+  // Reset fields to initial 3 empty fields
+  spintaxFields.value = [
+    { value: '' },
+    { value: '' },
+    { value: '' }
+  ]
+}
+
+const closeSpintaxModal = () => {
+  isSpintaxModalOpen.value = false
+  spintaxFields.value = [
+    { value: '' },
+    { value: '' },
+    { value: '' }
+  ]
+}
+
+const addSpintaxField = () => {
+  if (spintaxFields.value.length < 9) {
+    spintaxFields.value.push({ value: '' })
+  }
+}
+
+const handleFieldInput = (index) => {
+  // Auto-focus next field if current field is filled and not the last field
+  if (spintaxFields.value[index].value.trim() && index < spintaxFields.value.length - 1) {
+    // Focus next input after a small delay
+    setTimeout(() => {
+      const nextInput = document.querySelector(`input:nth-of-type(${index + 2})`)
+      if (nextInput) {
+        nextInput.focus()
+      }
+    }, 100)
+  }
+}
+
+const generateSpintax = () => {
+  const validFields = spintaxFields.value
+    .filter(field => field.value.trim() !== '')
+    .map(field => field.value.trim())
+
+  if (validFields.length < 2) {
+    alert('Por favor, preencha pelo menos 2 campos para gerar a spintax.')
+    return
+  }
+
+  const spintaxText = `{${validFields.join('|')}}`
+
+  // Add spintax to message with proper spacing
+  if (message.value && !message.value.endsWith(' ') && !message.value.endsWith('\n')) {
+    message.value += ' ' + spintaxText
+  } else {
+    message.value += spintaxText
+  }
+
+  closeSpintaxModal()
 }
 </script>
