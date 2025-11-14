@@ -8,11 +8,11 @@
         <h2 class="text-xl font-semibold text-gray-800">Gerenciamento de Usuários</h2>
       </div>
 
-      <button @click="openAddModal" class="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+      <button @click="openAddModal" class="flex items-center space-x-2 px-4 py-2 bg-gray-400 text-white rounded-lg cursor-not-allowed" disabled>
         <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
         </svg>
-        <span>Adicionar Usuário</span>
+        <span>Adicionar Usuário (Em breve)</span>
       </button>
     </div>
 
@@ -44,7 +44,12 @@
       >
     </div>
 
-    <div class="overflow-x-auto">
+    <div v-if="loading" class="text-center py-8">
+      <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      <p class="text-gray-600 mt-2">Carregando usuários...</p>
+    </div>
+
+    <div v-else class="overflow-x-auto">
       <table class="w-full">
         <thead>
           <tr class="bg-gray-100 text-left">
@@ -69,11 +74,11 @@
             :key="user.id"
             class="border-b border-gray-200 hover:bg-gray-50 transition-colors"
           >
-            <td class="px-4 py-3 text-gray-800">{{ user.nome }}</td>
-            <td class="px-4 py-3 text-gray-600">{{ getCompanyName(user.empresaId) }}</td>
+            <td class="px-4 py-3 text-gray-800">{{ user.full_name }}</td>
+            <td class="px-4 py-3 text-gray-600">{{ getCompanyName(user.company_id) }}</td>
             <td class="px-4 py-3 text-gray-600">{{ user.email }}</td>
             <td class="px-4 py-3 text-gray-600">{{ user.celular || '-' }}</td>
-            <td class="px-4 py-3 text-gray-600">{{ formatDate(user.dataVencimento) }}</td>
+            <td class="px-4 py-3 text-gray-600">{{ formatDate(user.data_vencimento) }}</td>
             <td class="px-4 py-3">
               <span
                 class="px-3 py-1 rounded-full text-xs font-medium"
@@ -98,271 +103,28 @@
               </span>
             </td>
             <td class="px-4 py-3">
-              <div class="flex items-center space-x-2">
-                <button @click="openEditModal(user)" class="text-blue-600 hover:text-blue-800 transition-colors">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                  </svg>
-                </button>
-                <button @click="openDeleteModal(user)" class="text-red-600 hover:text-red-800 transition-colors">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                </button>
-              </div>
+              <span class="text-gray-400 text-sm">-</span>
             </td>
           </tr>
         </tbody>
       </table>
     </div>
-
-    <div v-if="isModalOpen" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" @click.self="closeModal">
-      <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-        <div class="flex items-center justify-between mb-6">
-          <h3 class="text-xl font-semibold text-gray-800">{{ isEditMode ? 'Editar Usuário' : 'Adicionar Usuário' }}</h3>
-          <button @click="closeModal" class="text-gray-400 hover:text-gray-600">
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        <div class="space-y-4 mb-6">
-          <div>
-            <label class="block text-gray-700 font-medium mb-2">Nome</label>
-            <input
-              v-model="userForm.nome"
-              type="text"
-              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="Nome completo"
-            >
-          </div>
-
-          <div>
-            <label class="block text-gray-700 font-medium mb-2">Empresa</label>
-            <select
-              v-model="userForm.empresaId"
-              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option :value="null">Selecione uma empresa</option>
-              <option v-for="company in companies" :key="company.id" :value="company.id">
-                {{ company.nome }} ({{ company.usuariosAtuais }}/{{ company.maxUsuarios }})
-              </option>
-            </select>
-          </div>
-
-          <div>
-            <label class="block text-gray-700 font-medium mb-2">Email</label>
-            <input
-              v-model="userForm.email"
-              type="email"
-              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="email@exemplo.com"
-            >
-          </div>
-
-          <div>
-            <label class="block text-gray-700 font-medium mb-2">Celular (opcional)</label>
-            <input
-              v-model="userForm.celular"
-              type="text"
-              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="(00) 00000-0000"
-            >
-          </div>
-
-          <div>
-            <label class="block text-gray-700 font-medium mb-2">CPF (opcional)</label>
-            <input
-              v-model="userForm.cpf"
-              type="text"
-              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="000.000.000-00"
-            >
-          </div>
-
-          <div>
-            <label class="block text-gray-700 font-medium mb-2">Senha{{ isEditMode ? ' (deixe vazio para manter)' : '' }}</label>
-            <input
-              v-model="userForm.senha"
-              type="password"
-              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              :placeholder="isEditMode ? 'Nova senha (opcional)' : 'Digite a senha'"
-            >
-          </div>
-
-          <div>
-            <label class="block text-gray-700 font-medium mb-2">Data de Vencimento</label>
-            <input
-              v-model="userForm.dataVencimento"
-              type="date"
-              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-          </div>
-
-          <div>
-            <label class="block text-gray-700 font-medium mb-2">Role</label>
-            <select
-              v-model="userForm.role"
-              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="usuario">Usuário</option>
-              <option value="admin">Admin</option>
-            </select>
-          </div>
-
-          <div v-if="isEditMode">
-            <label class="block text-gray-700 font-medium mb-2">Status</label>
-            <select
-              v-model="userForm.status"
-              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="ativo">Ativo</option>
-              <option value="bloqueado">Bloqueado</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="flex justify-end space-x-3">
-          <button
-            @click="closeModal"
-            class="px-6 py-2 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            Cancelar
-          </button>
-          <button
-            @click="saveUser"
-            :disabled="!isFormValid"
-            class="px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Salvar
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <div v-if="isDeleteModalOpen" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" @click.self="closeDeleteModal">
-      <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-        <div class="flex items-center justify-center mb-4">
-          <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-          </div>
-        </div>
-
-        <h3 class="text-xl font-semibold text-gray-800 text-center mb-2">Confirmar Exclusão</h3>
-        <p class="text-gray-600 text-center mb-6">
-          Tem certeza que deseja deletar o usuário <strong>{{ userToDelete?.nome }}</strong>?
-          Esta ação não pode ser desfeita.
-        </p>
-
-        <div class="flex justify-end space-x-3">
-          <button
-            @click="closeDeleteModal"
-            class="px-6 py-2 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            Cancelar
-          </button>
-          <button
-            @click="confirmDelete"
-            class="px-6 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors"
-          >
-            Confirmar Exclusão
-          </button>
-        </div>
-      </div>
-    </div>
   </section>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 
-const companies = ref([
-  {
-    id: 1,
-    nome: 'Tech Solutions Ltda',
-    maxUsuarios: 10,
-    usuariosAtuais: 2
-  },
-  {
-    id: 2,
-    nome: 'Inovação Digital',
-    maxUsuarios: 5,
-    usuariosAtuais: 1
-  },
-  {
-    id: 3,
-    nome: 'Marketing Pro',
-    maxUsuarios: 20,
-    usuariosAtuais: 0
-  }
-])
+// Import composables
+const { companies } = useCompanies()
+const { fetchUsers } = useUsers()
 
-const users = ref([
-  {
-    id: 1,
-    nome: 'João Silva',
-    empresaId: 1,
-    email: 'joao@exemplo.com',
-    celular: '(11) 98765-4321',
-    cpf: '123.456.789-00',
-    senha: '12345678',
-    dataVencimento: '2025-12-31',
-    status: 'ativo',
-    role: 'admin',
-    dataCriacao: '2025-01-15',
-    ultimoAcesso: '2025-11-13'
-  },
-  {
-    id: 2,
-    nome: 'Maria Santos',
-    empresaId: 1,
-    email: 'maria@exemplo.com',
-    celular: '(21) 99876-5432',
-    cpf: '',
-    senha: '12345678',
-    dataVencimento: '2025-06-30',
-    status: 'ativo',
-    role: 'usuario',
-    dataCriacao: '2025-02-10',
-    ultimoAcesso: '2025-11-12'
-  },
-  {
-    id: 3,
-    nome: 'Pedro Oliveira',
-    empresaId: 2,
-    email: 'pedro@exemplo.com',
-    celular: '',
-    cpf: '987.654.321-00',
-    senha: '12345678',
-    dataVencimento: '2025-10-01',
-    status: 'vencido',
-    role: 'usuario',
-    dataCriacao: '2024-12-05',
-    ultimoAcesso: '2025-10-15'
-  }
-])
-
+// Estado local
+const users = ref([])
+const loading = ref(false)
 const searchQuery = ref('')
-const isModalOpen = ref(false)
-const isDeleteModalOpen = ref(false)
-const isEditMode = ref(false)
-const userToDelete = ref(null)
-const userForm = ref({
-  id: null,
-  nome: '',
-  empresaId: null,
-  email: '',
-  celular: '',
-  cpf: '',
-  senha: '',
-  dataVencimento: '',
-  status: 'ativo',
-  role: 'usuario'
-})
 
+// Computed properties para estatísticas
 const totalUsers = computed(() => users.value.length)
 const activeUsers = computed(() => users.value.filter(u => u.status === 'ativo').length)
 const expiredUsers = computed(() => users.value.filter(u => u.status === 'vencido').length)
@@ -371,7 +133,7 @@ const newUsersThisMonth = computed(() => {
   const currentMonth = now.getMonth()
   const currentYear = now.getFullYear()
   return users.value.filter(u => {
-    const createdDate = new Date(u.dataCriacao)
+    const createdDate = new Date(u.created_at)
     return createdDate.getMonth() === currentMonth && createdDate.getFullYear() === currentYear
   }).length
 })
@@ -379,27 +141,15 @@ const newUsersThisMonth = computed(() => {
 const filteredUsers = computed(() => {
   if (!searchQuery.value) return users.value
   const query = searchQuery.value.toLowerCase()
-  return users.value.filter(u => 
-    u.nome.toLowerCase().includes(query) || 
+  return users.value.filter(u =>
+    u.full_name?.toLowerCase().includes(query) ||
     u.email.toLowerCase().includes(query)
   )
 })
 
-const isFormValid = computed(() => {
-  if (isEditMode.value) {
-    return userForm.value.nome.trim() && 
-           userForm.value.empresaId !== null &&
-           userForm.value.email.trim() && 
-           userForm.value.dataVencimento
-  }
-  return userForm.value.nome.trim() && 
-         userForm.value.empresaId !== null &&
-         userForm.value.email.trim() && 
-         userForm.value.senha.trim() && 
-         userForm.value.dataVencimento
-})
-
+// Funções utilitárias
 const formatDate = (dateString) => {
+  if (!dateString) return '-'
   const date = new Date(dateString)
   return date.toLocaleDateString('pt-BR')
 }
@@ -409,141 +159,21 @@ const getCompanyName = (empresaId) => {
   return company ? company.nome : 'Sem empresa'
 }
 
-const openAddModal = () => {
-  isEditMode.value = false
-  userForm.value = {
-    id: null,
-    nome: '',
-    empresaId: null,
-    email: '',
-    celular: '',
-    cpf: '',
-    senha: '',
-    dataVencimento: '',
-    status: 'ativo',
-    role: 'usuario'
-  }
-  isModalOpen.value = true
-}
-
-const openEditModal = (user) => {
-  isEditMode.value = true
-  userForm.value = {
-    id: user.id,
-    nome: user.nome,
-    empresaId: user.empresaId,
-    email: user.email,
-    celular: user.celular || '',
-    cpf: user.cpf || '',
-    senha: '',
-    dataVencimento: user.dataVencimento,
-    status: user.status,
-    role: user.role
-  }
-  isModalOpen.value = true
-}
-
-const closeModal = () => {
-  isModalOpen.value = false
-  userForm.value = {
-    id: null,
-    nome: '',
-    empresaId: null,
-    email: '',
-    celular: '',
-    cpf: '',
-    senha: '',
-    dataVencimento: '',
-    status: 'ativo',
-    role: 'usuario'
+// Carregar usuários do banco
+const loadUsers = async () => {
+  loading.value = true
+  try {
+    users.value = await fetchUsers()
+  } catch (error) {
+    console.error('Erro ao carregar usuários:', error)
+    alert('Erro ao carregar usuários')
+  } finally {
+    loading.value = false
   }
 }
 
-const saveUser = () => {
-  const company = companies.value.find(c => c.id === userForm.value.empresaId)
-  
-  if (!isEditMode.value && company) {
-    const currentUsers = users.value.filter(u => u.empresaId === userForm.value.empresaId).length
-    if (currentUsers >= company.maxUsuarios) {
-      alert(`Limite de usuários atingido para a empresa ${company.nome}. Máximo: ${company.maxUsuarios}`)
-      return
-    }
-  }
-
-  const now = new Date().toISOString().split('T')[0]
-  const expirationDate = new Date(userForm.value.dataVencimento)
-  const currentDate = new Date()
-  const calculatedStatus = expirationDate < currentDate ? 'vencido' : userForm.value.status
-
-  if (isEditMode.value) {
-    const index = users.value.findIndex(u => u.id === userForm.value.id)
-    if (index !== -1) {
-      const existingUser = users.value[index]
-      const oldEmpresaId = existingUser.empresaId
-      
-      users.value[index] = {
-        ...existingUser,
-        nome: userForm.value.nome,
-        empresaId: userForm.value.empresaId,
-        email: userForm.value.email,
-        celular: userForm.value.celular,
-        cpf: userForm.value.cpf,
-        senha: userForm.value.senha.trim() ? userForm.value.senha : existingUser.senha,
-        dataVencimento: userForm.value.dataVencimento,
-        status: calculatedStatus,
-        role: userForm.value.role
-      }
-
-      if (oldEmpresaId !== userForm.value.empresaId) {
-        const oldCompany = companies.value.find(c => c.id === oldEmpresaId)
-        if (oldCompany) oldCompany.usuariosAtuais--
-        if (company) company.usuariosAtuais++
-      }
-    }
-  } else {
-    const emailExists = users.value.some(u => u.email === userForm.value.email)
-    if (emailExists) {
-      alert('Este email já está cadastrado!')
-      return
-    }
-
-    users.value.push({
-      id: Date.now(),
-      nome: userForm.value.nome,
-      empresaId: userForm.value.empresaId,
-      email: userForm.value.email,
-      celular: userForm.value.celular,
-      cpf: userForm.value.cpf,
-      senha: userForm.value.senha,
-      dataVencimento: userForm.value.dataVencimento,
-      status: calculatedStatus,
-      role: userForm.value.role,
-      dataCriacao: now,
-      ultimoAcesso: now
-    })
-
-    if (company) company.usuariosAtuais++
-  }
-
-  closeModal()
-}
-
-const openDeleteModal = (user) => {
-  userToDelete.value = user
-  isDeleteModalOpen.value = true
-}
-
-const closeDeleteModal = () => {
-  isDeleteModalOpen.value = false
-  userToDelete.value = null
-}
-
-const confirmDelete = () => {
-  const user = userToDelete.value
-  const company = companies.value.find(c => c.id === user.empresaId)
-  if (company) company.usuariosAtuais--
-  
-  users.value = users.value.filter(u => u.id !== user.id)
-  closeDeleteModal()
-}
+// Carregar dados iniciais
+onMounted(() => {
+  loadUsers()
+})
 </script>
