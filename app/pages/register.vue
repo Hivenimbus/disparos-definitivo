@@ -41,6 +41,41 @@
       </div>
 
       <div>
+        <label class="block text-gray-700 font-medium mb-2">Empresa</label>
+        <input
+          v-model="form.company"
+          type="text"
+          :class="['w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+                   errors.company ? 'border-red-300' : 'border-gray-300']"
+          placeholder="Nome da empresa (opcional)"
+        >
+        <p v-if="errors.company" class="mt-1 text-sm text-red-600">{{ errors.company }}</p>
+      </div>
+
+      <div>
+        <label class="block text-gray-700 font-medium mb-2">Número do WhatsApp</label>
+        <input
+          v-model="form.phone"
+          type="tel"
+          :class="['w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+                   errors.phone ? 'border-red-300' : 'border-gray-300']"
+          placeholder="(00) 00000-0000"
+        >
+        <p v-if="errors.phone" class="mt-1 text-sm text-red-600">{{ errors.phone }}</p>
+      </div>
+
+      <div>
+        <label class="block text-gray-700 font-medium mb-2">Data de vencimento</label>
+        <input
+          v-model="form.dueDate"
+          type="date"
+          :class="['w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+                   errors.dueDate ? 'border-red-300' : 'border-gray-300']"
+        >
+        <p v-if="errors.dueDate" class="mt-1 text-sm text-red-600">{{ errors.dueDate }}</p>
+      </div>
+
+      <div>
         <label class="block text-gray-700 font-medium mb-2">Senha</label>
         <div class="relative">
           <input
@@ -144,7 +179,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed } from 'vue'
 
 definePageMeta({
@@ -156,6 +191,9 @@ const form = ref({
   email: '',
   password: '',
   confirmPassword: '',
+  company: '',
+  phone: '',
+  dueDate: '',
   terms: false
 })
 
@@ -243,6 +281,20 @@ const validateForm = () => {
     errors.value.confirmPassword = 'As senhas não coincidem'
   }
 
+  if (form.value.phone) {
+    const digits = form.value.phone.replace(/\D/g, '')
+    if (digits.length < 8) {
+      errors.value.phone = 'Informe um número válido'
+    }
+  }
+
+  if (form.value.dueDate) {
+    const selectedDate = new Date(form.value.dueDate)
+    if (Number.isNaN(selectedDate.getTime())) {
+      errors.value.dueDate = 'Data inválida'
+    }
+  }
+
   if (!form.value.terms) {
     errors.value.terms = 'Você precisa aceitar os termos de uso para continuar'
   }
@@ -250,31 +302,55 @@ const validateForm = () => {
   return Object.keys(errors.value).length === 0
 }
 
+const nuxtApp = useNuxtApp()
+const request = nuxtApp.$fetch ?? $fetch
+
 const handleRegister = async () => {
   errorMessage.value = ''
   successMessage.value = ''
 
+  const safeFormSnapshot = {
+    name: form.value.name,
+    email: form.value.email,
+    company: form.value.company,
+    phone: form.value.phone,
+    dueDate: form.value.dueDate
+  }
+
   if (!validateForm()) {
+    console.warn('[register] formulário inválido', safeFormSnapshot)
+    errorMessage.value = 'Por favor, corrija os campos destacados antes de continuar.'
     return
   }
 
   isLoading.value = true
 
-  setTimeout(() => {
-    console.log('Registration:', form.value)
+  try {
+    console.log('[register] enviando dados', safeFormSnapshot)
+    await request('/api/auth/register', {
+      method: 'POST',
+      body: {
+        nome: form.value.name,
+        email: form.value.email,
+        password: form.value.password,
+        empresa: form.value.company || undefined,
+        numero: form.value.phone || undefined,
+        vencimento: form.value.dueDate || undefined
+      }
+    })
 
-    try {
-      successMessage.value = 'Conta criada com sucesso! Redirecionando para o login...'
+    successMessage.value = 'Conta criada com sucesso! Redirecionando para o login...'
 
-      setTimeout(() => {
-        navigateTo('/login')
-      }, 2000)
-
-    } catch (error) {
-      errorMessage.value = 'Ocorreu um erro ao criar sua conta. Tente novamente.'
-    } finally {
-      isLoading.value = false
-    }
-  }, 1500)
+    setTimeout(() => {
+      navigateTo('/login')
+    }, 1500)
+  } catch (error) {
+    console.error('[register] erro ao registrar', error)
+    const message = (error as { statusCode?: number; statusMessage?: string })?.statusMessage
+    errorMessage.value = message || 'Ocorreu um erro ao criar sua conta.'
+  } finally {
+    console.log('[register] finalizou submissão')
+    isLoading.value = false
+  }
 }
 </script>

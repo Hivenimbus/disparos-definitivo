@@ -65,7 +65,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref } from 'vue'
 
 definePageMeta({
@@ -80,6 +80,9 @@ const form = ref({
 
 const errorMessage = ref('')
 const isLoading = ref(false)
+
+const nuxtApp = useNuxtApp()
+const request = nuxtApp.$fetch ?? $fetch
 
 const handleLogin = async () => {
   errorMessage.value = ''
@@ -97,15 +100,21 @@ const handleLogin = async () => {
 
   isLoading.value = true
 
-  setTimeout(() => {
-    console.log('Login:', form.value)
-    
-    if (form.value.email === 'admin@hive.com' && form.value.password === '12345678') {
-      navigateTo('/')
-    } else {
-      errorMessage.value = 'Email ou senha incorretos'
-      isLoading.value = false
-    }
-  }, 1000)
+  try {
+    await request('/api/auth/login', {
+      method: 'POST',
+      body: {
+        email: form.value.email,
+        password: form.value.password
+      }
+    })
+
+    navigateTo('/admin')
+  } catch (error) {
+    const message = (error as { statusMessage?: string })?.statusMessage
+    errorMessage.value = message || 'Email ou senha incorretos'
+  } finally {
+    isLoading.value = false
+  }
 }
 </script>
