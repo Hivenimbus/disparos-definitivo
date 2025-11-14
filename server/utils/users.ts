@@ -4,7 +4,7 @@ import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js'
 type DbRole = 'admin' | 'user'
 type UiRole = 'admin' | 'usuario'
 type DbStatus = 'ativo' | 'desativado'
-type UiStatus = 'ativo' | 'bloqueado'
+type UiStatus = 'ativo' | 'desativado'
 
 type CompanyRow = {
   id: string
@@ -42,7 +42,7 @@ export type AdminUserDTO = {
   cpf: string | null
   dataVencimento: string | null
   status: UiStatus
-  statusLabel: 'ativo' | 'bloqueado' | 'vencido'
+  statusLabel: 'ativo' | 'desativado' | 'vencido'
   role: UiRole
   createdAt: string
   updatedAt: string
@@ -54,12 +54,12 @@ export const mapRoleToUi = (role: DbRole): UiRole => (role === 'admin' ? 'admin'
 
 export const mapRoleToDb = (role: UiRole | string | undefined): DbRole => (role === 'admin' ? 'admin' : 'user')
 
-export const mapStatusToUi = (status: DbStatus): UiStatus => (status === 'desativado' ? 'bloqueado' : 'ativo')
+export const mapStatusToUi = (status: DbStatus): UiStatus => (status === 'desativado' ? 'desativado' : 'ativo')
 
 export const mapStatusToDb = (status: UiStatus | string | undefined): DbStatus =>
-  status === 'bloqueado' ? 'desativado' : 'ativo'
+  status === 'desativado' ? 'desativado' : 'ativo'
 
-const computeStatusLabel = (uiStatus: UiStatus, dataVencimento: string | null): 'ativo' | 'bloqueado' | 'vencido' => {
+const computeStatusLabel = (uiStatus: UiStatus, dataVencimento: string | null): 'ativo' | 'desativado' | 'vencido' => {
   if (dataVencimento) {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
@@ -72,7 +72,7 @@ const computeStatusLabel = (uiStatus: UiStatus, dataVencimento: string | null): 
     }
   }
 
-  return uiStatus === 'bloqueado' ? 'bloqueado' : 'ativo'
+  return uiStatus === 'desativado' ? 'desativado' : 'ativo'
 }
 
 export const mapAdminUserRow = (row: UserRowWithCompany): AdminUserDTO => {

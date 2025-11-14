@@ -16,7 +16,7 @@ type CreateUserPayload = {
   email: string
   password: string
   role?: 'admin' | 'usuario'
-  status?: 'ativo' | 'bloqueado'
+  status?: 'ativo' | 'desativado'
   companyId?: string | null
   dataVencimento: string
   celular?: string | null

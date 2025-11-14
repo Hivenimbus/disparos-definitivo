@@ -86,16 +86,16 @@
               <td class="px-4 py-3 text-gray-600">{{ user.celular || '-' }}</td>
               <td class="px-4 py-3 text-gray-600">{{ formatDate(user.dataVencimento) }}</td>
               <td class="px-4 py-3">
-                <span
-                  class="px-3 py-1 rounded-full text-xs font-medium"
-                  :class="{
-                    'bg-green-100 text-green-700': user.statusLabel === 'ativo',
-                    'bg-yellow-100 text-yellow-700': user.statusLabel === 'vencido',
-                    'bg-red-100 text-red-700': user.statusLabel === 'bloqueado'
-                  }"
-                >
-                  {{ user.statusLabel.charAt(0).toUpperCase() + user.statusLabel.slice(1) }}
-                </span>
+              <span
+                class="px-3 py-1 rounded-full text-xs font-medium"
+                :class="{
+                  'bg-green-100 text-green-700': user.statusLabel === 'ativo',
+                  'bg-yellow-100 text-yellow-700': user.statusLabel === 'vencido',
+                  'bg-red-100 text-red-700': user.statusLabel === 'desativado'
+                }"
+              >
+                {{ user.statusLabel.charAt(0).toUpperCase() + user.statusLabel.slice(1) }}
+              </span>
               </td>
               <td class="px-4 py-3">
                 <span
@@ -243,7 +243,7 @@
               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value="ativo">Ativo</option>
-              <option value="bloqueado">Bloqueado</option>
+              <option value="desativado">Desativado</option>
             </select>
           </div>
         </div>
@@ -311,8 +311,8 @@
 import { ref, computed } from 'vue'
 
 type UiRole = 'admin' | 'usuario'
-type UiStatus = 'ativo' | 'bloqueado'
-type StatusLabel = 'ativo' | 'bloqueado' | 'vencido'
+type UiStatus = 'ativo' | 'desativado'
+type StatusLabel = 'ativo' | 'desativado' | 'vencido'
 
 type AdminUserItem = {
   id: string
