@@ -17,7 +17,7 @@
       ></textarea>
     </div>
 
-    <div class="mb-4 flex justify-end space-x-3">
+    <div class="mb-4 flex justify-end space-x-4">
       <button
         @click="openSpintaxModal"
         class="flex items-center space-x-2 px-4 py-2 text-blue-600 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
@@ -303,11 +303,11 @@
               :key="index"
               class="space-y-2"
             >
-              <label class="block text-sm text-gray-600">Variação {{ index + 1 }}</label>
+              <label class="block text-sm text-gray-600">Spintax {{ index + 1 }}</label>
               <input
                 v-model="field.value"
                 type="text"
-                :placeholder="`Palavra ${index + 1}`"
+                :placeholder="`Opção ${index + 1}`"
                 class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 @input="handleFieldInput(index)"
               >
