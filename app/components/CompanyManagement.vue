@@ -16,24 +16,39 @@
       </button>
     </div>
 
-    <div class="grid grid-cols-4 gap-4 mb-6">
-      <div class="bg-gray-100 rounded-lg p-6 text-center">
-        <div class="text-4xl font-bold text-blue-600 mb-2">{{ totalCompanies }}</div>
-        <div class="text-gray-600 text-sm">Total de Empresas</div>
-      </div>
-      <div class="bg-gray-100 rounded-lg p-6 text-center">
-        <div class="text-4xl font-bold text-green-600 mb-2">{{ activeCompanies }}</div>
-        <div class="text-gray-600 text-sm">Empresas Ativas</div>
-      </div>
-      <div class="bg-gray-100 rounded-lg p-6 text-center">
-        <div class="text-4xl font-bold text-red-600 mb-2">{{ expiredCompanies }}</div>
-        <div class="text-gray-600 text-sm">Empresas Vencidas</div>
-      </div>
-      <div class="bg-gray-100 rounded-lg p-6 text-center">
-        <div class="text-4xl font-bold text-purple-600 mb-2">{{ totalAvailableSlots }}</div>
-        <div class="text-gray-600 text-sm">Vagas Disponíveis</div>
+    <div v-if="loading" class="text-center py-8">
+      <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      <p class="mt-2 text-gray-600">Carregando empresas...</p>
+    </div>
+
+    <div v-else-if="error" class="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+      <div class="flex items-center">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-red-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <p class="text-red-700">{{ error }}</p>
       </div>
     </div>
+
+    <div v-else>
+      <div class="grid grid-cols-4 gap-4 mb-6">
+        <div class="bg-gray-100 rounded-lg p-6 text-center">
+          <div class="text-4xl font-bold text-blue-600 mb-2">{{ stats.total }}</div>
+          <div class="text-gray-600 text-sm">Total de Empresas</div>
+        </div>
+        <div class="bg-gray-100 rounded-lg p-6 text-center">
+          <div class="text-4xl font-bold text-green-600 mb-2">{{ stats.ativas }}</div>
+          <div class="text-gray-600 text-sm">Empresas Ativas</div>
+        </div>
+        <div class="bg-gray-100 rounded-lg p-6 text-center">
+          <div class="text-4xl font-bold text-red-600 mb-2">{{ stats.vencidas }}</div>
+          <div class="text-gray-600 text-sm">Empresas Vencidas</div>
+        </div>
+        <div class="bg-gray-100 rounded-lg p-6 text-center">
+          <div class="text-4xl font-bold text-purple-600 mb-2">{{ stats.vagasDisponiveis }}</div>
+          <div class="text-gray-600 text-sm">Vagas Disponíveis</div>
+        </div>
+      </div>
 
     <div class="mb-4">
       <input
@@ -116,6 +131,7 @@
           </tr>
         </tbody>
       </table>
+    </div>
     </div>
 
     <div v-if="isModalOpen" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" @click.self="closeModal">
@@ -242,41 +258,17 @@
 <script setup>
 import { ref, computed } from 'vue'
 
-const companies = ref([
-  {
-    id: 1,
-    nome: 'Tech Solutions Ltda',
-    dataVencimento: '2025-12-31',
-    maxUsuarios: 10,
-    usuariosAtuais: 3,
-    celular: '(11) 98765-4321',
-    cpfCnpj: '12.345.678/0001-90',
-    status: 'ativo',
-    dataCriacao: '2025-01-10'
-  },
-  {
-    id: 2,
-    nome: 'Inovação Digital',
-    dataVencimento: '2025-06-30',
-    maxUsuarios: 5,
-    usuariosAtuais: 5,
-    celular: '(21) 99876-5432',
-    cpfCnpj: '98.765.432/0001-10',
-    status: 'ativo',
-    dataCriacao: '2025-02-15'
-  },
-  {
-    id: 3,
-    nome: 'Marketing Pro',
-    dataVencimento: '2025-10-01',
-    maxUsuarios: 20,
-    usuariosAtuais: 0,
-    celular: '',
-    cpfCnpj: '',
-    status: 'vencido',
-    dataCriacao: '2024-11-20'
-  }
-])
+// Importar o composable
+const {
+  companies,
+  loading,
+  error,
+  stats,
+  createCompany,
+  updateCompany,
+  deleteCompany,
+  searchCompanies
+} = useCompanies()
 
 const searchQuery = ref('')
 const isModalOpen = ref(false)
@@ -292,28 +284,18 @@ const companyForm = ref({
   cpfCnpj: ''
 })
 
-const totalCompanies = computed(() => companies.value.length)
-const activeCompanies = computed(() => companies.value.filter(c => c.status === 'ativo').length)
-const expiredCompanies = computed(() => companies.value.filter(c => c.status === 'vencido').length)
-const totalAvailableSlots = computed(() => {
-  return companies.value.reduce((sum, company) => {
-    return sum + (company.maxUsuarios - company.usuariosAtuais)
-  }, 0)
-})
-
 const filteredCompanies = computed(() => {
-  if (!searchQuery.value) return companies.value
-  const query = searchQuery.value.toLowerCase()
-  return companies.value.filter(c => c.nome.toLowerCase().includes(query))
+  return searchCompanies(searchQuery.value)
 })
 
 const isFormValid = computed(() => {
-  return companyForm.value.nome.trim() && 
-         companyForm.value.dataVencimento && 
+  return companyForm.value.nome.trim() &&
+         companyForm.value.dataVencimento &&
          companyForm.value.maxUsuarios > 0
 })
 
 const formatDate = (dateString) => {
+  if (!dateString) return '-'
   const date = new Date(dateString)
   return date.toLocaleDateString('pt-BR')
 }
@@ -356,41 +338,35 @@ const closeModal = () => {
   }
 }
 
-const saveCompany = () => {
-  const now = new Date().toISOString().split('T')[0]
-  const expirationDate = new Date(companyForm.value.dataVencimento)
-  const currentDate = new Date()
-  const calculatedStatus = expirationDate < currentDate ? 'vencido' : 'ativo'
-
-  if (isEditMode.value) {
-    const index = companies.value.findIndex(c => c.id === companyForm.value.id)
-    if (index !== -1) {
-      const existingCompany = companies.value[index]
-      companies.value[index] = {
-        ...existingCompany,
+const saveCompany = async () => {
+  try {
+    if (isEditMode.value) {
+      // Editar empresa existente
+      await updateCompany(companyForm.value.id, {
         nome: companyForm.value.nome,
         dataVencimento: companyForm.value.dataVencimento,
         maxUsuarios: companyForm.value.maxUsuarios,
         celular: companyForm.value.celular,
-        cpfCnpj: companyForm.value.cpfCnpj,
-        status: calculatedStatus
-      }
+        cpfCnpj: companyForm.value.cpfCnpj
+      })
+      console.log('✅ Empresa atualizada com sucesso')
+    } else {
+      // Criar nova empresa
+      await createCompany({
+        nome: companyForm.value.nome,
+        dataVencimento: companyForm.value.dataVencimento,
+        maxUsuarios: companyForm.value.maxUsuarios,
+        celular: companyForm.value.celular,
+        cpfCnpj: companyForm.value.cpfCnpj
+      })
+      console.log('✅ Empresa criada com sucesso')
     }
-  } else {
-    companies.value.push({
-      id: Date.now(),
-      nome: companyForm.value.nome,
-      dataVencimento: companyForm.value.dataVencimento,
-      maxUsuarios: companyForm.value.maxUsuarios,
-      usuariosAtuais: 0,
-      celular: companyForm.value.celular,
-      cpfCnpj: companyForm.value.cpfCnpj,
-      status: calculatedStatus,
-      dataCriacao: now
-    })
-  }
 
-  closeModal()
+    closeModal()
+  } catch (err) {
+    console.error('❌ Erro ao salvar empresa:', err)
+    alert(err.message || 'Erro ao salvar empresa')
+  }
 }
 
 const openDeleteModal = (company) => {
@@ -403,12 +379,14 @@ const closeDeleteModal = () => {
   companyToDelete.value = null
 }
 
-const confirmDelete = () => {
-  companies.value = companies.value.filter(c => c.id !== companyToDelete.value.id)
-  closeDeleteModal()
+const confirmDelete = async () => {
+  try {
+    await deleteCompany(companyToDelete.value.id)
+    console.log('✅ Empresa deletada com sucesso')
+    closeDeleteModal()
+  } catch (err) {
+    console.error('❌ Erro ao deletar empresa:', err)
+    alert(err.message || 'Erro ao deletar empresa')
+  }
 }
-
-defineExpose({
-  companies
-})
 </script>
