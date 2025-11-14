@@ -8,7 +8,7 @@
           </h1>
           
           <nav class="flex items-center space-x-8">
-            <template v-for="item in menuItems" :key="item.name">
+            <template v-for="item in availableMenuItems" :key="item.name">
               <NuxtLink
                 v-if="item.name !== 'Configurações'"
                 :to="item.path"
@@ -67,7 +67,7 @@
             class="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-10"
           >
             <NuxtLink
-              v-for="option in dropdownOptions"
+              v-for="option in availableDropdownOptions"
               :key="option.name"
               :to="option.path"
               @click="isDropdownOpen = false"
@@ -167,9 +167,10 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 
 const logout = useLogout()
+const authUser = useAuthUser()
 
 const isDropdownOpen = ref(false)
 const isConfigOpen = ref(false)
@@ -206,13 +207,37 @@ const menuItems = [
     name: 'Configurações',
     path: '/configuracoes',
     icon: 'IconSettings'
+  },
+  {
+    name: 'Painel Admin',
+    path: '/admin',
+    icon: 'IconDashboard',
+    requiresAdmin: true
   }
 ]
 
 const dropdownOptions = [
   { name: 'Meu Perfil', path: '/perfil' },
-  { name: 'Painel Admin', path: '/admin' }
+  { name: 'Painel Admin', path: '/admin', requiresAdmin: true }
 ]
+
+const availableMenuItems = computed(() => {
+  return menuItems.filter((item) => {
+    if (item.requiresAdmin) {
+      return authUser.value?.role === 'admin'
+    }
+    return true
+  })
+})
+
+const availableDropdownOptions = computed(() => {
+  return dropdownOptions.filter((option) => {
+    if (option.requiresAdmin) {
+      return authUser.value?.role === 'admin'
+    }
+    return true
+  })
+})
 
 const toggleDropdown = () => {
   isDropdownOpen.value = !isDropdownOpen.value
