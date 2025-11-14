@@ -66,15 +66,14 @@
             v-if="isDropdownOpen"
             class="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-10"
           >
-            <NuxtLink
-              v-for="option in dropdownOptions"
+            <button
+              v-for="option in filteredDropdownOptions"
               :key="option.name"
-              :to="option.path"
-              @click="isDropdownOpen = false"
-              class="block px-4 py-2 text-base text-gray-700 hover:bg-gray-100 transition-colors"
+              @click="handleDropdownClick(option)"
+              class="block w-full text-left px-4 py-2 text-base text-gray-700 hover:bg-gray-100 transition-colors"
             >
               {{ option.name }}
-            </NuxtLink>
+            </button>
           </div>
         </div>
       </div>
@@ -160,10 +159,38 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed, watch } from 'vue'
 
 const isDropdownOpen = ref(false)
 const isConfigOpen = ref(false)
+
+const { isAdmin, fetchUserRole } = useUserRole()
+const user = useSupabaseUser()
+
+watch(user, async (newUser) => {
+  console.log('🔍 AppHeader: User mudou:', newUser)
+  console.log('🔍 AppHeader: Estrutura completa:', {
+    hasUser: !!newUser,
+    id: newUser?.id,
+    sub: newUser?.sub,
+    email: newUser?.email,
+    aud: newUser?.aud,
+    role: newUser?.role,
+    'Todas chaves': newUser ? Object.keys(newUser) : 'null'
+  })
+
+  // Extrair ID do JWT
+  const userId = newUser?.id || newUser?.sub
+  console.log('🔍 AppHeader: ID extraído:', userId)
+
+  if (newUser && userId) {
+    console.log('🔍 AppHeader: Buscando role do usuário...')
+    const role = await fetchUserRole()
+    console.log('🔍 AppHeader: Role obtida:', role)
+  } else {
+    console.log('🔍 AppHeader: Usuário deslogado ou sem ID/sub')
+  }
+}, { immediate: true })
 
 const configForm = ref({
   intervalo: 10,
@@ -203,11 +230,44 @@ const menuItems = [
 const dropdownOptions = [
   { name: 'Meu Perfil', path: '/perfil' },
   { name: 'Painel Admin', path: '/admin' },
-  { name: 'Sair', path: '/login' }
+  { name: 'Sair', path: '/logout', action: 'logout' }
 ]
+
+const filteredDropdownOptions = computed(() => {
+  console.log('🔍 AppHeader: Filtrando opções dropdown - isAdmin:', isAdmin.value)
+
+  const filtered = dropdownOptions.filter(option => {
+    if (option.name === 'Painel Admin') {
+      console.log('🔍 AppHeader: Verificando Painel Admin - isAdmin.value:', isAdmin.value)
+      return isAdmin.value
+    }
+    return true
+  })
+
+  console.log('🔍 AppHeader: Opções filtradas:', filtered.map(opt => opt.name))
+  return filtered
+})
+
+const supabase = useSupabaseClient()
 
 const toggleDropdown = () => {
   isDropdownOpen.value = !isDropdownOpen.value
+}
+
+const handleDropdownClick = async (option) => {
+  isDropdownOpen.value = false
+  
+  if (option.action === 'logout') {
+    try {
+      const { error } = await supabase.auth.signOut()
+      if (error) throw error
+      navigateTo('/login')
+    } catch (error) {
+      console.error('Erro ao fazer logout:', error)
+    }
+  } else {
+    navigateTo(option.path)
+  }
 }
 
 const toggleConfigPanel = () => {

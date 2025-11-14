@@ -1,15 +1,26 @@
 <template>
   <div class="bg-white rounded-lg shadow-lg border border-gray-200 p-8">
     <div class="mb-8 text-center">
-      <h2 class="text-2xl font-bold text-gray-900 mb-2">Bem-vindo de volta!</h2>
-      <p class="text-gray-600">Faça login para continuar</p>
+      <h2 class="text-2xl font-bold text-gray-900 mb-2">Criar conta</h2>
+      <p class="text-gray-600">Preencha os dados para começar</p>
     </div>
 
     <div v-if="errorMessage" class="mb-6 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg text-sm">
       {{ errorMessage }}
     </div>
 
-    <form @submit.prevent="handleLogin" class="space-y-4">
+    <form @submit.prevent="handleRegister" class="space-y-4">
+      <div>
+        <label class="block text-gray-700 font-medium mb-2">Nome completo</label>
+        <input
+          v-model="form.name"
+          type="text"
+          required
+          class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          placeholder="Seu nome completo"
+        >
+      </div>
+
       <div>
         <label class="block text-gray-700 font-medium mb-2">Email</label>
         <input
@@ -28,20 +39,19 @@
           type="password"
           required
           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          placeholder="Digite sua senha"
+          placeholder="Mínimo 8 caracteres"
         >
       </div>
 
-      <div class="flex items-center justify-between">
-        <label class="flex items-center">
-          <input
-            v-model="form.remember"
-            type="checkbox"
-            class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-          >
-          <span class="ml-2 text-sm text-gray-700">Lembrar-me</span>
-        </label>
-        <a href="#" class="text-sm text-blue-600 hover:text-blue-700">Esqueceu a senha?</a>
+      <div>
+        <label class="block text-gray-700 font-medium mb-2">Confirmar senha</label>
+        <input
+          v-model="form.confirmPassword"
+          type="password"
+          required
+          class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          placeholder="Digite a senha novamente"
+        >
       </div>
 
       <button
@@ -49,15 +59,15 @@
         :disabled="isLoading"
         class="w-full px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        <span v-if="!isLoading">Entrar</span>
-        <span v-else>Entrando...</span>
+        <span v-if="!isLoading">Criar conta</span>
+        <span v-else>Criando conta...</span>
       </button>
     </form>
 
     <div class="mt-6 text-center">
       <p class="text-sm text-gray-600">
-        Não tem uma conta? 
-        <NuxtLink to="/register" class="text-blue-600 hover:text-blue-700 font-medium">Cadastre-se</NuxtLink>
+        Já tem uma conta? 
+        <NuxtLink to="/login" class="text-blue-600 hover:text-blue-700 font-medium">Faça login</NuxtLink>
       </p>
     </div>
   </div>
@@ -74,18 +84,19 @@ definePageMeta({
 const supabase = useSupabaseClient()
 
 const form = ref({
+  name: '',
   email: '',
   password: '',
-  remember: false
+  confirmPassword: ''
 })
 
 const errorMessage = ref('')
 const isLoading = ref(false)
 
-const handleLogin = async () => {
+const handleRegister = async () => {
   errorMessage.value = ''
   
-  if (!form.value.email || !form.value.password) {
+  if (!form.value.name || !form.value.email || !form.value.password || !form.value.confirmPassword) {
     errorMessage.value = 'Por favor, preencha todos os campos'
     return
   }
@@ -96,19 +107,34 @@ const handleLogin = async () => {
     return
   }
 
+  if (form.value.password.length < 8) {
+    errorMessage.value = 'A senha deve ter no mínimo 8 caracteres'
+    return
+  }
+
+  if (form.value.password !== form.value.confirmPassword) {
+    errorMessage.value = 'As senhas não coincidem'
+    return
+  }
+
   isLoading.value = true
 
   try {
-    const { data, error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signUp({
       email: form.value.email,
-      password: form.value.password
+      password: form.value.password,
+      options: {
+        data: {
+          full_name: form.value.name
+        }
+      }
     })
 
     if (error) throw error
 
     navigateTo('/')
   } catch (error) {
-    errorMessage.value = 'Email ou senha incorretos'
+    errorMessage.value = error.message || 'Erro ao criar conta. Tente novamente.'
   } finally {
     isLoading.value = false
   }
