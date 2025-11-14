@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(\"C:\\Users\\jpcb2\\OneDrive\\Documentos\\GitHub\\disparos-definitivo\\CLAUDE.md\")"
     ],
     "deny": [],
     "ask": []
