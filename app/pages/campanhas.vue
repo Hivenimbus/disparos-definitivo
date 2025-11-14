@@ -341,8 +341,4 @@ const nextPage = () => {
 const goToPage = (page) => {
   currentPage.value = page
 }
-
-definePageMeta({
-  middleware: 'auth'
-})
 </script>

@@ -15,29 +15,6 @@
         rows="6"
         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
       ></textarea>
-
-      <!-- Botões Spintax e Nome posicionados abaixo da mensagem -->
-      <div class="mt-3 flex justify-start space-x-3">
-        <button
-          @click="openSpintaxModal"
-          class="flex items-center space-x-2 px-4 py-2 text-purple-700 bg-purple-50 border border-purple-200 rounded-lg hover:bg-purple-100 transition-colors text-sm"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-          <span>Adicionar Spintax</span>
-        </button>
-
-        <button
-          @click="insertNomeVariable"
-          class="flex items-center space-x-2 px-4 py-2 text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors text-sm"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-          </svg>
-          <span>Adicionar Nome</span>
-        </button>
-      </div>
     </div>
 
     <div class="mb-6">
@@ -270,67 +247,6 @@
         </div>
       </div>
     </div>
-
-    <!-- Spintax Modal -->
-    <div v-if="isSpintaxModalOpen" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" @click.self="closeSpintaxModal">
-      <div class="bg-white rounded-lg shadow-xl max-w-lg w-full p-6">
-        <div class="flex items-center justify-between mb-6">
-          <h3 class="text-xl font-semibold text-gray-800">Gerador de Spintax</h3>
-          <button @click="closeSpintaxModal" class="text-gray-400 hover:text-gray-600">
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        <div class="mb-4">
-          <div class="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-4">
-            <h4 class="text-sm font-semibold text-purple-800 mb-2">Como funciona:</h4>
-            <p class="text-sm text-purple-700">Digite as variações da sua mensagem, separadas por vírgula ou quebra de linha. Exemplo:</p>
-            <p class="text-sm text-purple-600 mt-2 italic">"oi, olá, e aí? tudo bem?"</p>
-          </div>
-        </div>
-
-        <div class="mb-4">
-          <label class="block text-gray-700 font-medium mb-2">
-            Variações da Mensagem
-            <span class="text-sm text-gray-500 ml-2">({{ variationCount }}/10)</span>
-          </label>
-          <textarea
-            v-model="spintaxInput"
-            placeholder="Digite as variações separadas por vírgula ou quebra de linha...&#10;Ex: oi, olá, e aí? tudo bem?"
-            rows="8"
-            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
-            @input="updateVariationCount"
-          ></textarea>
-        </div>
-
-        <div v-if="errorMessage" class="mb-4 bg-red-50 border border-red-200 rounded-lg p-3">
-          <p class="text-sm text-red-700">{{ errorMessage }}</p>
-        </div>
-
-        <div v-if="spintaxPreview" class="mb-4 bg-green-50 border border-green-200 rounded-lg p-3">
-          <p class="text-sm font-semibold text-green-800 mb-1">Preview da Spintax:</p>
-          <p class="text-sm text-green-700 font-mono">{{ spintaxPreview }}</p>
-        </div>
-
-        <div class="flex justify-end space-x-3">
-          <button
-            @click="closeSpintaxModal"
-            class="px-6 py-2 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            Cancelar
-          </button>
-          <button
-            @click="saveSpintax"
-            :disabled="!canSaveSpintax"
-            class="px-6 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Inserir Spintax
-          </button>
-        </div>
-      </div>
-    </div>
   </section>
 </template>
 
@@ -344,12 +260,6 @@ const isPreviewModalOpen = ref(false)
 const currentAttachmentType = ref('')
 const selectedFile = ref(null)
 const caption = ref('')
-
-// Spintax variables
-const isSpintaxModalOpen = ref(false)
-const spintaxInput = ref('')
-const variationCount = ref(0)
-const errorMessage = ref('')
 
 const acceptedFileTypes = computed(() => {
   const types = {
@@ -369,24 +279,6 @@ const attachmentTypeLabel = computed(() => {
     document: 'Documento'
   }
   return labels[currentAttachmentType.value] || 'Anexo'
-})
-
-// Spintax computed properties
-const spintaxPreview = computed(() => {
-  if (!spintaxInput.value.trim()) return ''
-
-  const variations = parseVariations(spintaxInput.value)
-  if (variations.length === 0) return ''
-
-  return `{${variations.join('|')}}`
-})
-
-const canSaveSpintax = computed(() => {
-  if (!spintaxInput.value.trim()) return false
-  if (errorMessage.value) return false
-  if (variationCount.value === 0 || variationCount.value > 10) return false
-
-  return true
 })
 
 const handleAttachment = (type) => {
@@ -460,120 +352,5 @@ const getImagePreview = (file) => {
 
 const sendMessage = () => {
   console.log('Enviar mensagem:', message.value, attachments.value)
-}
-
-// Spintax functions
-const parseVariations = (input) => {
-  if (!input || !input.trim()) return []
-
-  // Split by comma or line breaks
-  const variations = input
-    .split(/[\n,]+/)
-    .map(variation => variation.trim())
-    .filter(variation => variation.length > 0)
-
-  return variations
-}
-
-const updateVariationCount = () => {
-  const variations = parseVariations(spintaxInput.value)
-  variationCount.value = variations.length
-
-  // Validation
-  errorMessage.value = ''
-
-  if (variations.length === 0) {
-    errorMessage.value = ''
-  } else if (variations.length > 10) {
-    errorMessage.value = 'Máximo de 10 variações permitidas'
-  } else if (variations.length === 1) {
-    errorMessage.value = 'Adicione pelo menos 2 variações para criar uma spintax'
-  }
-}
-
-const openSpintaxModal = () => {
-  isSpintaxModalOpen.value = true
-  spintaxInput.value = ''
-  variationCount.value = 0
-  errorMessage.value = ''
-}
-
-const closeSpintaxModal = () => {
-  isSpintaxModalOpen.value = false
-  spintaxInput.value = ''
-  variationCount.value = 0
-  errorMessage.value = ''
-}
-
-const generateSpintax = (input) => {
-  const variations = parseVariations(input)
-  if (variations.length >= 2) {
-    return `{${variations.join('|')}}`
-  }
-  return null
-}
-
-const insertSpintax = () => {
-  const spintax = generateSpintax(spintaxInput.value)
-  if (!spintax) return
-
-  // Get the textarea element
-  const textarea = document.querySelector('textarea[v-model="message"]')
-  if (!textarea) {
-    // Fallback: just append to the message
-    message.value += spintax
-    return
-  }
-
-  // Get cursor position
-  const startPos = textarea.selectionStart
-  const endPos = textarea.selectionEnd
-  const beforeText = message.value.substring(0, startPos)
-  const afterText = message.value.substring(endPos)
-
-  // Insert spintax at cursor position
-  message.value = beforeText + spintax + afterText
-
-  // Set cursor position after the inserted spintax
-  setTimeout(() => {
-    textarea.focus()
-    const newCursorPos = startPos + spintax.length
-    textarea.setSelectionRange(newCursorPos, newCursorPos)
-  }, 0)
-}
-
-const saveSpintax = () => {
-  if (!canSaveSpintax.value) return
-
-  insertSpintax()
-  closeSpintaxModal()
-}
-
-const insertNomeVariable = () => {
-  const nomeVariable = '{nome}'
-
-  // Get the textarea element
-  const textarea = document.querySelector('textarea[v-model="message"]')
-  if (!textarea) {
-    // Fallback: just append to the message
-    message.value += nomeVariable
-    return
-  }
-
-  // Get cursor position
-  const startPos = textarea.selectionStart
-  const endPos = textarea.selectionEnd
-  const beforeText = message.value.substring(0, startPos)
-  const afterText = message.value.substring(endPos)
-
-  // Insert nome variable at cursor position
-  message.value = beforeText + nomeVariable + afterText
-
-  // Set cursor position after the inserted variable
-  setTimeout(() => {
-    textarea.focus()
-    const newCursorPos = startPos + nomeVariable.length
-    textarea.setSelectionRange(newCursorPos, newCursorPos)
-  }, 0)
 }
 </script>

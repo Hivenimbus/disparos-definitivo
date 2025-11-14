@@ -53,13 +53,6 @@
         <span v-else>Entrando...</span>
       </button>
     </form>
-
-    <div class="mt-6 text-center">
-      <p class="text-sm text-gray-600">
-        Não tem uma conta? 
-        <NuxtLink to="/register" class="text-blue-600 hover:text-blue-700 font-medium">Cadastre-se</NuxtLink>
-      </p>
-    </div>
   </div>
 </template>
 
@@ -67,11 +60,8 @@
 import { ref } from 'vue'
 
 definePageMeta({
-  layout: 'auth',
-  middleware: 'guest'
+  layout: 'auth'
 })
-
-const supabase = useSupabaseClient()
 
 const form = ref({
   email: '',
@@ -98,19 +88,15 @@ const handleLogin = async () => {
 
   isLoading.value = true
 
-  try {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: form.value.email,
-      password: form.value.password
-    })
-
-    if (error) throw error
-
-    navigateTo('/')
-  } catch (error) {
-    errorMessage.value = 'Email ou senha incorretos'
-  } finally {
-    isLoading.value = false
-  }
+  setTimeout(() => {
+    console.log('Login:', form.value)
+    
+    if (form.value.email === 'admin@hive.com' && form.value.password === '12345678') {
+      navigateTo('/')
+    } else {
+      errorMessage.value = 'Email ou senha incorretos'
+      isLoading.value = false
+    }
+  }, 1000)
 }
 </script>

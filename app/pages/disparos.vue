@@ -379,10 +379,6 @@ const visiblePages = computed(() => {
   return pages
 })
 
-definePageMeta({
-  middleware: 'auth'
-})
-
 const previousPage = () => {
   if (currentPage.value > 1) {
     currentPage.value--

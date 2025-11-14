@@ -21,12 +21,6 @@
           </svg>
           <span>Importar Arquivo</span>
         </button>
-        <button @click="openCountryCodeModal" class="flex items-center space-x-2 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors">
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-          </svg>
-          <span>Adicionar Código do País</span>
-        </button>
       </div>
     </div>
 
@@ -47,16 +41,13 @@
           <tr class="bg-gray-100 text-left">
             <th class="px-4 py-3 text-gray-700 font-semibold">Nome</th>
             <th class="px-4 py-3 text-gray-700 font-semibold">WhatsApp</th>
-            <th v-if="hasVar1Data" class="px-4 py-3 text-gray-700 font-semibold">Var1</th>
-            <th v-if="hasVar2Data" class="px-4 py-3 text-gray-700 font-semibold">Var2</th>
-            <th v-if="hasVar3Data" class="px-4 py-3 text-gray-700 font-semibold">Var3</th>
             <th class="px-4 py-3 text-gray-700 font-semibold">Status</th>
             <th class="px-4 py-3 text-gray-700 font-semibold">Ações</th>
           </tr>
         </thead>
         <tbody>
           <tr v-if="contacts.length === 0">
-            <td :colspan="visibleColumnsCount" class="px-4 py-8 text-center text-gray-500">
+            <td colspan="4" class="px-4 py-8 text-center text-gray-500">
               Nenhum contato cadastrado
             </td>
           </tr>
@@ -67,9 +58,6 @@
           >
             <td class="px-4 py-3 text-gray-800">{{ contact.name }}</td>
             <td class="px-4 py-3 text-gray-600">{{ contact.whatsapp }}</td>
-            <td v-if="hasVar1Data" class="px-4 py-3 text-gray-600 text-sm">{{ contact.var1 || '-' }}</td>
-            <td v-if="hasVar2Data" class="px-4 py-3 text-gray-600 text-sm">{{ contact.var2 || '-' }}</td>
-            <td v-if="hasVar3Data" class="px-4 py-3 text-gray-600 text-sm">{{ contact.var3 || '-' }}</td>
             <td class="px-4 py-3">
               <span
                 class="px-3 py-1 rounded-full text-xs font-medium"
@@ -116,17 +104,11 @@
             Cole a lista de contatos (um por linha):
           </label>
           <p class="text-sm text-gray-500 mb-3">
-            Formato: Nome, WhatsApp, Var1, Var2, Var3 (variáveis são opcionais)
-          </p>
-          <p class="text-xs text-gray-400 mb-3">
-            <strong>Exemplos:</strong><br>
-            • 5511999999999 (apenas número)<br>
-            • João Silva, 5511988888888 (nome e número)<br>
-            • Maria Santos, 5511977777777, Cliente VIP, 25 anos, São Paulo (completo)
+            Formato: Número, Nome ou Número
           </p>
           <textarea
             v-model="contactListText"
-            placeholder="João Silva, 5511988888888, Cliente VIP, 25 anos, São Paulo&#10;Maria Santos, 5511977777777, Premium&#10;5511999999999"
+            placeholder="Ex: 5511999999999&#10;João Silva, 551198888888&#10;Maria Santos      5511977777777"
             rows="12"
             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none font-mono text-sm"
           ></textarea>
@@ -179,36 +161,6 @@
               type="text"
               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="Número do WhatsApp"
-            >
-          </div>
-
-          <div>
-            <label class="block text-gray-700 font-medium mb-2">Variável 1</label>
-            <input
-              v-model="editForm.var1"
-              type="text"
-              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="Variável personalizada 1"
-            >
-          </div>
-
-          <div>
-            <label class="block text-gray-700 font-medium mb-2">Variável 2</label>
-            <input
-              v-model="editForm.var2"
-              type="text"
-              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="Variável personalizada 2"
-            >
-          </div>
-
-          <div>
-            <label class="block text-gray-700 font-medium mb-2">Variável 3</label>
-            <input
-              v-model="editForm.var3"
-              type="text"
-              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="Variável personalizada 3"
             >
           </div>
         </div>
@@ -301,62 +253,6 @@
         </div>
       </div>
     </div>
-
-    <!-- Country Code Modal -->
-    <div v-if="isCountryCodeModalOpen" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" @click.self="closeCountryCodeModal">
-      <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-        <div class="flex items-center justify-between mb-6">
-          <h3 class="text-xl font-semibold text-gray-800">Adicionar Código do País</h3>
-          <button @click="closeCountryCodeModal" class="text-gray-400 hover:text-gray-600">
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        <div class="mb-4">
-          <label class="block text-gray-700 font-medium mb-2">Código do País</label>
-          <input
-            v-model="countryCode"
-            type="text"
-            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-            placeholder="Ex: 55, 1, 44"
-            @input="validateCountryCode"
-          >
-          <p class="text-sm text-gray-500 mt-2">Digite apenas os números do código do país (sem +)</p>
-        </div>
-
-        <div v-if="countryCode && !countryCodeError" class="mb-4 bg-amber-50 border border-amber-200 rounded-lg p-4">
-          <p class="text-sm font-semibold text-amber-800 mb-1">Preview das alterações:</p>
-          <p class="text-sm text-amber-700">
-            {{ contactsAffectedCount }} contato(s) serão atualizados
-          </p>
-          <p class="text-xs text-amber-600 mt-1">
-            O código "{{ countryCode }}" será adicionado ao início dos números que ainda não possuem código
-          </p>
-        </div>
-
-        <div v-if="countryCodeError" class="mb-4 bg-red-50 border border-red-200 rounded-lg p-3">
-          <p class="text-sm text-red-700">{{ countryCodeError }}</p>
-        </div>
-
-        <div class="flex justify-end space-x-3">
-          <button
-            @click="closeCountryCodeModal"
-            class="px-6 py-2 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            Cancelar
-          </button>
-          <button
-            @click="addCountryCodeToContacts"
-            :disabled="!countryCode || countryCodeError || contactsAffectedCount === 0"
-            class="px-6 py-2 bg-amber-600 text-white font-medium rounded-lg hover:bg-amber-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Adicionar Código
-          </button>
-        </div>
-      </div>
-    </div>
   </section>
 </template>
 
@@ -370,51 +266,14 @@ const contactListText = ref('')
 const isEditModalOpen = ref(false)
 const isFileImportModalOpen = ref(false)
 const selectedFile = ref(null)
-const isCountryCodeModalOpen = ref(false)
-const countryCode = ref('')
-const countryCodeError = ref('')
 const editForm = ref({
   id: null,
   name: '',
-  whatsapp: '',
-  var1: '',
-  var2: '',
-  var3: ''
+  whatsapp: ''
 })
 
 const totalContacts = computed(() => contacts.value.length)
 const validContacts = computed(() => contacts.value.filter(c => c.status === 'valid').length)
-
-// Computed properties for conditional column display
-const hasVar1Data = computed(() =>
-  contacts.value.some(contact => contact.var1 && contact.var1.trim())
-)
-
-const hasVar2Data = computed(() =>
-  contacts.value.some(contact => contact.var2 && contact.var2.trim())
-)
-
-const hasVar3Data = computed(() =>
-  contacts.value.some(contact => contact.var3 && contact.var3.trim())
-)
-
-const visibleColumnsCount = computed(() => {
-  let count = 4 // Name, WhatsApp, Status, Actions (always visible)
-  if (hasVar1Data.value) count++
-  if (hasVar2Data.value) count++
-  if (hasVar3Data.value) count++
-  return count
-})
-
-const contactsAffectedCount = computed(() => {
-  if (!countryCode.value || countryCodeError.value) return 0
-  return contacts.value.filter(contact => {
-    if (!contact.whatsapp) return false
-    // Check if contact already has a country code (starts with 2-4 digits followed by phone-like digits)
-    const cleanNumber = contact.whatsapp.replace(/\D/g, '')
-    return !cleanNumber.match(/^([2-9]\d{1,3})[2-9]\d+/)
-  }).length
-})
 
 const openImportModal = () => {
   isImportModalOpen.value = true
@@ -428,11 +287,8 @@ const closeImportModal = () => {
 const openEditModal = (contact) => {
   editForm.value = {
     id: contact.id,
-    name: contact.name || '',
-    whatsapp: contact.whatsapp || '',
-    var1: contact.var1 || '',
-    var2: contact.var2 || '',
-    var3: contact.var3 || ''
+    name: contact.name,
+    whatsapp: contact.whatsapp
   }
   isEditModalOpen.value = true
 }
@@ -442,10 +298,7 @@ const closeEditModal = () => {
   editForm.value = {
     id: null,
     name: '',
-    whatsapp: '',
-    var1: '',
-    var2: '',
-    var3: ''
+    whatsapp: ''
   }
 }
 
@@ -457,63 +310,40 @@ const saveEdit = () => {
       ...contacts.value[index],
       name: editForm.value.name,
       whatsapp: editForm.value.whatsapp,
-      var1: editForm.value.var1,
-      var2: editForm.value.var2,
-      var3: editForm.value.var3,
       status: isValid ? 'valid' : 'invalid'
     }
   }
   closeEditModal()
 }
 
-const parseContactLine = (line, delimiter = ',') => {
+const parseContactLine = (line) => {
   line = line.trim()
   if (!line) return null
-
-  // Split by provided delimiter and trim whitespace
-  const parts = line.split(delimiter).map(part => part.trim())
-
-  // Handle different formats
-  if (parts.length === 1) {
-    // Only WhatsApp number
-    const whatsapp = parts[0].replace(/\D/g, '')
-    if (whatsapp) {
-      return {
-        name: `Contato ${whatsapp.slice(-4)}`,
-        whatsapp: whatsapp,
-        var1: '',
-        var2: '',
-        var3: ''
-      }
-    }
-  } else if (parts.length === 2) {
-    // Name, WhatsApp (backward compatibility)
-    const name = parts[0]
-    const whatsapp = parts[1].replace(/\D/g, '')
-    if (whatsapp) {
-      return {
-        name: name,
-        whatsapp: whatsapp,
-        var1: '',
-        var2: '',
-        var3: ''
-      }
-    }
-  } else if (parts.length >= 3) {
-    // Name, WhatsApp, Var1, Var2, Var3 (new format)
-    const name = parts[0]
-    const whatsapp = parts[1].replace(/\D/g, '')
-    if (whatsapp) {
-      return {
-        name: name,
-        whatsapp: whatsapp,
-        var1: parts[2] || '',
-        var2: parts[3] || '',
-        var3: parts[4] || ''
-      }
+  
+  const commaMatch = line.match(/^(.+?),\s*(\d+)$/)
+  if (commaMatch) {
+    return {
+      name: commaMatch[1].trim(),
+      whatsapp: commaMatch[2].trim()
     }
   }
-
+  
+  const spaceMatch = line.match(/^(.+?)\s+(\d+)$/)
+  if (spaceMatch) {
+    return {
+      name: spaceMatch[1].trim(),
+      whatsapp: spaceMatch[2].trim()
+    }
+  }
+  
+  const numberOnly = line.match(/^(\d+)$/)
+  if (numberOnly) {
+    return {
+      name: `Contato ${numberOnly[1].slice(-4)}`,
+      whatsapp: numberOnly[1].trim()
+    }
+  }
+  
   return null
 }
 
@@ -522,25 +352,10 @@ const validateWhatsApp = (number) => {
   return cleaned.length >= 10 && cleaned.length <= 15
 }
 
-const detectDelimiter = (text) => {
-  // Analyze first 10 lines to determine delimiter
-  const lines = text.split('\n').slice(0, 10).filter(line => line.trim())
-  let tabCount = 0
-  let commaCount = 0
-
-  lines.forEach(line => {
-    tabCount += (line.match(/\t/g) || []).length
-    commaCount += (line.match(/,/g) || []).length
-  })
-
-  // Use tab if more tabs than commas, otherwise use comma
-  return tabCount > commaCount ? '\t' : ','
-}
-
 const importContacts = () => {
   const lines = contactListText.value.split('\n')
   const newContacts = []
-
+  
   lines.forEach((line, index) => {
     const parsed = parseContactLine(line)
     if (parsed) {
@@ -549,17 +364,14 @@ const importContacts = () => {
         id: Date.now() + index,
         name: parsed.name,
         whatsapp: parsed.whatsapp,
-        var1: parsed.var1,
-        var2: parsed.var2,
-        var3: parsed.var3,
         status: isValid ? 'valid' : 'invalid'
       })
     }
   })
-
+  
   contacts.value = [...contacts.value, ...newContacts]
   closeImportModal()
-
+  
   console.log(`Importados ${newContacts.length} contatos`)
 }
 
@@ -594,24 +406,16 @@ const processFile = async () => {
   try {
     if (fileName.endsWith('.txt') || fileName.endsWith('.csv')) {
       const text = await file.text()
-
-      // Detect delimiter for TXT/CSV files
-      const delimiter = detectDelimiter(text)
-      console.log(`Delimitador detectado: ${delimiter === '\t' ? 'TAB' : 'Vírgula'}`)
-
       const lines = text.split('\n')
-
+      
       lines.forEach((line, index) => {
-        const parsed = parseContactLine(line, delimiter)
+        const parsed = parseContactLine(line)
         if (parsed) {
           const isValid = validateWhatsApp(parsed.whatsapp)
           newContacts.push({
             id: Date.now() + index,
             name: parsed.name,
             whatsapp: parsed.whatsapp,
-            var1: parsed.var1,
-            var2: parsed.var2,
-            var3: parsed.var3,
             status: isValid ? 'valid' : 'invalid'
           })
         }
@@ -627,9 +431,6 @@ const processFile = async () => {
 
         let name = ''
         let whatsapp = ''
-        let var1 = ''
-        let var2 = ''
-        let var3 = ''
 
         if (row.length === 1) {
           whatsapp = String(row[0]).trim()
@@ -637,9 +438,6 @@ const processFile = async () => {
         } else {
           name = String(row[0] || '').trim()
           whatsapp = String(row[1] || '').trim()
-          var1 = String(row[2] || '').trim()
-          var2 = String(row[3] || '').trim()
-          var3 = String(row[4] || '').trim()
         }
 
         if (whatsapp) {
@@ -648,9 +446,6 @@ const processFile = async () => {
             id: Date.now() + index,
             name: name || `Contato ${whatsapp.slice(-4)}`,
             whatsapp: whatsapp,
-            var1: var1,
-            var2: var2,
-            var3: var3,
             status: isValid ? 'valid' : 'invalid'
           })
         }
@@ -664,84 +459,5 @@ const processFile = async () => {
     console.error('Erro ao processar arquivo:', error)
     alert('Erro ao processar arquivo. Verifique o formato e tente novamente.')
   }
-}
-
-// Country Code Modal Functions
-const openCountryCodeModal = () => {
-  isCountryCodeModalOpen.value = true
-  countryCode.value = ''
-  countryCodeError.value = ''
-}
-
-const closeCountryCodeModal = () => {
-  isCountryCodeModalOpen.value = false
-  countryCode.value = ''
-  countryCodeError.value = ''
-}
-
-const validateCountryCode = () => {
-  const value = countryCode.value.trim()
-  countryCodeError.value = ''
-
-  if (!value) {
-    return
-  }
-
-  // Remove any non-digit characters for validation
-  const digitsOnly = value.replace(/\D/g, '')
-
-  if (digitsOnly.length === 0) {
-    countryCodeError.value = 'Digite apenas números'
-    return
-  }
-
-  if (digitsOnly.length < 1 || digitsOnly.length > 4) {
-    countryCodeError.value = 'Código do país deve ter entre 1 e 4 dígitos'
-    return
-  }
-
-  // Valid country codes (basic validation)
-  const validPrefixes = ['1', '2', '3', '4', '5', '6', '7', '8', '9']
-  if (!validPrefixes.includes(digitsOnly[0])) {
-    countryCodeError.value = 'Código do país inválido'
-    return
-  }
-
-  // Update the input to show only digits
-  countryCode.value = digitsOnly
-}
-
-const addCountryCodeToContacts = () => {
-  if (!countryCode.value || countryCodeError.value) {
-    return
-  }
-
-  let updatedCount = 0
-
-  contacts.value = contacts.value.map(contact => {
-    if (!contact.whatsapp) return contact
-
-    const cleanNumber = contact.whatsapp.replace(/\D/g, '')
-
-    // Check if number already has a country code
-    const hasCountryCode = cleanNumber.match(/^([2-9]\d{1,3})[2-9]\d+/)
-
-    if (!hasCountryCode) {
-      updatedCount++
-      const newWhatsapp = countryCode.value + cleanNumber
-      const isValid = validateWhatsApp(newWhatsapp)
-
-      return {
-        ...contact,
-        whatsapp: newWhatsapp,
-        status: isValid ? 'valid' : 'invalid'
-      }
-    }
-
-    return contact
-  })
-
-  alert(`Código do país "${countryCode.value}" adicionado a ${updatedCount} contato(s) com sucesso!`)
-  closeCountryCodeModal()
 }
 </script>

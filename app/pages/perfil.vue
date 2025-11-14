@@ -147,10 +147,6 @@
 <script setup>
 import { ref } from 'vue'
 
-definePageMeta({
-  middleware: 'auth'
-})
-
 const profileForm = ref({
   name: 'João Silva',
   email: 'joao.silva@example.com',
