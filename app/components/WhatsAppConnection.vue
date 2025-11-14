@@ -7,24 +7,54 @@
         </svg>
         <h2 class="text-xl font-semibold text-gray-800">Conexão WhatsApp</h2>
       </div>
-      <span class="flex items-center space-x-2 text-red-500 text-sm font-medium">
-        <span class="w-2 h-2 bg-red-500 rounded-full"></span>
-        <span>Desconectado</span>
+      <span
+        :class="[
+          'flex items-center space-x-2 text-sm font-medium',
+          connectionStatus === 'connected' ? 'text-green-500' :
+          connectionStatus === 'connecting' ? 'text-yellow-500' :
+          'text-red-500'
+        ]"
+      >
+        <span
+          :class="[
+            'w-2 h-2 rounded-full',
+            connectionStatus === 'connected' ? 'bg-green-500' :
+            connectionStatus === 'connecting' ? 'bg-yellow-500' :
+            'bg-red-500'
+          ]"
+        ></span>
+        <span>{{ statusText }}</span>
       </span>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
       <div class="flex items-center justify-center bg-gray-100 rounded-lg p-8">
         <div class="text-center">
+          <!-- QR Code or Placeholder -->
           <div class="w-48 h-48 bg-white rounded-lg flex items-center justify-center mb-4 mx-auto">
-            <div class="grid grid-cols-2 gap-2">
+            <img v-if="qrCodeDataUrl" :src="qrCodeDataUrl" alt="QR Code" class="w-full h-full" />
+            <div v-else-if="loading" class="flex items-center justify-center">
+              <svg class="animate-spin h-12 w-12 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+            </div>
+            <div v-else class="grid grid-cols-2 gap-2">
               <div class="w-16 h-16 bg-gray-300 rounded"></div>
               <div class="w-16 h-16 bg-gray-300 rounded"></div>
               <div class="w-16 h-16 bg-gray-300 rounded"></div>
               <div class="w-16 h-16 bg-gray-300 rounded"></div>
             </div>
           </div>
-          <p class="text-gray-600 text-sm">Aguardando QR Code</p>
+
+          <p class="text-gray-600 text-sm">
+            {{ qrCodeDataUrl ? 'Escaneie o QR Code' : 'Aguardando QR Code' }}
+          </p>
+
+          <!-- Error Message -->
+          <div v-if="error" class="mt-4 p-3 bg-red-50 text-red-600 rounded-lg text-sm">
+            {{ error }}
+          </div>
         </div>
       </div>
 
@@ -45,16 +75,142 @@
           </li>
         </ol>
 
-        <button class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors flex items-center justify-center space-x-2">
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <button
+          @click="handleConnect"
+          :disabled="loading || connectionStatus === 'connected'"
+          class="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-lg transition-colors flex items-center justify-center space-x-2"
+        >
+          <svg v-if="!loading" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
           </svg>
-          <span>Iniciar Conexão</span>
+          <svg v-else class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <span>{{ loading ? 'Conectando...' : connectionStatus === 'connected' ? 'Conectado' : 'Iniciar Conexão' }}</span>
         </button>
       </div>
     </div>
   </section>
 </template>
 
-<script setup>
+<script setup lang="ts">
+// Composables
+const supabase = useSupabaseClient()
+const user = useSupabaseUser()
+
+// Reactive state
+const loading = ref(false)
+const error = ref<string | null>(null)
+const connectionStatus = ref<'disconnected' | 'connecting' | 'connected'>('disconnected')
+const qrCodeDataUrl = ref<string | null>(null)
+let statusPollingInterval: NodeJS.Timeout | null = null
+
+// Computed
+const statusText = computed(() => {
+  switch (connectionStatus.value) {
+    case 'connected':
+      return 'Conectado'
+    case 'connecting':
+      return 'Conectando...'
+    default:
+      return 'Desconectado'
+  }
+})
+
+// Functions
+const handleConnect = async () => {
+  if (!user.value) {
+    error.value = 'Usuário não autenticado'
+    return
+  }
+
+  try {
+    loading.value = true
+    error.value = null
+    qrCodeDataUrl.value = null
+
+    // Get session token
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) {
+      throw new Error('Sessão inválida')
+    }
+
+    // Call connect endpoint
+    const response = await $fetch<{ success: boolean; base64: string }>('/api/whatsapp/connect', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`
+      }
+    })
+
+    if (response.success && response.base64) {
+      connectionStatus.value = 'connecting'
+
+      // Use QR code base64 directly from Evolution API
+      qrCodeDataUrl.value = response.base64
+
+      // Start polling for connection status
+      startStatusPolling()
+    } else {
+      throw new Error('Resposta inválida do servidor')
+    }
+  } catch (err: any) {
+    console.error('Connection error:', err)
+    error.value = err.data?.message || err.message || 'Erro ao conectar com WhatsApp'
+    connectionStatus.value = 'disconnected'
+  } finally {
+    loading.value = false
+  }
+}
+
+const checkConnectionStatus = async () => {
+  if (!user.value) return
+
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+
+    const status = await $fetch<{ status: string; connected_at: string | null }>('/api/whatsapp/status', {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`
+      }
+    })
+
+    if (status.status === 'connected') {
+      connectionStatus.value = 'connected'
+      qrCodeDataUrl.value = null
+      stopStatusPolling()
+    } else if (status.status === 'disconnected' && connectionStatus.value === 'connecting') {
+      // If it was connecting but now disconnected, might have failed
+      connectionStatus.value = 'disconnected'
+      stopStatusPolling()
+    }
+  } catch (err) {
+    console.error('Status check error:', err)
+  }
+}
+
+const startStatusPolling = () => {
+  // Poll every 3 seconds
+  statusPollingInterval = setInterval(checkConnectionStatus, 3000)
+}
+
+const stopStatusPolling = () => {
+  if (statusPollingInterval) {
+    clearInterval(statusPollingInterval)
+    statusPollingInterval = null
+  }
+}
+
+// Lifecycle
+onMounted(() => {
+  // Check initial status
+  checkConnectionStatus()
+})
+
+onUnmounted(() => {
+  stopStatusPolling()
+})
 </script>

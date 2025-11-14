@@ -19,7 +19,9 @@
       "Bash(cat:*)",
       "WebFetch(domain:supabase.nuxtjs.org)",
       "WebFetch(domain:dev.to)",
-      "Bash(npm run dev)"
+      "Bash(npm run dev)",
+      "Bash(npm install:*)",
+      "WebFetch(domain:doc.evolution-api.com)"
     ],
     "deny": [],
     "ask": []
