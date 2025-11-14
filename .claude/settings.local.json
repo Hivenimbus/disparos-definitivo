@@ -8,7 +8,17 @@
       "mcp__supabase__get_logs",
       "mcp__supabase__search_docs",
       "Bash(find:*)",
-      "Bash(tree:*)"
+      "Bash(tree:*)",
+      "mcp__supabase__apply_migration",
+      "mcp__supabase__deploy_edge_function",
+      "Bash(mv:*)",
+      "WebSearch",
+      "mcp__plugin_perplexity_perplexity__perplexity_search",
+      "WebFetch(domain:nuxt.com)",
+      "WebFetch(domain:github.com)",
+      "Bash(cat:*)",
+      "WebFetch(domain:supabase.nuxtjs.org)",
+      "WebFetch(domain:dev.to)"
     ],
     "deny": [],
     "ask": []
