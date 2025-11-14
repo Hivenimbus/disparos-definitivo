@@ -58,16 +58,27 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-if="filteredCompanies.length === 0">
+          <tr v-if="pending">
+            <td colspan="7" class="px-4 py-8 text-center text-gray-500">
+              Carregando empresas...
+            </td>
+          </tr>
+          <tr v-else-if="error">
+            <td colspan="7" class="px-4 py-8 text-center text-red-600">
+              Ocorreu um erro ao carregar as empresas.
+            </td>
+          </tr>
+          <tr v-else-if="filteredCompanies.length === 0">
             <td colspan="7" class="px-4 py-8 text-center text-gray-500">
               Nenhuma empresa cadastrada
             </td>
           </tr>
-          <tr
-            v-for="company in filteredCompanies"
-            :key="company.id"
-            class="border-b border-gray-200 hover:bg-gray-50 transition-colors"
-          >
+          <template v-else>
+            <tr
+              v-for="company in filteredCompanies"
+              :key="company.id"
+              class="border-b border-gray-200 hover:bg-gray-50 transition-colors"
+            >
             <td class="px-4 py-3 text-gray-800">{{ company.nome }}</td>
             <td class="px-4 py-3 text-gray-600">{{ formatDate(company.dataVencimento) }}</td>
             <td class="px-4 py-3">
@@ -113,7 +124,8 @@
                 </button>
               </div>
             </td>
-          </tr>
+            </tr>
+          </template>
         </tbody>
       </table>
     </div>
@@ -130,6 +142,13 @@
         </div>
 
         <div class="space-y-4 mb-6">
+          <div
+            v-if="formError"
+            class="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 text-sm"
+          >
+            {{ formError }}
+          </div>
+
           <div>
             <label class="block text-gray-700 font-medium mb-2">Nome da Empresa</label>
             <input
@@ -190,10 +209,11 @@
           </button>
           <button
             @click="saveCompany"
-            :disabled="!isFormValid"
+            :disabled="!isFormValid || isSaving"
             class="px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Salvar
+            <span v-if="!isSaving">Salvar</span>
+            <span v-else>Salvando...</span>
           </button>
         </div>
       </div>
@@ -218,6 +238,9 @@
           Tem certeza que deseja deletar a empresa <strong>{{ companyToDelete?.nome }}</strong>?
           Esta ação não pode ser desfeita.
         </p>
+        <p v-if="deleteError" class="text-red-600 text-center mb-4">
+          {{ deleteError }}
+        </p>
 
         <div class="flex justify-end space-x-3">
           <button
@@ -229,9 +252,11 @@
           <button
             v-if="companyToDelete?.usuariosAtuais === 0"
             @click="confirmDelete"
-            class="px-6 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors"
+            :disabled="isDeleting"
+            class="px-6 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Confirmar Exclusão
+            <span v-if="!isDeleting">Confirmar Exclusão</span>
+            <span v-else>Excluindo...</span>
           </button>
         </div>
       </div>
@@ -242,47 +267,16 @@
 <script setup>
 import { ref, computed } from 'vue'
 
-const companies = ref([
-  {
-    id: 1,
-    nome: 'Tech Solutions Ltda',
-    dataVencimento: '2025-12-31',
-    maxUsuarios: 10,
-    usuariosAtuais: 3,
-    celular: '(11) 98765-4321',
-    cpfCnpj: '12.345.678/0001-90',
-    status: 'ativo',
-    dataCriacao: '2025-01-10'
-  },
-  {
-    id: 2,
-    nome: 'Inovação Digital',
-    dataVencimento: '2025-06-30',
-    maxUsuarios: 5,
-    usuariosAtuais: 5,
-    celular: '(21) 99876-5432',
-    cpfCnpj: '98.765.432/0001-10',
-    status: 'ativo',
-    dataCriacao: '2025-02-15'
-  },
-  {
-    id: 3,
-    nome: 'Marketing Pro',
-    dataVencimento: '2025-10-01',
-    maxUsuarios: 20,
-    usuariosAtuais: 0,
-    celular: '',
-    cpfCnpj: '',
-    status: 'vencido',
-    dataCriacao: '2024-11-20'
-  }
-])
-
 const searchQuery = ref('')
 const isModalOpen = ref(false)
 const isDeleteModalOpen = ref(false)
 const isEditMode = ref(false)
 const companyToDelete = ref(null)
+const formError = ref('')
+const deleteError = ref('')
+const isSaving = ref(false)
+const isDeleting = ref(false)
+
 const companyForm = ref({
   id: null,
   nome: '',
@@ -291,6 +285,13 @@ const companyForm = ref({
   celular: '',
   cpfCnpj: ''
 })
+
+const { data: companiesData, pending, error, refresh } = await useAsyncData('admin-companies', async () => {
+  const response = await $fetch('/api/companies')
+  return response.companies
+})
+
+const companies = computed(() => companiesData.value ?? [])
 
 const totalCompanies = computed(() => companies.value.length)
 const activeCompanies = computed(() => companies.value.filter(c => c.status === 'ativo').length)
@@ -308,18 +309,18 @@ const filteredCompanies = computed(() => {
 })
 
 const isFormValid = computed(() => {
-  return companyForm.value.nome.trim() && 
-         companyForm.value.dataVencimento && 
-         companyForm.value.maxUsuarios > 0
+  return companyForm.value.nome.trim() &&
+    companyForm.value.dataVencimento &&
+    companyForm.value.maxUsuarios > 0
 })
 
 const formatDate = (dateString) => {
+  if (!dateString) return '-'
   const date = new Date(dateString)
   return date.toLocaleDateString('pt-BR')
 }
 
-const openAddModal = () => {
-  isEditMode.value = false
+const resetForm = () => {
   companyForm.value = {
     id: null,
     nome: '',
@@ -328,11 +329,18 @@ const openAddModal = () => {
     celular: '',
     cpfCnpj: ''
   }
+}
+
+const openAddModal = () => {
+  isEditMode.value = false
+  formError.value = ''
+  resetForm()
   isModalOpen.value = true
 }
 
 const openEditModal = (company) => {
   isEditMode.value = true
+  formError.value = ''
   companyForm.value = {
     id: company.id,
     nome: company.nome,
@@ -346,54 +354,50 @@ const openEditModal = (company) => {
 
 const closeModal = () => {
   isModalOpen.value = false
-  companyForm.value = {
-    id: null,
-    nome: '',
-    dataVencimento: '',
-    maxUsuarios: 1,
-    celular: '',
-    cpfCnpj: ''
-  }
+  resetForm()
 }
 
-const saveCompany = () => {
-  const now = new Date().toISOString().split('T')[0]
-  const expirationDate = new Date(companyForm.value.dataVencimento)
-  const currentDate = new Date()
-  const calculatedStatus = expirationDate < currentDate ? 'vencido' : 'ativo'
+const buildPayload = () => ({
+  nome: companyForm.value.nome,
+  dataVencimento: companyForm.value.dataVencimento,
+  maxUsuarios: companyForm.value.maxUsuarios,
+  celular: companyForm.value.celular || null,
+  cpfCnpj: companyForm.value.cpfCnpj || null
+})
 
-  if (isEditMode.value) {
-    const index = companies.value.findIndex(c => c.id === companyForm.value.id)
-    if (index !== -1) {
-      const existingCompany = companies.value[index]
-      companies.value[index] = {
-        ...existingCompany,
-        nome: companyForm.value.nome,
-        dataVencimento: companyForm.value.dataVencimento,
-        maxUsuarios: companyForm.value.maxUsuarios,
-        celular: companyForm.value.celular,
-        cpfCnpj: companyForm.value.cpfCnpj,
-        status: calculatedStatus
-      }
+const saveCompany = async () => {
+  if (!isFormValid.value) return
+
+  isSaving.value = true
+  formError.value = ''
+
+  try {
+    const payload = buildPayload()
+
+    if (isEditMode.value && companyForm.value.id) {
+      await $fetch(`/api/companies/${companyForm.value.id}`, {
+        method: 'PUT',
+        body: payload
+      })
+    } else {
+      await $fetch('/api/companies', {
+        method: 'POST',
+        body: payload
+      })
     }
-  } else {
-    companies.value.push({
-      id: Date.now(),
-      nome: companyForm.value.nome,
-      dataVencimento: companyForm.value.dataVencimento,
-      maxUsuarios: companyForm.value.maxUsuarios,
-      usuariosAtuais: 0,
-      celular: companyForm.value.celular,
-      cpfCnpj: companyForm.value.cpfCnpj,
-      status: calculatedStatus,
-      dataCriacao: now
-    })
-  }
 
-  closeModal()
+    await refresh()
+    closeModal()
+  } catch (err) {
+    const message = err?.statusMessage || 'Erro ao salvar empresa.'
+    formError.value = message
+  } finally {
+    isSaving.value = false
+  }
 }
 
 const openDeleteModal = (company) => {
+  deleteError.value = ''
   companyToDelete.value = company
   isDeleteModalOpen.value = true
 }
@@ -401,11 +405,26 @@ const openDeleteModal = (company) => {
 const closeDeleteModal = () => {
   isDeleteModalOpen.value = false
   companyToDelete.value = null
+  deleteError.value = ''
 }
 
-const confirmDelete = () => {
-  companies.value = companies.value.filter(c => c.id !== companyToDelete.value.id)
-  closeDeleteModal()
+const confirmDelete = async () => {
+  if (!companyToDelete.value) return
+
+  isDeleting.value = true
+  deleteError.value = ''
+
+  try {
+    await $fetch(`/api/companies/${companyToDelete.value.id}`, {
+      method: 'DELETE'
+    })
+    await refresh()
+    closeDeleteModal()
+  } catch (err) {
+    deleteError.value = err?.statusMessage || 'Erro ao excluir empresa.'
+  } finally {
+    isDeleting.value = false
+  }
 }
 
 defineExpose({
