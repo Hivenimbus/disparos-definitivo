@@ -41,13 +41,16 @@
           <tr class="bg-gray-100 text-left">
             <th class="px-4 py-3 text-gray-700 font-semibold">Nome</th>
             <th class="px-4 py-3 text-gray-700 font-semibold">WhatsApp</th>
+            <th v-if="hasVar1" class="px-4 py-3 text-gray-700 font-semibold">Var 1</th>
+            <th v-if="hasVar2" class="px-4 py-3 text-gray-700 font-semibold">Var 2</th>
+            <th v-if="hasVar3" class="px-4 py-3 text-gray-700 font-semibold">Var 3</th>
             <th class="px-4 py-3 text-gray-700 font-semibold">Status</th>
             <th class="px-4 py-3 text-gray-700 font-semibold">Ações</th>
           </tr>
         </thead>
         <tbody>
           <tr v-if="contacts.length === 0">
-            <td colspan="4" class="px-4 py-8 text-center text-gray-500">
+            <td :colspan="totalColumns" class="px-4 py-8 text-center text-gray-500">
               Nenhum contato cadastrado
             </td>
           </tr>
@@ -58,6 +61,9 @@
           >
             <td class="px-4 py-3 text-gray-800">{{ contact.name }}</td>
             <td class="px-4 py-3 text-gray-600">{{ contact.whatsapp }}</td>
+            <td v-if="hasVar1" class="px-4 py-3 text-gray-600">{{ contact.var1 || '-' }}</td>
+            <td v-if="hasVar2" class="px-4 py-3 text-gray-600">{{ contact.var2 || '-' }}</td>
+            <td v-if="hasVar3" class="px-4 py-3 text-gray-600">{{ contact.var3 || '-' }}</td>
             <td class="px-4 py-3">
               <span
                 class="px-3 py-1 rounded-full text-xs font-medium"
@@ -104,11 +110,12 @@
             Cole a lista de contatos (um por linha):
           </label>
           <p class="text-sm text-gray-500 mb-3">
-            Formato: Número, Nome ou Número
+            Formato: Nome, WhatsApp[, Var1, Var2, Var3]<br>
+            Separadores aceitos: vírgula, ponto e vírgula, tabulação, barra vertical |
           </p>
           <textarea
             v-model="contactListText"
-            placeholder="Ex: 5511999999999&#10;João Silva, 551198888888&#10;Maria Santos      5511977777777"
+            placeholder="Ex: 5511999999999&#10;João Silva, 551198888888&#10;Maria Santos, 5511977777777, Gerente&#10;Carlos, 55119666666, Vendedor, SP, Ativo"
             rows="12"
             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none font-mono text-sm"
           ></textarea>
@@ -161,6 +168,36 @@
               type="text"
               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="Número do WhatsApp"
+            >
+          </div>
+
+          <div>
+            <label class="block text-gray-700 font-medium mb-2">Variável 1</label>
+            <input
+              v-model="editForm.var1"
+              type="text"
+              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="Dados personalizados (opcional)"
+            >
+          </div>
+
+          <div>
+            <label class="block text-gray-700 font-medium mb-2">Variável 2</label>
+            <input
+              v-model="editForm.var2"
+              type="text"
+              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="Dados personalizados (opcional)"
+            >
+          </div>
+
+          <div>
+            <label class="block text-gray-700 font-medium mb-2">Variável 3</label>
+            <input
+              v-model="editForm.var3"
+              type="text"
+              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="Dados personalizados (opcional)"
             >
           </div>
         </div>
@@ -269,11 +306,29 @@ const selectedFile = ref(null)
 const editForm = ref({
   id: null,
   name: '',
-  whatsapp: ''
+  whatsapp: '',
+  var1: '',
+  var2: '',
+  var3: ''
 })
 
 const totalContacts = computed(() => contacts.value.length)
 const validContacts = computed(() => contacts.value.filter(c => c.status === 'valid').length)
+
+// Dynamic column detection
+const hasVar1 = computed(() => contacts.value.some(c => c.var1 && c.var1.trim()))
+const hasVar2 = computed(() => contacts.value.some(c => c.var2 && c.var2.trim()))
+const hasVar3 = computed(() => contacts.value.some(c => c.var3 && c.var3.trim()))
+
+// Table column count for colspan
+const totalColumns = computed(() => {
+  let count = 3 // Nome, WhatsApp, Status
+  if (hasVar1.value) count++
+  if (hasVar2.value) count++
+  if (hasVar3.value) count++
+  count++ // Ações column
+  return count
+})
 
 const openImportModal = () => {
   isImportModalOpen.value = true
@@ -288,7 +343,10 @@ const openEditModal = (contact) => {
   editForm.value = {
     id: contact.id,
     name: contact.name,
-    whatsapp: contact.whatsapp
+    whatsapp: contact.whatsapp,
+    var1: contact.var1 || '',
+    var2: contact.var2 || '',
+    var3: contact.var3 || ''
   }
   isEditModalOpen.value = true
 }
@@ -298,7 +356,10 @@ const closeEditModal = () => {
   editForm.value = {
     id: null,
     name: '',
-    whatsapp: ''
+    whatsapp: '',
+    var1: '',
+    var2: '',
+    var3: ''
   }
 }
 
@@ -310,6 +371,9 @@ const saveEdit = () => {
       ...contacts.value[index],
       name: editForm.value.name,
       whatsapp: editForm.value.whatsapp,
+      var1: editForm.value.var1,
+      var2: editForm.value.var2,
+      var3: editForm.value.var3,
       status: isValid ? 'valid' : 'invalid'
     }
   }
@@ -319,32 +383,66 @@ const saveEdit = () => {
 const parseContactLine = (line) => {
   line = line.trim()
   if (!line) return null
-  
-  const commaMatch = line.match(/^(.+?),\s*(\d+)$/)
-  if (commaMatch) {
-    return {
-      name: commaMatch[1].trim(),
-      whatsapp: commaMatch[2].trim()
-    }
+
+  // Try different separators: tab, comma, semicolon, pipe
+  let fields = []
+
+  // Tab separator
+  if (line.includes('\t')) {
+    fields = line.split('\t')
   }
-  
-  const spaceMatch = line.match(/^(.+?)\s+(\d+)$/)
-  if (spaceMatch) {
-    return {
-      name: spaceMatch[1].trim(),
-      whatsapp: spaceMatch[2].trim()
-    }
+  // Semicolon separator
+  else if (line.includes(';')) {
+    fields = line.split(';')
   }
-  
-  const numberOnly = line.match(/^(\d+)$/)
-  if (numberOnly) {
-    return {
-      name: `Contato ${numberOnly[1].slice(-4)}`,
-      whatsapp: numberOnly[1].trim()
-    }
+  // Pipe separator
+  else if (line.includes('|')) {
+    fields = line.split('|')
   }
-  
-  return null
+  // Comma separator (avoid matching decimal numbers)
+  else if (line.match(/,/)) {
+    fields = line.split(',')
+  }
+  // Space separator (only if we have at least 3 parts)
+  else if (line.split(/\s+/).length >= 3) {
+    fields = line.split(/\s+/)
+  }
+  // Try comma as last resort
+  else {
+    fields = line.split(',')
+  }
+
+  // Clean up fields
+  fields = fields.map(f => f.trim()).filter(f => f !== '')
+
+  if (fields.length === 0) return null
+
+  let result = {
+    name: '',
+    whatsapp: '',
+    var1: '',
+    var2: '',
+    var3: ''
+  }
+
+  if (fields.length === 1) {
+    // Only WhatsApp number
+    result.whatsapp = fields[0].replace(/\D/g, '')
+    result.name = `Contato ${result.whatsapp.slice(-4)}`
+  } else if (fields.length === 2) {
+    // Name and WhatsApp
+    result.name = fields[0]
+    result.whatsapp = fields[1].replace(/\D/g, '')
+  } else {
+    // Name, WhatsApp, and variables
+    result.name = fields[0]
+    result.whatsapp = fields[1].replace(/\D/g, '')
+    if (fields[2]) result.var1 = fields[2]
+    if (fields[3]) result.var2 = fields[3]
+    if (fields[4]) result.var3 = fields[4]
+  }
+
+  return result.whatsapp ? result : null
 }
 
 const validateWhatsApp = (number) => {
@@ -355,7 +453,7 @@ const validateWhatsApp = (number) => {
 const importContacts = () => {
   const lines = contactListText.value.split('\n')
   const newContacts = []
-  
+
   lines.forEach((line, index) => {
     const parsed = parseContactLine(line)
     if (parsed) {
@@ -364,14 +462,17 @@ const importContacts = () => {
         id: Date.now() + index,
         name: parsed.name,
         whatsapp: parsed.whatsapp,
+        var1: parsed.var1,
+        var2: parsed.var2,
+        var3: parsed.var3,
         status: isValid ? 'valid' : 'invalid'
       })
     }
   })
-  
+
   contacts.value = [...contacts.value, ...newContacts]
   closeImportModal()
-  
+
   console.log(`Importados ${newContacts.length} contatos`)
 }
 
@@ -407,7 +508,7 @@ const processFile = async () => {
     if (fileName.endsWith('.txt') || fileName.endsWith('.csv')) {
       const text = await file.text()
       const lines = text.split('\n')
-      
+
       lines.forEach((line, index) => {
         const parsed = parseContactLine(line)
         if (parsed) {
@@ -416,6 +517,9 @@ const processFile = async () => {
             id: Date.now() + index,
             name: parsed.name,
             whatsapp: parsed.whatsapp,
+            var1: parsed.var1,
+            var2: parsed.var2,
+            var3: parsed.var3,
             status: isValid ? 'valid' : 'invalid'
           })
         }
@@ -431,6 +535,9 @@ const processFile = async () => {
 
         let name = ''
         let whatsapp = ''
+        let var1 = ''
+        let var2 = ''
+        let var3 = ''
 
         if (row.length === 1) {
           whatsapp = String(row[0]).trim()
@@ -438,6 +545,9 @@ const processFile = async () => {
         } else {
           name = String(row[0] || '').trim()
           whatsapp = String(row[1] || '').trim()
+          if (row[2]) var1 = String(row[2]).trim()
+          if (row[3]) var2 = String(row[3]).trim()
+          if (row[4]) var3 = String(row[4]).trim()
         }
 
         if (whatsapp) {
@@ -446,6 +556,9 @@ const processFile = async () => {
             id: Date.now() + index,
             name: name || `Contato ${whatsapp.slice(-4)}`,
             whatsapp: whatsapp,
+            var1: var1,
+            var2: var2,
+            var3: var3,
             status: isValid ? 'valid' : 'invalid'
           })
         }

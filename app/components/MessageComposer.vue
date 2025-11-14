@@ -17,7 +17,7 @@
       ></textarea>
     </div>
 
-    <div class="mb-4 flex justify-end">
+    <div class="mb-4 flex justify-end space-x-3">
       <button
         @click="openSpintaxModal"
         class="flex items-center space-x-2 px-4 py-2 text-blue-600 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
@@ -26,6 +26,16 @@
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
         </svg>
         <span>Spintax</span>
+      </button>
+
+      <button
+        @click="insertNome"
+        class="flex items-center space-x-2 px-4 py-2 text-blue-600 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+        </svg>
+        <span>Nome</span>
       </button>
     </div>
 
@@ -527,5 +537,14 @@ const generateSpintax = () => {
   }
 
   closeSpintaxModal()
+}
+
+const insertNome = () => {
+  // Add {nome} variable to message with proper spacing
+  if (message.value && !message.value.endsWith(' ') && !message.value.endsWith('\n')) {
+    message.value += ' {nome}'
+  } else {
+    message.value += '{nome}'
+  }
 }
 </script>
