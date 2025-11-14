@@ -18,7 +18,8 @@
       "WebFetch(domain:github.com)",
       "Bash(cat:*)",
       "WebFetch(domain:supabase.nuxtjs.org)",
-      "WebFetch(domain:dev.to)"
+      "WebFetch(domain:dev.to)",
+      "Bash(npm run dev)"
     ],
     "deny": [],
     "ask": []
