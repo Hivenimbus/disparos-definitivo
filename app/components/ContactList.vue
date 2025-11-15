@@ -381,21 +381,42 @@ const closeEditModal = () => {
   }
 }
 
-const saveEdit = () => {
-  const index = contacts.value.findIndex(c => c.id === editForm.value.id)
-  if (index !== -1) {
-    const isValid = validateWhatsApp(editForm.value.whatsapp)
-    contacts.value[index] = {
-      ...contacts.value[index],
-      name: editForm.value.name,
-      whatsapp: editForm.value.whatsapp,
-      var1: editForm.value.var1,
-      var2: editForm.value.var2,
-      var3: editForm.value.var3,
-      status: isValid ? 'valid' : 'invalid'
-    }
+const saveEdit = async () => {
+  if (!editForm.value.id) {
+    return
   }
-  closeEditModal()
+
+  isSavingContacts.value = true
+  resetFeedback()
+
+  try {
+    const { contact } = await $fetch('/api/dashboard/contacts', {
+      method: 'PUT',
+      body: {
+        id: editForm.value.id,
+        name: editForm.value.name,
+        whatsapp: editForm.value.whatsapp,
+        var1: editForm.value.var1,
+        var2: editForm.value.var2,
+        var3: editForm.value.var3
+      }
+    })
+
+    const index = contacts.value.findIndex(c => c.id === editForm.value.id)
+    if (index !== -1 && contact) {
+      contacts.value[index] = {
+        ...contact,
+        status: validateWhatsApp(contact.whatsapp) ? 'valid' : 'invalid'
+      }
+      successMessage.value = 'Contato atualizado com sucesso'
+    }
+    closeEditModal()
+  } catch (error) {
+    console.error('[dashboard/contacts] edit error', error)
+    errorMessage.value = error?.data?.statusMessage || 'Erro ao atualizar o contato'
+  } finally {
+    isSavingContacts.value = false
+  }
 }
 
 const parseContactLine = (line) => {
@@ -557,8 +578,19 @@ const importContacts = async () => {
   }
 }
 
-const deleteContact = (id) => {
-  contacts.value = contacts.value.filter(contact => contact.id !== id)
+const deleteContact = async (id) => {
+  resetFeedback()
+  try {
+    await $fetch('/api/dashboard/contacts', {
+      method: 'DELETE',
+      body: { contactId: id }
+    })
+    contacts.value = contacts.value.filter(contact => contact.id !== id)
+    successMessage.value = 'Contato removido'
+  } catch (error) {
+    console.error('[dashboard/contacts] delete error', error)
+    errorMessage.value = error?.data?.statusMessage || 'Erro ao remover contato'
+  }
 }
 
 const openFileImportModal = () => {
