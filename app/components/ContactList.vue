@@ -24,6 +24,13 @@
       </div>
     </div>
 
+    <div v-if="errorMessage" class="mb-4 rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+      {{ errorMessage }}
+    </div>
+    <div v-if="successMessage" class="mb-4 rounded border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+      {{ successMessage }}
+    </div>
+
     <div class="grid grid-cols-2 gap-4 mb-6">
       <div class="bg-gray-100 rounded-lg p-6 text-center">
         <div class="text-4xl font-bold text-blue-600 mb-2">{{ totalContacts }}</div>
@@ -294,10 +301,14 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import * as XLSX from 'xlsx'
 
 const contacts = ref([])
+const isLoadingContacts = ref(false)
+const isSavingContacts = ref(false)
+const errorMessage = ref('')
+const successMessage = ref('')
 const isImportModalOpen = ref(false)
 const contactListText = ref('')
 const isEditModalOpen = ref(false)
@@ -330,7 +341,13 @@ const totalColumns = computed(() => {
   return count
 })
 
+const resetFeedback = () => {
+  errorMessage.value = ''
+  successMessage.value = ''
+}
+
 const openImportModal = () => {
+  resetFeedback()
   isImportModalOpen.value = true
 }
 
@@ -340,6 +357,7 @@ const closeImportModal = () => {
 }
 
 const openEditModal = (contact) => {
+  resetFeedback()
   editForm.value = {
     id: contact.id,
     name: contact.name,
@@ -450,7 +468,62 @@ const validateWhatsApp = (number) => {
   return cleaned.length >= 10 && cleaned.length <= 15
 }
 
-const importContacts = () => {
+const fetchContacts = async () => {
+  isLoadingContacts.value = true
+  resetFeedback()
+  try {
+    const { contacts: apiContacts } = await $fetch('/api/dashboard/contacts')
+    contacts.value = (apiContacts ?? []).map((contact) => ({
+      ...contact,
+      status: validateWhatsApp(contact.whatsapp) ? 'valid' : 'invalid'
+    }))
+  } catch (error) {
+    console.error('[dashboard/contacts] fetch error', error)
+    errorMessage.value = error?.data?.statusMessage || 'Erro ao carregar contatos'
+  } finally {
+    isLoadingContacts.value = false
+  }
+}
+
+onMounted(fetchContacts)
+
+const saveContactsToApi = async (newContacts) => {
+  if (!newContacts.length) {
+    return []
+  }
+  isSavingContacts.value = true
+  const created = []
+  try {
+    for (const contact of newContacts) {
+      try {
+        const { contact: createdContact } = await $fetch('/api/dashboard/contacts', {
+          method: 'POST',
+          body: {
+            name: contact.name,
+            whatsapp: contact.whatsapp,
+            var1: contact.var1,
+            var2: contact.var2,
+            var3: contact.var3
+          }
+        })
+        if (createdContact) {
+          created.push({
+            ...createdContact,
+            status: contact.status
+          })
+        }
+      } catch (error) {
+        console.error('[dashboard/contacts] save error', error)
+        errorMessage.value = error?.data?.statusMessage || 'Erro ao salvar alguns contatos'
+      }
+    }
+  } finally {
+    isSavingContacts.value = false
+  }
+  return created
+}
+
+const importContacts = async () => {
   const lines = contactListText.value.split('\n')
   const newContacts = []
 
@@ -470,10 +543,18 @@ const importContacts = () => {
     }
   })
 
-  contacts.value = [...contacts.value, ...newContacts]
-  closeImportModal()
+  if (newContacts.length === 0) {
+    errorMessage.value = 'Nenhum contato válido encontrado'
+    return
+  }
 
-  console.log(`Importados ${newContacts.length} contatos`)
+  const savedContacts = await saveContactsToApi(newContacts)
+
+  if (savedContacts.length) {
+    contacts.value = [...savedContacts, ...contacts.value]
+    successMessage.value = `Importados ${savedContacts.length} contatos`
+    closeImportModal()
+  }
 }
 
 const deleteContact = (id) => {
@@ -481,6 +562,7 @@ const deleteContact = (id) => {
 }
 
 const openFileImportModal = () => {
+  resetFeedback()
   isFileImportModalOpen.value = true
   selectedFile.value = null
 }
@@ -565,9 +647,18 @@ const processFile = async () => {
       })
     }
 
-    contacts.value = [...contacts.value, ...newContacts]
-    closeFileImportModal()
-    console.log(`Importados ${newContacts.length} contatos do arquivo`)
+    if (newContacts.length === 0) {
+      errorMessage.value = 'Nenhum contato válido encontrado no arquivo'
+      return
+    }
+
+    const savedContacts = await saveContactsToApi(newContacts)
+
+    if (savedContacts.length) {
+      contacts.value = [...savedContacts, ...contacts.value]
+      successMessage.value = `Importados ${savedContacts.length} contatos`
+      closeFileImportModal()
+    }
   } catch (error) {
     console.error('Erro ao processar arquivo:', error)
     alert('Erro ao processar arquivo. Verifique o formato e tente novamente.')
