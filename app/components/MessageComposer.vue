@@ -220,6 +220,9 @@
               </div>
             </label>
           </div>
+          <p v-if="attachmentModalError" class="text-sm text-red-600 mt-3">
+            {{ attachmentModalError }}
+          </p>
         </div>
 
         <div class="mb-6">
@@ -523,6 +526,7 @@ const fileInputRef = ref(null)
 const isClearConfirmOpen = ref(false)
 const MAX_ATTACHMENTS = 3
 const MAX_FILE_BYTES = 50 * 1024 * 1024
+const attachmentModalError = ref('')
 
 const isSubmitting = ref(false)
 const formError = ref('')
@@ -597,6 +601,7 @@ const spintaxPreview = computed(() => {
 
 const handleAttachment = (type) => {
   resetFeedback()
+  attachmentModalError.value = ''
   if (attachments.value.length >= MAX_ATTACHMENTS) {
     formError.value = `Limite de ${MAX_ATTACHMENTS} anexos atingido`
     return
@@ -610,12 +615,13 @@ const handleFileSelect = (event) => {
   const file = input?.files?.[0]
   if (file) {
     if (file.size > MAX_FILE_BYTES) {
-      formError.value = 'Cada arquivo deve ter no máximo 50MB'
+      attachmentModalError.value = 'Cada arquivo deve ter no máximo 50MB'
       if (input) {
         input.value = ''
       }
       return
     }
+    attachmentModalError.value = ''
     selectedFile.value = file
   }
   if (input) {
@@ -685,6 +691,7 @@ const closeModal = () => {
   selectedFile.value = null
   caption.value = ''
   currentAttachmentType.value = ''
+  attachmentModalError.value = ''
   if (fileInputRef.value) {
     fileInputRef.value.value = ''
   }
