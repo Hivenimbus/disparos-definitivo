@@ -111,6 +111,26 @@
       </table>
     </div>
 
+    <div v-if="totalPages > 1" class="flex items-center justify-center space-x-4 mt-6">
+      <button
+        @click="fetchContacts(currentPage - 1)"
+        :disabled="currentPage === 1 || isLoadingContacts"
+        class="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        Anterior
+      </button>
+      <span class="text-sm text-gray-600">
+        Página {{ currentPage }} de {{ totalPages }}
+      </span>
+      <button
+        @click="fetchContacts(currentPage + 1)"
+        :disabled="currentPage === totalPages || isLoadingContacts"
+        class="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        Próxima
+      </button>
+    </div>
+
     <div v-if="isImportModalOpen" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" @click.self="closeImportModal">
       <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6">
         <div class="flex items-center justify-between mb-6">
@@ -315,6 +335,9 @@ import { ref, computed, onMounted } from 'vue'
 import * as XLSX from 'xlsx'
 
 const contacts = ref([])
+const currentPage = ref(1)
+const totalPages = ref(1)
+const limit = 10
 const isLoadingContacts = ref(false)
 const isSavingContacts = ref(false)
 const isClearingContacts = ref(false)
@@ -334,7 +357,7 @@ const editForm = ref({
   var3: ''
 })
 
-const totalContacts = computed(() => contacts.value.length)
+const totalContacts = ref(0)
 const validContacts = computed(() => contacts.value.filter(c => c.status === 'valid').length)
 
 // Dynamic column detection
@@ -413,13 +436,9 @@ const saveEdit = async () => {
       }
     })
 
-    const index = contacts.value.findIndex(c => c.id === editForm.value.id)
-    if (index !== -1 && contact) {
-      contacts.value[index] = {
-        ...contact,
-        status: validateWhatsApp(contact.whatsapp) ? 'valid' : 'invalid'
-      }
+    if (contact) {
       successMessage.value = 'Contato atualizado com sucesso'
+      await fetchContacts(currentPage.value)
     }
     closeEditModal()
   } catch (error) {
@@ -500,15 +519,20 @@ const validateWhatsApp = (number) => {
   return cleaned.length >= 10 && cleaned.length <= 15
 }
 
-const fetchContacts = async () => {
+const fetchContacts = async (page = 1) => {
   isLoadingContacts.value = true
   resetFeedback()
   try {
-    const { contacts: apiContacts } = await $fetch('/api/dashboard/contacts')
+    const { contacts: apiContacts, meta } = await $fetch('/api/dashboard/contacts', {
+      query: { page, limit }
+    })
     contacts.value = (apiContacts ?? []).map((contact) => ({
       ...contact,
       status: validateWhatsApp(contact.whatsapp) ? 'valid' : 'invalid'
     }))
+    currentPage.value = meta?.page || page
+    totalContacts.value = meta?.total ?? contacts.value.length
+    totalPages.value = Math.max(1, Math.ceil(totalContacts.value / limit))
   } catch (error) {
     console.error('[dashboard/contacts] fetch error', error)
     errorMessage.value = error?.data?.statusMessage || 'Erro ao carregar contatos'
@@ -517,7 +541,7 @@ const fetchContacts = async () => {
   }
 }
 
-onMounted(fetchContacts)
+onMounted(() => fetchContacts(currentPage.value))
 
 const saveContactsToApi = async (newContacts) => {
   if (!newContacts.length) {
@@ -580,13 +604,13 @@ const importContacts = async () => {
     return
   }
 
-  const savedContacts = await saveContactsToApi(newContacts)
+    const savedContacts = await saveContactsToApi(newContacts)
 
-  if (savedContacts.length) {
-    contacts.value = [...savedContacts, ...contacts.value]
-    successMessage.value = `Importados ${savedContacts.length} contatos`
-    closeImportModal()
-  }
+    if (savedContacts.length) {
+      successMessage.value = `Importados ${savedContacts.length} contatos`
+      await fetchContacts(currentPage.value)
+      closeImportModal()
+    }
 }
 
 const deleteContact = async (id) => {
@@ -596,7 +620,7 @@ const deleteContact = async (id) => {
       method: 'DELETE',
       body: { contactId: id }
     })
-    contacts.value = contacts.value.filter(contact => contact.id !== id)
+    await fetchContacts(currentPage.value)
     successMessage.value = 'Contato removido'
   } catch (error) {
     console.error('[dashboard/contacts] delete error', error)
@@ -621,7 +645,7 @@ const deleteAllContacts = async () => {
     await $fetch('/api/dashboard/contacts/clear', {
       method: 'DELETE'
     })
-    contacts.value = []
+    await fetchContacts(1)
     successMessage.value = 'Todos os contatos foram removidos'
   } catch (error) {
     console.error('[dashboard/contacts] bulk delete error', error)
@@ -725,8 +749,8 @@ const processFile = async () => {
     const savedContacts = await saveContactsToApi(newContacts)
 
     if (savedContacts.length) {
-      contacts.value = [...savedContacts, ...contacts.value]
       successMessage.value = `Importados ${savedContacts.length} contatos`
+      await fetchContacts(currentPage.value)
       closeFileImportModal()
     }
   } catch (error) {

@@ -30,11 +30,22 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 500, statusMessage: 'Erro ao carregar contatos' })
   }
 
+  const { count: totalCount, error: countError } = await supabase
+    .from('dashboard_contacts')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', user.id)
+
+  if (countError) {
+    console.error('[dashboard/contacts] COUNT error', countError)
+    throw createError({ statusCode: 500, statusMessage: 'Erro ao calcular total de contatos' })
+  }
+
   return {
     contacts: data ?? [],
     meta: {
       page,
-      limit
+      limit,
+      total: totalCount ?? 0
     }
   }
 })
