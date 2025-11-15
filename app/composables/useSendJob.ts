@@ -8,14 +8,17 @@ const useIsStartingState = () => useState<boolean>('send-job/is-starting', () =>
 const useIsStoppingState = () => useState<boolean>('send-job/is-stopping', () => false)
 const useIsFetchingState = () => useState<boolean>('send-job/is-fetching', () => false)
 const usePollingHandleState = () => useState<number | null>('send-job/polling-handle', () => null)
+const useIsFinishingState = () => useState<boolean>('send-job/is-finishing', () => false)
 
 export const useSendJob = () => {
   const toast = useToast()
+  const router = useRouter()
   const jobStatus = useJobStatusState()
   const isStartingJob = useIsStartingState()
   const isStoppingJob = useIsStoppingState()
   const isFetchingStatus = useIsFetchingState()
   const pollingHandle = usePollingHandleState()
+  const isFinishingJob = useIsFinishingState()
 
   const fetchStatus = async () => {
     isFetchingStatus.value = true
@@ -73,6 +76,14 @@ export const useSendJob = () => {
     }
   }
 
+  const startJobAndRedirect = async () => {
+    const job = await startJob()
+    if (job) {
+      await router.push('/disparos')
+    }
+    return job
+  }
+
   const stopJob = async () => {
     if (isStoppingJob.value) {
       return jobStatus.value
@@ -89,6 +100,30 @@ export const useSendJob = () => {
       throw error
     } finally {
       isStoppingJob.value = false
+    }
+  }
+
+  const finishJob = async () => {
+    if (isFinishingJob.value) {
+      return
+    }
+
+    if (!jobStatus.value) {
+      return
+    }
+
+    isFinishingJob.value = true
+    try {
+      await $fetch('/api/dashboard/send/finish', { method: 'POST' })
+      toast.success('Histórico do disparo limpo')
+      await fetchStatus()
+      return true
+    } catch (error: any) {
+      console.error('[sendJob] finish error', error)
+      toast.error(error?.data?.statusMessage || 'Erro ao finalizar disparo')
+      throw error
+    } finally {
+      isFinishingJob.value = false
     }
   }
 
@@ -118,9 +153,12 @@ export const useSendJob = () => {
     isJobActive,
     isStartingJob,
     isStoppingJob,
+    isFinishingJob,
     isFetchingStatus,
     startJob,
+    startJobAndRedirect,
     stopJob,
+    finishJob,
     fetchStatus,
     startPolling,
     stopPolling

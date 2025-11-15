@@ -22,6 +22,12 @@ type AttachmentRow = {
   caption: string | null
 }
 
+type AttachmentDescriptor = {
+  type: string
+  name: string
+  caption: string | null
+}
+
 type MessageRow = {
   id: string
   body: string | null
@@ -53,6 +59,7 @@ type ActiveJob = {
   runtime: SendJobSummary
   messageBody: string
   attachments: AttachmentRow[]
+  attachmentDescriptors: AttachmentDescriptor[]
   contacts: ContactRow[]
   delayMs: number
   userId: string
@@ -126,6 +133,68 @@ const deriveMediaType = (mime?: string) => {
   if (mime.startsWith('image/')) return 'image'
   if (mime.startsWith('video/')) return 'video'
   return 'document'
+}
+
+const mapAttachmentDescriptor = (attachment: AttachmentRow): AttachmentDescriptor => ({
+  type: deriveMediaType(attachment.mime_type),
+  name: attachment.file_name,
+  caption: attachment.caption || null
+})
+
+const insertContactLogs = async (
+  jobId: string,
+  contacts: ContactRow[],
+  attachments: AttachmentDescriptor[]
+) => {
+  if (contacts.length === 0) {
+    return
+  }
+
+  const supabase = getServiceSupabaseClient()
+  const now = new Date().toISOString()
+
+  const rows = contacts.map((contact) => ({
+    job_id: jobId,
+    contact_id: contact.id,
+    contact_name: contact.name,
+    whatsapp: contact.whatsapp,
+    status: 'pending',
+    attachments,
+    created_at: now,
+    updated_at: now
+  }))
+
+  const { error } = await supabase.from('dashboard_send_job_logs').insert(rows)
+
+  if (error) {
+    console.error('[send-jobs] insertContactLogs error', error)
+  }
+}
+
+const updateContactLog = async (
+  jobId: string,
+  contact: ContactRow,
+  patch: Record<string, any>
+) => {
+  const supabase = getServiceSupabaseClient()
+  const where = contact.id
+    ? { job_id: jobId, contact_id: contact.id }
+    : { job_id: jobId, whatsapp: contact.whatsapp }
+
+  const payload = {
+    ...patch,
+    updated_at: new Date().toISOString()
+  }
+
+  const { error } = await supabase.from('dashboard_send_job_logs').update(payload).match(where)
+
+  if (error) {
+    console.error('[send-jobs] updateContactLog error', {
+      jobId,
+      contactId: contact.id,
+      error
+    })
+  }
 }
 
 const sendTextMessage = async (instance: string, number: string, text: string) => {
@@ -225,16 +294,22 @@ const createQueuedJob = async (userId: string, totalContacts: number) => {
   return data as JobRow
 }
 
-const handleContactSend = async (instanceId: string, contact: ContactRow, messageBody: string, attachments: AttachmentRow[]) => {
+const handleContactSend = async (activeJob: ActiveJob, contact: ContactRow) => {
   const sanitizedNumber = sanitizePhoneNumber(contact.whatsapp)
   if (!sanitizedNumber) {
     throw new Error('Número de WhatsApp inválido')
   }
 
+  const instanceId = activeJob.userId
+  const attachments = activeJob.attachments
+  const messageBody = activeJob.messageBody
+
+  let messagePreview = ''
+
   if (messageBody.trim().length > 0) {
-    const renderedMessage = renderMessage(messageBody, contact)
-    if (renderedMessage.length > 0) {
-      await sendTextMessage(instanceId, sanitizedNumber, renderedMessage)
+    messagePreview = renderMessage(messageBody, contact)
+    if (messagePreview.length > 0) {
+      await sendTextMessage(instanceId, sanitizedNumber, messagePreview)
     }
   }
 
@@ -246,6 +321,8 @@ const handleContactSend = async (instanceId: string, contact: ContactRow, messag
       await sendMediaMessage(instanceId, sanitizedNumber, attachment)
     }
   }
+
+  return { messagePreview }
 }
 
 const runJob = async (activeJob: ActiveJob) => {
@@ -275,9 +352,19 @@ const runJob = async (activeJob: ActiveJob) => {
 
       runtime.lastContactName = contact.name ?? contact.whatsapp
 
+      let messagePreview = ''
+
       try {
-        await handleContactSend(activeJob.userId, contact, activeJob.messageBody, activeJob.attachments)
+        const result = await handleContactSend(activeJob, contact)
+        messagePreview = result.messagePreview || ''
         runtime.successContacts += 1
+        await updateContactLog(runtime.id, contact, {
+          status: 'success',
+          message_preview: messagePreview || null,
+          attachments: activeJob.attachmentDescriptors,
+          error: null,
+          processed_at: new Date().toISOString()
+        })
       } catch (error: any) {
         runtime.failedContacts += 1
         runtime.lastError = error?.message || 'Falha ao enviar mensagem'
@@ -285,6 +372,13 @@ const runJob = async (activeJob: ActiveJob) => {
           jobId: runtime.id,
           contactId: contact.id,
           error
+        })
+        await updateContactLog(runtime.id, contact, {
+          status: 'failed',
+          message_preview: messagePreview || null,
+          attachments: activeJob.attachmentDescriptors,
+          error: runtime.lastError,
+          processed_at: new Date().toISOString()
         })
       }
 
@@ -320,6 +414,9 @@ const runJob = async (activeJob: ActiveJob) => {
         last_error: runtime.lastError,
         last_contact_name: runtime.lastContactName
       })
+      if (runtime.status === 'stopped') {
+        await deleteJobData(runtime.id)
+      }
     } finally {
       activeJobs.delete(activeJob.userId)
     }
@@ -398,6 +495,7 @@ export const startSendJob = async (user: AuthenticatedUser) => {
 
   const messageBody = messageRow.body?.trim() ?? ''
   const attachments = (messageRow.attachments ?? []).filter((attachment) => !!attachment.public_url)
+  const attachmentDescriptors = attachments.map(mapAttachmentDescriptor)
 
   if (messageBody.length === 0 && attachments.length === 0) {
     throw createError({ statusCode: 400, statusMessage: 'Configure uma mensagem ou mídias antes de iniciar o disparo' })
@@ -412,10 +510,12 @@ export const startSendJob = async (user: AuthenticatedUser) => {
 
   const jobRow = await createQueuedJob(user.id, contacts.length)
   const runtime = normalizeSummary(jobRow)
+  await insertContactLogs(runtime.id, contacts, attachmentDescriptors)
   const activeJob: ActiveJob = {
     runtime,
     messageBody,
     attachments,
+    attachmentDescriptors,
     contacts,
     delayMs,
     userId: user.id
@@ -466,5 +566,47 @@ export const getSendJobStatus = async (userId: string) => {
   }
 
   return normalizeSummary(lastJob)
+}
+
+const deleteJobData = async (jobId: string) => {
+  const supabase = getServiceSupabaseClient()
+  const { error: logsError } = await supabase
+    .from('dashboard_send_job_logs')
+    .delete()
+    .eq('job_id', jobId)
+
+  if (logsError) {
+    console.error('[send-jobs] delete logs error', logsError)
+    throw createError({ statusCode: 500, statusMessage: 'Não foi possível limpar o histórico do disparo' })
+  }
+
+  const { error: jobError } = await supabase
+    .from('dashboard_send_jobs')
+    .delete()
+    .eq('id', jobId)
+
+  if (jobError) {
+    console.error('[send-jobs] delete job error', jobError)
+    throw createError({ statusCode: 500, statusMessage: 'Não foi possível finalizar o disparo' })
+  }
+}
+
+export const finalizeSendJob = async (userId: string) => {
+  if (activeJobs.has(userId)) {
+    throw createError({ statusCode: 409, statusMessage: 'O disparo ainda está em andamento' })
+  }
+
+  const lastJob = await fetchLatestJob(userId)
+
+  if (!lastJob) {
+    return { success: true }
+  }
+
+  if (!FINISHED_STATUSES.includes(lastJob.status)) {
+    throw createError({ statusCode: 400, statusMessage: 'Finalize o disparo antes de limpar o histórico' })
+  }
+
+  await deleteJobData(lastJob.id)
+  return { success: true }
 }
 
