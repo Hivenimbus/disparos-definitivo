@@ -286,7 +286,7 @@ const {
 const listaDisparos = ref<DisparoItem[]>([])
 const nextPending = ref<DisparoItem | null>(null)
 const totalLogs = ref(0)
-const isLoadingLogs = ref(false)
+const isLoadingLogs = ref(true)
 const currentPage = ref(1)
 const itemsPerPage = 10
 const logPollingHandle = ref<number | null>(null)
@@ -436,15 +436,23 @@ const transformLog = (log: SendJobLog): DisparoItem => ({
   error: log.error
 })
 
-const fetchLogs = async () => {
+type FetchLogsOptions = {
+  skipSpinner?: boolean
+}
+
+const fetchLogs = async (options: FetchLogsOptions = {}) => {
+  const { skipSpinner = false } = options
   if (!jobStatus.value) {
     listaDisparos.value = []
     totalLogs.value = 0
     nextPending.value = null
+    isLoadingLogs.value = false
     return
   }
 
-  isLoadingLogs.value = true
+  if (!skipSpinner) {
+    isLoadingLogs.value = true
+  }
   try {
     const [finalResponse, pendingResponse] = await Promise.all([
       $fetch<{ logs: SendJobLog[]; meta: { total: number } }>('/api/dashboard/send/logs', {
@@ -479,7 +487,9 @@ const fetchLogs = async () => {
     toast.error(error?.data?.statusMessage || 'Erro ao carregar histórico de disparos')
     nextPending.value = null
   } finally {
-    isLoadingLogs.value = false
+    if (!skipSpinner) {
+      isLoadingLogs.value = false
+    }
   }
 }
 
@@ -488,7 +498,7 @@ const startLogPolling = () => {
     return
   }
   logPollingHandle.value = window.setInterval(() => {
-    fetchLogs().catch(() => {})
+    fetchLogs({ skipSpinner: true }).catch(() => {})
   }, 4000)
 }
 
@@ -559,15 +569,16 @@ onBeforeUnmount(() => {
   stopPolling()
 })
 
-watch(jobStatus, (state) => {
+watch(jobStatus, (state, previous) => {
   if (state) {
-    fetchLogs()
+    fetchLogs({ skipSpinner: !!previous })
     startLogPolling()
   } else {
     stopLogPolling()
     listaDisparos.value = []
     totalLogs.value = 0
     nextPending.value = null
+    isLoadingLogs.value = false
   }
 })
 
