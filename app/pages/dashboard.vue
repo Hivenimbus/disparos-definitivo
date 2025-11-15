@@ -4,6 +4,7 @@
     <ContactList />
     <MessageComposer />
   </div>
+  <ToastContainer />
 </template>
 
 <script setup>

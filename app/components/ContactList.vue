@@ -43,13 +43,6 @@
       </div>
     </div>
 
-    <div v-if="errorMessage" class="mb-4 rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-      {{ errorMessage }}
-    </div>
-    <div v-if="successMessage" class="mb-4 rounded border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-      {{ successMessage }}
-    </div>
-
     <div class="grid grid-cols-2 gap-4 mb-6">
       <div class="bg-gray-100 rounded-lg p-6 text-center">
         <div class="text-4xl font-bold text-blue-600 mb-2">{{ totalContacts }}</div>
@@ -394,6 +387,41 @@
         </div>
       </div>
     </div>
+
+    <div
+      v-if="isDeleteConfirmOpen"
+      class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+      @click.self="isDeleteConfirmOpen = false"
+    >
+      <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-semibold text-gray-800">Apagar todos os contatos</h3>
+          <button @click="isDeleteConfirmOpen = false" class="text-gray-400 hover:text-gray-600">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <p class="text-gray-700 mb-4">
+          Tem certeza de que deseja apagar todos os contatos? Essa ação não pode ser desfeita.
+        </p>
+        <div class="flex justify-end space-x-3">
+          <button
+            @click="isDeleteConfirmOpen = false"
+            class="px-6 py-2 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            @click="confirmDeleteAllContacts"
+            :disabled="isClearingContacts"
+            class="px-6 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {{ isClearingContacts ? 'Apagando...' : 'Apagar tudo' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </section>
 </template>
 
@@ -408,8 +436,6 @@ const limit = 10
 const isLoadingContacts = ref(false)
 const isSavingContacts = ref(false)
 const isClearingContacts = ref(false)
-const errorMessage = ref('')
-const successMessage = ref('')
 const isImportModalOpen = ref(false)
 const contactListText = ref('')
 const isEditModalOpen = ref(false)
@@ -430,6 +456,7 @@ const totalContacts = ref(0)
 const totalValidContacts = ref(0)
 const validContacts = computed(() => totalValidContacts.value)
 const isProcessingFile = ref(false)
+const toast = useToast()
 
 // Dynamic column detection
 const hasVar1 = computed(() => contacts.value.some(c => c.var1 && c.var1.trim()))
@@ -446,13 +473,7 @@ const totalColumns = computed(() => {
   return count
 })
 
-const resetFeedback = () => {
-  errorMessage.value = ''
-  successMessage.value = ''
-}
-
 const openImportModal = () => {
-  resetFeedback()
   isImportModalOpen.value = true
 }
 
@@ -462,7 +483,6 @@ const closeImportModal = () => {
 }
 
 const openEditModal = (contact) => {
-  resetFeedback()
   editForm.value = {
     id: contact.id,
     name: contact.name,
@@ -492,7 +512,6 @@ const saveEdit = async () => {
   }
 
   isSavingContacts.value = true
-  resetFeedback()
 
   try {
     const { contact } = await $fetch('/api/dashboard/contacts', {
@@ -508,13 +527,13 @@ const saveEdit = async () => {
     })
 
     if (contact) {
-      successMessage.value = 'Contato atualizado com sucesso'
+      toast.success('Contato atualizado com sucesso')
       await fetchContacts(currentPage.value)
     }
     closeEditModal()
   } catch (error) {
     console.error('[dashboard/contacts] edit error', error)
-    errorMessage.value = error?.data?.statusMessage || 'Erro ao atualizar o contato'
+    toast.error(error?.data?.statusMessage || 'Erro ao atualizar o contato')
   } finally {
     isSavingContacts.value = false
   }
@@ -592,7 +611,6 @@ const validateWhatsApp = (number) => {
 
 const fetchContacts = async (page = 1) => {
   isLoadingContacts.value = true
-  resetFeedback()
   try {
     const { contacts: apiContacts, meta } = await $fetch('/api/dashboard/contacts', {
       query: { page, limit }
@@ -607,7 +625,7 @@ const fetchContacts = async (page = 1) => {
     totalPages.value = Math.max(1, Math.ceil(totalContacts.value / limit))
   } catch (error) {
     console.error('[dashboard/contacts] fetch error', error)
-    errorMessage.value = error?.data?.statusMessage || 'Erro ao carregar contatos'
+    toast.error(error?.data?.statusMessage || 'Erro ao carregar contatos')
   } finally {
     isLoadingContacts.value = false
   }
@@ -643,7 +661,7 @@ const saveContactsToApi = async (newContacts) => {
     }))
   } catch (error) {
     console.error('[dashboard/contacts] batch save error', error)
-    errorMessage.value = error?.data?.statusMessage || 'Erro ao salvar os contatos'
+    toast.error(error?.data?.statusMessage || 'Erro ao salvar os contatos')
     return []
   } finally {
     isSavingContacts.value = false
@@ -671,31 +689,30 @@ const importContacts = async () => {
   })
 
   if (newContacts.length === 0) {
-    errorMessage.value = 'Nenhum contato válido encontrado'
+    toast.warning('Nenhum contato válido encontrado')
     return
   }
 
-    const savedContacts = await saveContactsToApi(newContacts)
+  const savedContacts = await saveContactsToApi(newContacts)
 
-    if (savedContacts.length) {
-      successMessage.value = `Importados ${savedContacts.length} contatos`
-      await fetchContacts(currentPage.value)
-      closeImportModal()
-    }
+  if (savedContacts.length) {
+    toast.success(`Importados ${savedContacts.length} contatos`)
+    await fetchContacts(currentPage.value)
+    closeImportModal()
+  }
 }
 
 const deleteContact = async (id) => {
-  resetFeedback()
   try {
     await $fetch('/api/dashboard/contacts', {
       method: 'DELETE',
       body: { contactId: id }
     })
     await fetchContacts(currentPage.value)
-    successMessage.value = 'Contato removido'
+    toast.success('Contato removido')
   } catch (error) {
     console.error('[dashboard/contacts] delete error', error)
-    errorMessage.value = error?.data?.statusMessage || 'Erro ao remover contato'
+    toast.error(error?.data?.statusMessage || 'Erro ao remover contato')
   }
 }
 
@@ -704,13 +721,19 @@ const deleteAllContacts = async () => {
     return
   }
 
-  const confirmed = window.confirm('Tem certeza que deseja apagar todos os contatos?')
-  if (!confirmed) {
+  if (isClearingContacts.value) {
+    return
+  }
+
+  isDeleteConfirmOpen.value = true
+}
+
+const confirmDeleteAllContacts = async () => {
+  if (isClearingContacts.value) {
     return
   }
 
   isClearingContacts.value = true
-  resetFeedback()
 
   try {
     const { deleted } = await $fetch('/api/dashboard/contacts/clear', {
@@ -718,25 +741,26 @@ const deleteAllContacts = async () => {
     })
     await fetchContacts(1)
     const removed = typeof deleted === 'number' ? deleted : contacts.value.length
-    successMessage.value = removed
+    const message = removed
       ? `Removidos ${removed} contato${removed === 1 ? '' : 's'}`
       : 'Nenhum contato para remover'
+    toast.success(message)
   } catch (error) {
     console.error('[dashboard/contacts] bulk delete error', error)
-    errorMessage.value = error?.data?.statusMessage || 'Erro ao remover contatos'
+    toast.error(error?.data?.statusMessage || 'Erro ao remover contatos')
   } finally {
     isClearingContacts.value = false
+    isDeleteConfirmOpen.value = false
   }
 }
 
 const applyCountryCodeToContacts = async () => {
   const code = countryCodeInput.value.replace(/\D/g, '')
   if (!code) {
-    errorMessage.value = 'Informe um código de país válido'
+    toast.warning('Informe um código de país válido')
     return
   }
 
-  resetFeedback()
   isSavingContacts.value = true
 
   try {
@@ -749,23 +773,21 @@ const applyCountryCodeToContacts = async () => {
 
     await fetchContacts(currentPage.value)
 
-    if (updated) {
-      successMessage.value = `Código do país aplicado em ${updated} contato${updated === 1 ? '' : 's'}`
-    } else {
-      successMessage.value = 'Nenhum contato precisava ser atualizado'
-    }
+    const message = updated
+      ? `Código do país aplicado em ${updated} contato${updated === 1 ? '' : 's'}`
+      : 'Nenhum contato precisava ser atualizado'
+    toast.success(message)
 
     closeCountryCodeModal()
   } catch (error) {
     console.error('[dashboard/contacts] bulk country code error', error)
-    errorMessage.value = error?.data?.statusMessage || 'Erro ao aplicar código do país'
+    toast.error(error?.data?.statusMessage || 'Erro ao aplicar código do país')
   } finally {
     isSavingContacts.value = false
   }
 }
 
 const openFileImportModal = () => {
-  resetFeedback()
   isFileImportModalOpen.value = true
   selectedFile.value = null
 }
@@ -776,7 +798,6 @@ const closeFileImportModal = () => {
 }
 
 const openCountryCodeModal = () => {
-  resetFeedback()
   countryCodeInput.value = ''
   isCountryCodeModalOpen.value = true
 }
@@ -797,7 +818,6 @@ const processFile = async () => {
   if (!selectedFile.value || isProcessingFile.value) return
 
   isProcessingFile.value = true
-  resetFeedback()
 
   const file = selectedFile.value
   const fileName = file.name.toLowerCase()
@@ -865,22 +885,24 @@ const processFile = async () => {
     }
 
     if (newContacts.length === 0) {
-      errorMessage.value = 'Nenhum contato válido encontrado no arquivo'
+      toast.warning('Nenhum contato válido encontrado no arquivo')
       return
     }
 
     const savedContacts = await saveContactsToApi(newContacts)
 
     if (savedContacts.length) {
-      successMessage.value = `Importados ${savedContacts.length} contatos`
+      toast.success(`Importados ${savedContacts.length} contatos`)
       await fetchContacts(currentPage.value)
       closeFileImportModal()
     }
   } catch (error) {
     console.error('Erro ao processar arquivo:', error)
-    errorMessage.value = 'Erro ao processar arquivo. Verifique o formato e tente novamente.'
+    toast.error('Erro ao processar arquivo. Verifique o formato e tente novamente.')
   } finally {
     isProcessingFile.value = false
   }
 }
+
+const isDeleteConfirmOpen = ref(false)
 </script>

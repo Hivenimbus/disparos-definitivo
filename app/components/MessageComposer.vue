@@ -11,9 +11,6 @@
     <div v-if="isLoadingInitial" class="mb-4 text-sm text-gray-500">
       Carregando mensagem salva...
     </div>
-    <div v-else-if="loadError" class="mb-4 rounded border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
-      {{ loadError }}
-    </div>
 
     <div class="mb-6">
       <label class="block text-gray-700 font-medium mb-2">Mensagem</label>
@@ -23,14 +20,6 @@
         rows="6"
         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
       ></textarea>
-    </div>
-
-    <div v-if="formError" class="mb-4 rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-      {{ formError }}
-    </div>
-
-    <div v-if="formSuccess" class="mb-4 rounded border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-      {{ formSuccess }}
     </div>
 
     <div class="mb-4 flex justify-end space-x-4">
@@ -205,16 +194,6 @@
         </svg>
         <span>{{ isCheckingSendReadiness ? 'Verificando...' : 'Enviar Mensagem' }}</span>
       </button>
-    </div>
-
-    <div
-      v-if="sendValidationErrors.length"
-      class="mt-4 rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 space-y-2"
-    >
-      <p class="font-medium">Não foi possível iniciar o disparo. Ajuste os itens abaixo:</p>
-      <ul class="list-disc pl-5 space-y-1">
-        <li v-for="(error, index) in sendValidationErrors" :key="index">{{ error }}</li>
-      </ul>
     </div>
 
     <div v-if="isModalOpen" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" @click.self="closeModal">
@@ -663,7 +642,6 @@ const fileInputRef = ref(null)
 const isClearConfirmOpen = ref(false)
 const isSendConfirmationOpen = ref(false)
 const isCheckingSendReadiness = ref(false)
-const sendValidationErrors = ref<string[]>([])
 const lastWhatsappState = ref<string>('unknown')
 const contactsSummary = ref({
   total: 0,
@@ -674,13 +652,11 @@ const MAX_FILE_BYTES = 50 * 1024 * 1024
 const attachmentModalError = ref('')
 
 const isSubmitting = ref(false)
-const formError = ref('')
-const formSuccess = ref('')
 const isLoadingInitial = ref(true)
-const loadError = ref('')
 const isVariableMenuOpen = ref(false)
 const variableMenuRef = ref<HTMLElement | null>(null)
 const variableButtonRef = ref<HTMLElement | null>(null)
+const toast = useToast()
 
 type VariableKey = 'var1' | 'var2' | 'var3'
 
@@ -689,11 +665,6 @@ const variableOptions: Array<{ key: VariableKey; label: string }> = [
   { key: 'var2', label: 'Variável 2 ({var2})' },
   { key: 'var3', label: 'Variável 3 ({var3})' }
 ]
-
-const resetFeedback = () => {
-  formError.value = ''
-  formSuccess.value = ''
-}
 
 const generateAttachmentId = () => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -756,10 +727,9 @@ const spintaxPreview = computed(() => {
 })
 
 const handleAttachment = (type) => {
-  resetFeedback()
   attachmentModalError.value = ''
   if (attachments.value.length >= MAX_ATTACHMENTS) {
-    formError.value = `Limite de ${MAX_ATTACHMENTS} anexos atingido`
+    toast.warning(`Limite de ${MAX_ATTACHMENTS} anexos atingido`)
     return
   }
   currentAttachmentType.value = type
@@ -825,7 +795,7 @@ const confirmAttachment = async () => {
   attachments.value.push(newAttachment)
   if (attachments.value.length > MAX_ATTACHMENTS) {
     attachments.value.pop()
-    formError.value = `Limite de ${MAX_ATTACHMENTS} anexos atingido`
+    toast.warning(`Limite de ${MAX_ATTACHMENTS} anexos atingido`)
     return
   }
   uploadingAttachmentIds.value.add(attachmentId)
@@ -880,10 +850,10 @@ const removeAttachment = async (index) => {
     })
 
     attachments.value.splice(index, 1)
-    formSuccess.value = 'Anexo removido com sucesso'
+    toast.success('Anexo removido com sucesso')
   } catch (error) {
     console.error('[dashboard/messages] delete attachment error', error)
-    formError.value = error?.data?.statusMessage || 'Erro ao remover anexo'
+    toast.error(error?.data?.statusMessage || 'Erro ao remover anexo')
   } finally {
     deletingAttachmentIds.value.delete(attachment.id)
   }
@@ -923,7 +893,7 @@ const saveAttachmentEdit = async () => {
   if (!attachment.persisted) {
     attachment.caption = newCaption
     attachments.value.splice(editingAttachmentIndex.value, 1, { ...attachment })
-    formSuccess.value = 'Legenda atualizada'
+    toast.success('Legenda atualizada')
     closeEditAttachmentModal()
     return
   }
@@ -959,11 +929,11 @@ const saveAttachmentEdit = async () => {
       file: attachment.file
     }
     attachments.value.splice(editingAttachmentIndex.value, 1, updatedAttachment)
-    formSuccess.value = 'Legenda atualizada'
+    toast.success('Legenda atualizada')
     closeEditAttachmentModal()
   } catch (error: any) {
     console.error('[dashboard/messages] update attachment error', error)
-    formError.value = error?.data?.statusMessage || 'Erro ao atualizar legenda'
+    toast.error(error?.data?.statusMessage || 'Erro ao atualizar legenda')
     isSavingAttachmentEdit.value = false
   }
 }
@@ -1021,8 +991,6 @@ const hasContactsConfigured = computed(() => contactsSummary.value.total > 0)
 
 const openClearConfirmModal = () => {
   if (!canClearMessage.value) return
-  formError.value = ''
-  formSuccess.value = ''
   isClearConfirmOpen.value = true
 }
 
@@ -1051,7 +1019,6 @@ const confirmSendFromModal = () => {
 const validateSendReadiness = async () => {
   const errors: string[] = []
   isCheckingSendReadiness.value = true
-  sendValidationErrors.value = []
 
   try {
     const data = await $fetch<{ instance?: { state: string } }>('/api/dashboard/whatsapp/state')
@@ -1086,16 +1053,17 @@ const validateSendReadiness = async () => {
     errors.push('Informe uma mensagem ou adicione mídias para enviar.')
   }
 
-  sendValidationErrors.value = errors
   isCheckingSendReadiness.value = false
+
+  if (errors.length > 0) {
+    const message = ['Não foi possível iniciar o disparo:', ...errors.map((err) => `• ${err}`)].join('\n')
+    toast.error(message, { timeout: 6000 })
+  }
 
   return errors.length === 0
 }
 
 const clearMessage = async () => {
-  formError.value = ''
-  formSuccess.value = ''
-
   try {
     if (currentMessageId.value) {
       await $fetch('/api/dashboard/messages/clear', {
@@ -1107,7 +1075,7 @@ const clearMessage = async () => {
     }
   } catch (error: any) {
     console.error('[dashboard/messages] clear message error', error)
-    formError.value = error?.data?.statusMessage || 'Erro ao limpar a mensagem'
+    toast.error(error?.data?.statusMessage || 'Erro ao limpar a mensagem')
     return
   }
 
@@ -1120,7 +1088,7 @@ const clearMessage = async () => {
   attachments.value = []
   message.value = ''
   currentMessageId.value = null
-  formSuccess.value = 'Mensagem limpa com sucesso'
+  toast.success('Mensagem limpa com sucesso')
 }
 
 const normalizeAttachmentPayload = (payload: Record<string, any>) => ({
@@ -1190,7 +1158,6 @@ const loadLastMessage = async (showLoader = true) => {
   if (showLoader) {
     isLoadingInitial.value = true
   }
-  loadError.value = ''
   try {
     const response = await $fetch('/api/dashboard/messages', {
       query: { limit: 1, page: 1 }
@@ -1207,7 +1174,7 @@ const loadLastMessage = async (showLoader = true) => {
     }
   } catch (error) {
     console.error('[dashboard/messages] load error', error)
-    loadError.value = error?.data?.statusMessage || 'Erro ao carregar mensagem salva'
+    toast.error(error?.data?.statusMessage || 'Erro ao carregar mensagem salva')
   } finally {
     if (showLoader) {
       isLoadingInitial.value = false
@@ -1239,11 +1206,6 @@ onBeforeUnmount(() => {
 const saveMessage = async (options: SaveMessageOptions = {}) => {
   const isAutoSave = options.auto ?? false
 
-  formError.value = ''
-  if (!isAutoSave) {
-    formSuccess.value = ''
-  }
-
   if (!isAutoSave) {
     isSubmitting.value = true
   }
@@ -1257,7 +1219,7 @@ const saveMessage = async (options: SaveMessageOptions = {}) => {
   const attachmentsToProcess = (options.attachments ?? attachments.value).filter((attachment) => !!attachment.file)
 
   if (!message.value.trim() && attachmentsToProcess.length === 0) {
-    formError.value = 'Adicione texto ou anexos para salvar.'
+    toast.warning('Adicione texto ou anexos para salvar.')
     if (!isAutoSave) {
       isSubmitting.value = false
     }
@@ -1290,13 +1252,12 @@ const saveMessage = async (options: SaveMessageOptions = {}) => {
     currentMessageId.value = response?.message?.id || currentMessageId.value
     await loadLastMessage(false)
 
-    formSuccess.value =
-      options.successMessage || (isAutoSave ? 'Anexo salvo automaticamente!' : 'Mensagem salva com sucesso!')
+    const successMessage = options.successMessage || (isAutoSave ? 'Anexo salvo automaticamente!' : 'Mensagem salva com sucesso!')
+    toast.success(successMessage)
     return true
   } catch (error: any) {
     console.error('[dashboard/messages] send error', error)
-    formError.value =
-      error?.data?.statusMessage || (isAutoSave ? 'Erro ao salvar anexo automaticamente' : 'Erro ao salvar mensagem')
+    toast.error(error?.data?.statusMessage || (isAutoSave ? 'Erro ao salvar anexo automaticamente' : 'Erro ao salvar mensagem'))
     return false
   } finally {
     if (!isAutoSave) {
@@ -1306,13 +1267,9 @@ const saveMessage = async (options: SaveMessageOptions = {}) => {
 }
 
 const sendMessage = async () => {
-  formError.value = ''
-  formSuccess.value = ''
-
   const isReady = await validateSendReadiness()
 
   if (!isReady) {
-    formError.value = 'Revise os itens pendentes antes de enviar.'
     return
   }
 
@@ -1364,7 +1321,7 @@ const generateSpintax = () => {
     .map(field => field.value.trim())
 
   if (validFields.length < 2) {
-    alert('Por favor, preencha pelo menos 2 campos para gerar a spintax.')
+    toast.warning('Por favor, preencha pelo menos 2 campos para gerar a spintax.')
     return
   }
 
