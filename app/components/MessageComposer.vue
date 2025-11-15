@@ -112,7 +112,11 @@
               <p class="text-xs text-gray-500 mt-1">{{ formatFileSize(attachment.size) }}</p>
               <p v-if="attachment.caption" class="text-gray-600 mt-2 text-xs italic">"{{ attachment.caption }}"</p>
             </div>
-            <button @click="removeAttachment(index)" class="text-red-500 hover:text-red-700 flex-shrink-0">
+            <button
+              @click="removeAttachment(index)"
+              :disabled="attachment.persisted && deletingAttachmentIds.has(attachment.id)"
+              class="text-red-500 hover:text-red-700 flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
               <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
               </svg>
@@ -385,6 +389,7 @@ import { computed, onMounted, ref } from 'vue'
 
 const message = ref('')
 const attachments = ref([])
+const deletingAttachmentIds = ref(new Set<string>())
 const currentMessageId = ref(null)
 const isModalOpen = ref(false)
 const isPreviewModalOpen = ref(false)
@@ -509,8 +514,40 @@ const closeModal = () => {
   }
 }
 
-const removeAttachment = (index) => {
-  attachments.value.splice(index, 1)
+const removeAttachment = async (index) => {
+  const attachment = attachments.value[index]
+
+  if (!attachment) {
+    return
+  }
+
+  if (!attachment.persisted) {
+    attachments.value.splice(index, 1)
+    return
+  }
+
+  if (deletingAttachmentIds.value.has(attachment.id)) {
+    return
+  }
+
+  deletingAttachmentIds.value.add(attachment.id)
+
+  try {
+    await $fetch('/api/dashboard/messages/attachments', {
+      method: 'DELETE',
+      body: {
+        attachmentId: attachment.id
+      }
+    })
+
+    attachments.value.splice(index, 1)
+    formSuccess.value = 'Anexo removido com sucesso'
+  } catch (error) {
+    console.error('[dashboard/messages] delete attachment error', error)
+    formError.value = error?.data?.statusMessage || 'Erro ao remover anexo'
+  } finally {
+    deletingAttachmentIds.value.delete(attachment.id)
+  }
 }
 
 const previewMessage = () => {
