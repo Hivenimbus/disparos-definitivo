@@ -105,7 +105,6 @@ export default defineEventHandler(async (event) => {
     | {
         id: string
         body: string
-        caption: string | null
         status: string
         scheduled_for: string | null
         created_at: string
@@ -133,7 +132,7 @@ export default defineEventHandler(async (event) => {
         body
       })
       .eq('id', messageId)
-      .select('id, body, caption, status, scheduled_for, created_at, updated_at')
+      .select('id, body, status, scheduled_for, created_at, updated_at')
       .single()
 
     if (updateError || !updatedMessage) {
@@ -162,7 +161,7 @@ export default defineEventHandler(async (event) => {
         user_id: user.id,
         body
       })
-      .select('id, body, caption, status, scheduled_for, created_at, updated_at')
+      .select('id, body, status, scheduled_for, created_at, updated_at')
       .single()
 
     if (messageError || !newMessage) {
@@ -261,7 +260,6 @@ export default defineEventHandler(async (event) => {
     message: {
       id: message.id,
       body: message.body,
-      caption: message.caption,
       status: message.status,
       scheduledFor: message.scheduled_for,
       createdAt: message.created_at,

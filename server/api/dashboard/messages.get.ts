@@ -18,7 +18,6 @@ type AttachmentRow = {
 type MessageRow = {
   id: string
   body: string
-  caption: string | null
   status: string
   scheduled_for: string | null
   created_at: string
@@ -43,7 +42,6 @@ const mapAttachment = (attachment: AttachmentRow) => ({
 const mapMessage = (row: MessageRow, attachments: AttachmentRow[]) => ({
   id: row.id,
   body: row.body,
-  caption: row.caption,
   status: row.status,
   scheduledFor: row.scheduled_for,
   createdAt: row.created_at,
@@ -65,7 +63,7 @@ export default defineEventHandler(async (event) => {
 
   const { data, error } = await supabase
     .from('dashboard_messages')
-    .select('id, body, caption, status, scheduled_for, created_at, updated_at')
+    .select('id, body, status, scheduled_for, created_at, updated_at')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
     .range(from, to)
