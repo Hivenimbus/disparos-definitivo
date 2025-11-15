@@ -82,6 +82,7 @@
           </div>
         </div>
       </div>
+
     </section>
 
     <section class="bg-white rounded-lg shadow p-6">
@@ -440,6 +441,7 @@ const fetchLogs = async () => {
     const response = await $fetch<{ logs: SendJobLog[]; meta: { total: number } }>('/api/dashboard/send/logs', {
       query: { page: currentPage.value, limit: itemsPerPage }
     })
+
     const newTotal = response.meta.total ?? response.logs.length ?? 0
     totalLogs.value = newTotal
     const computedPages = Math.max(1, Math.ceil(newTotal / itemsPerPage))
