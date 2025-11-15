@@ -276,13 +276,17 @@
             Formatos aceitos: TXT, CSV, XLS, XLSX
           </p>
           
-          <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-500 transition-colors">
+          <div
+            class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-500 transition-colors"
+            :class="{ 'opacity-60 pointer-events-none': isProcessingFile }"
+          >
             <input
               type="file"
               id="fileInput"
               accept=".txt,.csv,.xls,.xlsx"
               @change="handleFileSelect"
               class="hidden"
+              :disabled="isProcessingFile"
             >
             <label for="fileInput" class="cursor-pointer">
               <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 mx-auto mb-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -310,6 +314,10 @@
           </div>
         </div>
 
+        <div v-if="isProcessingFile" class="text-sm text-gray-600 mb-3">
+          Processando arquivo, aguarde...
+        </div>
+
         <div class="flex justify-end space-x-3">
           <button
             @click="closeFileImportModal"
@@ -319,10 +327,10 @@
           </button>
           <button
             @click="processFile"
-            :disabled="!selectedFile"
+            :disabled="!selectedFile || isProcessingFile"
             class="px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Importar
+            {{ isProcessingFile ? 'Importando...' : 'Importar' }}
           </button>
         </div>
       </div>
@@ -360,6 +368,7 @@ const editForm = ref({
 const totalContacts = ref(0)
 const totalValidContacts = ref(0)
 const validContacts = computed(() => totalValidContacts.value)
+const isProcessingFile = ref(false)
 
 // Dynamic column detection
 const hasVar1 = computed(() => contacts.value.some(c => c.var1 && c.var1.trim()))
@@ -676,7 +685,10 @@ const handleFileSelect = (event) => {
 }
 
 const processFile = async () => {
-  if (!selectedFile.value) return
+  if (!selectedFile.value || isProcessingFile.value) return
+
+  isProcessingFile.value = true
+  resetFeedback()
 
   const file = selectedFile.value
   const fileName = file.name.toLowerCase()
@@ -757,7 +769,9 @@ const processFile = async () => {
     }
   } catch (error) {
     console.error('Erro ao processar arquivo:', error)
-    alert('Erro ao processar arquivo. Verifique o formato e tente novamente.')
+    errorMessage.value = 'Erro ao processar arquivo. Verifique o formato e tente novamente.'
+  } finally {
+    isProcessingFile.value = false
   }
 }
 </script>
