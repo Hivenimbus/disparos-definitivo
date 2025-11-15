@@ -40,12 +40,19 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 500, statusMessage: 'Erro ao calcular total de contatos' })
   }
 
+  const validContactsCount = await supabase
+    .from('dashboard_contacts')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', user.id)
+    .neq('whatsapp', '')
+
   return {
     contacts: data ?? [],
     meta: {
       page,
       limit,
-      total: totalCount ?? 0
+      total: totalCount ?? 0,
+      validTotal: validContactsCount.count ?? 0
     }
   }
 })

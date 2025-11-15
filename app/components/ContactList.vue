@@ -358,7 +358,8 @@ const editForm = ref({
 })
 
 const totalContacts = ref(0)
-const validContacts = computed(() => contacts.value.filter(c => c.status === 'valid').length)
+const totalValidContacts = ref(0)
+const validContacts = computed(() => totalValidContacts.value)
 
 // Dynamic column detection
 const hasVar1 = computed(() => contacts.value.some(c => c.var1 && c.var1.trim()))
@@ -532,6 +533,7 @@ const fetchContacts = async (page = 1) => {
     }))
     currentPage.value = meta?.page || page
     totalContacts.value = meta?.total ?? contacts.value.length
+    totalValidContacts.value = meta?.validTotal ?? totalValidContacts.value
     totalPages.value = Math.max(1, Math.ceil(totalContacts.value / limit))
   } catch (error) {
     console.error('[dashboard/contacts] fetch error', error)
