@@ -521,12 +521,19 @@ const selectedFile = ref(null)
 const caption = ref('')
 const fileInputRef = ref(null)
 const isClearConfirmOpen = ref(false)
+const MAX_ATTACHMENTS = 3
+const MAX_FILE_BYTES = 50 * 1024 * 1024
 
 const isSubmitting = ref(false)
 const formError = ref('')
 const formSuccess = ref('')
 const isLoadingInitial = ref(true)
 const loadError = ref('')
+
+const resetFeedback = () => {
+  formError.value = ''
+  formSuccess.value = ''
+}
 
 const generateAttachmentId = () => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -589,6 +596,11 @@ const spintaxPreview = computed(() => {
 })
 
 const handleAttachment = (type) => {
+  resetFeedback()
+  if (attachments.value.length >= MAX_ATTACHMENTS) {
+    formError.value = `Limite de ${MAX_ATTACHMENTS} anexos atingido`
+    return
+  }
   currentAttachmentType.value = type
   isModalOpen.value = true
 }
@@ -597,6 +609,13 @@ const handleFileSelect = (event) => {
   const input = event?.target
   const file = input?.files?.[0]
   if (file) {
+    if (file.size > MAX_FILE_BYTES) {
+      formError.value = 'Cada arquivo deve ter no máximo 50MB'
+      if (input) {
+        input.value = ''
+      }
+      return
+    }
     selectedFile.value = file
   }
   if (input) {
@@ -642,6 +661,11 @@ const confirmAttachment = async () => {
   }
 
   attachments.value.push(newAttachment)
+  if (attachments.value.length > MAX_ATTACHMENTS) {
+    attachments.value.pop()
+    formError.value = `Limite de ${MAX_ATTACHMENTS} anexos atingido`
+    return
+  }
   uploadingAttachmentIds.value.add(attachmentId)
   closeModal()
 

@@ -25,6 +25,9 @@ type AttachmentRow = {
   created_at: string
 }
 
+const MAX_ATTACHMENTS = 3
+const MAX_FILE_BYTES = 50 * 1024 * 1024
+
 const sanitizeFileName = (fileName: string) => {
   return fileName
     .normalize('NFKD')
@@ -111,6 +114,8 @@ export default defineEventHandler(async (event) => {
     | null = null
   const createdNewMessage = !messageId
 
+  let existingAttachmentsCount = 0
+
   if (messageId) {
     const { data: existingMessage, error: fetchError } = await supabase
       .from('dashboard_messages')
@@ -138,6 +143,18 @@ export default defineEventHandler(async (event) => {
 
     message = updatedMessage
     messageIdForAttachments = updatedMessage.id
+
+    const { count: existingCount, error: countError } = await supabase
+      .from('dashboard_message_attachments')
+      .select('id', { count: 'exact', head: true })
+      .eq('message_id', updatedMessage.id)
+
+    if (countError) {
+      console.error('[dashboard/messages] attachment count error', countError)
+      throw createError({ statusCode: 500, statusMessage: 'Não foi possível validar os anexos existentes' })
+    }
+
+    existingAttachmentsCount = existingCount ?? 0
   } else {
     const { data: newMessage, error: messageError } = await supabase
       .from('dashboard_messages')
@@ -157,6 +174,14 @@ export default defineEventHandler(async (event) => {
     messageIdForAttachments = newMessage.id
   }
 
+  const totalAttachmentsAfterSave = existingAttachmentsCount + attachmentsMeta.length
+  if (totalAttachmentsAfterSave > MAX_ATTACHMENTS) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: `Limite de ${MAX_ATTACHMENTS} anexos por mensagem atingido`
+    })
+  }
+
   const uploadedPaths: string[] = []
   const attachments: AttachmentRow[] = []
 
@@ -169,6 +194,13 @@ export default defineEventHandler(async (event) => {
         throw createError({
           statusCode: 400,
           statusMessage: `Arquivo não enviado para o anexo ${meta.id}`
+        })
+      }
+
+      if (filePart.data.length > MAX_FILE_BYTES) {
+        throw createError({
+          statusCode: 400,
+          statusMessage: 'Cada arquivo deve ter no máximo 50MB'
         })
       }
 
