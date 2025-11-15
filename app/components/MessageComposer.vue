@@ -83,22 +83,22 @@
 
     <div v-if="attachments.length > 0" class="bg-gray-100 rounded-lg p-4 mb-6">
       <div class="flex flex-wrap gap-3">
-          <div
-            v-for="(attachment, index) in attachments"
-            :key="attachment.id || index"
-            class="bg-white px-4 py-3 rounded-lg text-sm flex items-start space-x-3 max-w-xs"
-          >
-            <div class="flex-1 flex space-x-3">
+        <div
+          v-for="(attachment, index) in attachments"
+          :key="attachment.id || index"
+          class="bg-white px-4 py-3 rounded-lg text-sm flex items-start space-x-3 max-w-xs"
+        >
+          <div class="flex-1 flex space-x-3">
               <div v-if="getAttachmentPreview(attachment)" class="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border border-gray-200">
                 <img :src="getAttachmentPreview(attachment)" alt="Preview" class="w-full h-full object-cover">
               </div>
-              <div>
-                <p class="font-medium text-gray-800">{{ attachment.name }}</p>
-                <p class="text-xs text-gray-500 mt-1">{{ formatFileSize(attachment.size) }}</p>
-                <p v-if="attachment.caption" class="text-gray-600 mt-2 text-xs italic">"{{ attachment.caption }}"</p>
+            <div class="min-w-0">
+              <p class="font-medium text-gray-800 break-all">{{ attachment.name }}</p>
+              <p class="text-xs text-gray-500 mt-1">{{ formatFileSize(attachment.size) }}</p>
+              <p v-if="attachment.caption" class="text-gray-600 mt-2 text-xs italic break-words">"{{ attachment.caption }}"</p>
               </div>
-            </div>
-            <div class="flex items-center space-x-2">
+          </div>
+          <div class="flex items-center space-x-2 ml-2">
               <button
                 @click="openEditAttachment(index)"
                 class="text-blue-500 hover:text-blue-700 flex-shrink-0"
