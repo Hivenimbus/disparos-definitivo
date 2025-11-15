@@ -1,10 +1,18 @@
 <template>
-  <section class="bg-white rounded-lg shadow p-6">
+  <div class="space-y-6">
+    <section class="bg-white rounded-lg shadow p-6">
     <div class="flex items-center space-x-2 mb-6">
       <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
       </svg>
       <h2 class="text-xl font-semibold text-gray-800">Composição da Mensagem</h2>
+    </div>
+
+    <div v-if="isLoadingInitial" class="mb-4 text-sm text-gray-500">
+      Carregando mensagem salva...
+    </div>
+    <div v-else-if="loadError" class="mb-4 rounded border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
+      {{ loadError }}
     </div>
 
     <div class="mb-6">
@@ -17,7 +25,26 @@
       ></textarea>
     </div>
 
+    <div v-if="formError" class="mb-4 rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+      {{ formError }}
+    </div>
+
+    <div v-if="formSuccess" class="mb-4 rounded border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+      {{ formSuccess }}
+    </div>
+
     <div class="mb-4 flex justify-end space-x-4">
+      <button
+        @click="saveMessage()"
+        :disabled="isSubmitting"
+        class="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 12h14m-9 8h4m-8-4h12a2 2 0 002-2V6a2 2 0 00-2-2H7a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+        <span>{{ isSubmitting ? 'Salvando...' : 'Salvar Mensagem' }}</span>
+      </button>
+
       <button
         @click="openSpintaxModal"
         class="flex items-center space-x-2 px-4 py-2 text-blue-600 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
@@ -43,43 +70,24 @@
       <h3 class="text-gray-700 font-medium mb-4">Anexos</h3>
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <button
-          @click="handleAttachment('image')"
+          v-for="option in attachmentOptions"
+          :key="option.type"
+          @click="handleAttachment(option.type)"
           class="bg-gray-100 hover:bg-gray-200 rounded-lg p-8 flex flex-col items-center justify-center transition-colors cursor-pointer"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 text-blue-600 mb-2" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
+          <svg v-if="option.icon === 'image'" xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 text-blue-600 mb-2" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z" />
           </svg>
-          <span class="text-gray-700 font-medium">Imagem</span>
-        </button>
-
-        <button
-          @click="handleAttachment('video')"
-          class="bg-gray-100 hover:bg-gray-200 rounded-lg p-8 flex flex-col items-center justify-center transition-colors cursor-pointer"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 text-blue-600 mb-2" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/>
+          <svg v-else-if="option.icon === 'video'" xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 text-blue-600 mb-2" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z" />
           </svg>
-          <span class="text-gray-700 font-medium">Vídeo</span>
-        </button>
-
-        <button
-          @click="handleAttachment('audio')"
-          class="bg-gray-100 hover:bg-gray-200 rounded-lg p-8 flex flex-col items-center justify-center transition-colors cursor-pointer"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 text-blue-600 mb-2" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M12 3v9.28c-.47-.17-.97-.28-1.5-.28C8.01 12 6 14.01 6 16.5S8.01 21 10.5 21c2.31 0 4.2-1.75 4.45-4H15V6h4V3h-7z"/>
+          <svg v-else-if="option.icon === 'audio'" xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 text-blue-600 mb-2" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 3v9.28c-.47-.17-.97-.28-1.5-.28C8.01 12 6 14.01 6 16.5S8.01 21 10.5 21c2.31 0 4.2-1.75 4.45-4H15V6h4V3h-7z" />
           </svg>
-          <span class="text-gray-700 font-medium">Áudio</span>
-        </button>
-
-        <button
-          @click="handleAttachment('document')"
-          class="bg-gray-100 hover:bg-gray-200 rounded-lg p-8 flex flex-col items-center justify-center transition-colors cursor-pointer"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 text-blue-600 mb-2" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
+          <svg v-else xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 text-blue-600 mb-2" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" />
           </svg>
-          <span class="text-gray-700 font-medium">Documento</span>
+          <span class="text-gray-700 font-medium">{{ option.label }}</span>
         </button>
       </div>
     </div>
@@ -88,24 +96,60 @@
       <div class="flex flex-wrap gap-3">
         <div
           v-for="(attachment, index) in attachments"
-          :key="index"
+          :key="attachment.id || index"
           class="bg-white px-4 py-3 rounded-lg text-sm flex items-start space-x-3 max-w-xs"
         >
-          <div class="flex-1">
-            <p class="font-medium text-gray-800">{{ attachment.name }}</p>
-            <p class="text-xs text-gray-500 mt-1">{{ formatFileSize(attachment.size) }}</p>
-            <p v-if="attachment.caption" class="text-gray-600 mt-2 text-xs italic">"{{ attachment.caption }}"</p>
+          <div class="flex-1 flex space-x-3">
+              <div v-if="getAttachmentPreview(attachment)" class="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border border-gray-200">
+                <img :src="getAttachmentPreview(attachment)" alt="Preview" class="w-full h-full object-cover">
+              </div>
+            <div class="min-w-0">
+              <p class="font-medium text-gray-800 break-all">{{ attachment.name }}</p>
+              <p class="text-xs text-gray-500 mt-1">{{ formatFileSize(attachment.size) }}</p>
+              <p
+                v-if="attachment.caption"
+                class="text-gray-600 mt-2 text-xs break-all"
+              >
+                "{{ truncateCaption(attachment.caption) }}"
+              </p>
+              </div>
           </div>
-          <button @click="removeAttachment(index)" class="text-red-500 hover:text-red-700 flex-shrink-0">
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
+          <div class="flex items-center space-x-2 ml-2">
+              <button
+                @click="openEditAttachment(index)"
+                class="text-blue-500 hover:text-blue-700 flex-shrink-0"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 4H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-4" />
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
+                </svg>
+              </button>
+              <button
+                @click="removeAttachment(index)"
+                :disabled="isAttachmentUploading(attachment.id) || (attachment.persisted && deletingAttachmentIds.has(attachment.id))"
+                class="text-red-500 hover:text-red-700 flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
       </div>
     </div>
 
     <div class="flex items-center space-x-3">
+      <button
+        @click="openClearConfirmModal"
+        :disabled="!canClearMessage"
+        class="flex items-center space-x-2 px-6 py-3 text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 6L6 18M6 6l12 12" />
+        </svg>
+        <span>Limpar</span>
+      </button>
+
       <button
         @click="previewMessage"
         class="flex items-center space-x-2 px-6 py-3 text-gray-700 bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 transition-colors"
@@ -119,7 +163,7 @@
 
       <button
         @click="sendMessage"
-        class="flex items-center space-x-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+        class="flex items-center space-x-2 px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
       >
         <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
@@ -147,6 +191,7 @@
               :accept="acceptedFileTypes"
               @change="handleFileSelect"
               class="hidden"
+              ref="fileInputRef"
               id="fileInput"
             >
             <label for="fileInput" class="cursor-pointer">
@@ -175,6 +220,9 @@
               </div>
             </label>
           </div>
+          <p v-if="attachmentModalError" class="text-sm text-red-600 mt-3">
+            {{ attachmentModalError }}
+          </p>
         </div>
 
         <div class="mb-6">
@@ -205,6 +253,49 @@
       </div>
     </div>
 
+    <div
+      v-if="isEditAttachmentModalOpen"
+      class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+      @click.self="closeEditAttachmentModal"
+    >
+      <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-semibold text-gray-800">Editar legenda</h3>
+          <button @click="closeEditAttachmentModal" class="text-gray-400 hover:text-gray-600">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div class="mb-4">
+          <label class="block text-gray-700 font-medium mb-2">Legenda</label>
+          <textarea
+            v-model="editingCaption"
+            rows="4"
+            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+            placeholder="Atualize a legenda do anexo"
+          ></textarea>
+        </div>
+
+        <div class="flex justify-end space-x-3">
+          <button
+            @click="closeEditAttachmentModal"
+            class="px-4 py-2 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            @click="saveAttachmentEdit"
+            :disabled="isSavingAttachmentEdit"
+            class="px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {{ isSavingAttachmentEdit ? 'Salvando...' : 'Salvar' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
     <div v-if="isPreviewModalOpen" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" @click.self="closePreviewModal">
       <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
         <div class="flex items-center justify-between mb-6">
@@ -230,8 +321,8 @@
               class="bg-white border border-gray-200 rounded-lg p-4"
             >
               <div class="flex items-start space-x-4">
-                <div v-if="getImagePreview(attachment.file)" class="flex-shrink-0">
-                  <img :src="getImagePreview(attachment.file)" alt="Preview" class="w-24 h-24 object-cover rounded-lg">
+                <div v-if="getAttachmentPreview(attachment)" class="flex-shrink-0">
+                  <img :src="getAttachmentPreview(attachment)" alt="Preview" class="w-24 h-24 object-cover rounded-lg">
                 </div>
                 <div v-else class="flex-shrink-0">
                   <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
@@ -242,9 +333,14 @@
                   <div class="flex items-center space-x-2 mb-1">
                     <span class="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded">{{ attachment.type }}</span>
                   </div>
-                  <p class="font-medium text-gray-800">{{ attachment.name }}</p>
+                  <p class="font-medium text-gray-800 break-all">{{ attachment.name }}</p>
                   <p class="text-sm text-gray-500 mt-1">{{ formatFileSize(attachment.size) }}</p>
-                  <p v-if="attachment.caption" class="text-gray-700 mt-3 p-3 bg-gray-50 rounded-lg italic text-sm">"{{ attachment.caption }}"</p>
+                  <p
+                    v-if="attachment.caption"
+                    class="text-gray-700 mt-3 p-3 bg-gray-50 rounded-lg text-sm break-all"
+                  >
+                    "{{ truncateCaption(attachment.caption, 80) }}"
+                  </p>
                 </div>
               </div>
             </div>
@@ -348,27 +444,130 @@
         </div>
       </div>
     </div>
-  </section>
+    </section>
+
+  <Teleport to="body">
+    <div
+      v-if="isClearConfirmOpen"
+      class="fixed inset-0 bg-black bg-opacity-50 z-[999] flex items-center justify-center p-4"
+      @click.self="closeClearConfirmModal"
+    >
+      <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-semibold text-gray-800">Limpar mensagem</h3>
+          <button @click="closeClearConfirmModal" class="text-gray-400 hover:text-gray-600">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <p class="text-gray-700 mb-4">
+          Tem certeza de que deseja remover o texto atual e {{ attachments.length || 'todos os' }} anexo(s)? Esta ação não pode ser desfeita.
+        </p>
+
+        <div class="flex justify-end space-x-3">
+          <button
+            @click="closeClearConfirmModal"
+            class="px-6 py-2 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            @click="confirmClearMessage"
+            class="px-6 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors"
+          >
+            Limpar tudo
+          </button>
+        </div>
+      </div>
+    </div>
+  </Teleport>
+  </div>
 </template>
 
-<script setup>
-import { ref, computed } from 'vue'
+<script setup lang="ts">
+import { computed, onMounted, ref } from 'vue'
+
+type DashboardAttachment = {
+  id: string
+  type: string
+  name: string
+  size: number
+  caption: string
+  file: File | null
+  mimeType: string
+  previewUrl: string | null
+  publicUrl: string | null
+  persisted: boolean
+}
+
+type SaveMessageOptions = {
+  attachments?: DashboardAttachment[]
+  auto?: boolean
+  successMessage?: string
+}
 
 const message = ref('')
-const attachments = ref([])
+const attachments = ref<DashboardAttachment[]>([])
+const deletingAttachmentIds = ref(new Set<string>())
+const uploadingAttachmentIds = ref(new Set<string>())
+const currentMessageId = ref<string | null>(null)
+const isEditAttachmentModalOpen = ref(false)
+const editingAttachmentIndex = ref(-1)
+const editingCaption = ref('')
+const isSavingAttachmentEdit = ref(false)
 const isModalOpen = ref(false)
 const isPreviewModalOpen = ref(false)
 const currentAttachmentType = ref('')
 const selectedFile = ref(null)
 const caption = ref('')
+const fileInputRef = ref(null)
+const isClearConfirmOpen = ref(false)
+const MAX_ATTACHMENTS = 3
+const MAX_FILE_BYTES = 50 * 1024 * 1024
+const attachmentModalError = ref('')
 
-// Spintax states
-const isSpintaxModalOpen = ref(false)
-const spintaxFields = ref([
-  { value: '' },
-  { value: '' },
-  { value: '' }
-])
+const isSubmitting = ref(false)
+const formError = ref('')
+const formSuccess = ref('')
+const isLoadingInitial = ref(true)
+const loadError = ref('')
+
+const resetFeedback = () => {
+  formError.value = ''
+  formSuccess.value = ''
+}
+
+const generateAttachmentId = () => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+  return `att-${Date.now()}-${Math.random().toString(16).slice(2)}`
+}
+
+const attachmentOptions = [
+  {
+    type: 'image',
+    label: 'Imagem',
+    icon: 'image'
+  },
+  {
+    type: 'video',
+    label: 'Vídeo',
+    icon: 'video'
+  },
+  {
+    type: 'audio',
+    label: 'Áudio',
+    icon: 'audio'
+  },
+  {
+    type: 'document',
+    label: 'Documento',
+    icon: 'document'
+  }
+]
 
 const acceptedFileTypes = computed(() => {
   const types = {
@@ -381,13 +580,8 @@ const acceptedFileTypes = computed(() => {
 })
 
 const attachmentTypeLabel = computed(() => {
-  const labels = {
-    image: 'Imagem',
-    video: 'Vídeo',
-    audio: 'Áudio',
-    document: 'Documento'
-  }
-  return labels[currentAttachmentType.value] || 'Anexo'
+  const option = attachmentOptions.find((opt) => opt.type === currentAttachmentType.value)
+  return option?.label || 'Anexo'
 })
 
 // Spintax computed properties
@@ -406,35 +600,89 @@ const spintaxPreview = computed(() => {
 })
 
 const handleAttachment = (type) => {
+  resetFeedback()
+  attachmentModalError.value = ''
+  if (attachments.value.length >= MAX_ATTACHMENTS) {
+    formError.value = `Limite de ${MAX_ATTACHMENTS} anexos atingido`
+    return
+  }
   currentAttachmentType.value = type
   isModalOpen.value = true
 }
 
 const handleFileSelect = (event) => {
-  const file = event.target.files[0]
+  const input = event?.target
+  const file = input?.files?.[0]
   if (file) {
+    if (file.size > MAX_FILE_BYTES) {
+      attachmentModalError.value = 'Cada arquivo deve ter no máximo 50MB'
+      if (input) {
+        input.value = ''
+      }
+      return
+    }
+    attachmentModalError.value = ''
     selectedFile.value = file
+  }
+  if (input) {
+    input.value = ''
   }
 }
 
-const formatFileSize = (bytes) => {
-  if (bytes === 0) return '0 Bytes'
+const formatFileSize = (bytes = 0) => {
+  if (!bytes) return '0 Bytes'
   const k = 1024
   const sizes = ['Bytes', 'KB', 'MB', 'GB']
   const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i]
+  return `${Math.round((bytes / Math.pow(k, i)) * 100) / 100} ${sizes[i]}`
 }
 
-const confirmAttachment = () => {
-  if (selectedFile.value) {
-    attachments.value.push({
-      type: currentAttachmentType.value,
-      name: selectedFile.value.name,
-      size: selectedFile.value.size,
-      caption: caption.value,
-      file: selectedFile.value
+const deriveTypeFromMime = (mime = '') => {
+  if (mime?.startsWith?.('image/')) return 'image'
+  if (mime?.startsWith?.('video/')) return 'video'
+  if (mime?.startsWith?.('audio/')) return 'audio'
+  return 'document'
+}
+
+const confirmAttachment = async () => {
+  const file = selectedFile.value
+
+  if (!file) {
+    return
+  }
+
+  const attachmentId = generateAttachmentId()
+  const attachmentType = currentAttachmentType.value || deriveTypeFromMime(file.type)
+  const newAttachment: DashboardAttachment = {
+    id: attachmentId,
+    type: attachmentType,
+    name: file.name,
+    size: file.size,
+    caption: caption.value,
+    file,
+    mimeType: file.type,
+    previewUrl: file.type?.startsWith('image/') ? URL.createObjectURL(file) : null,
+    publicUrl: null,
+    persisted: false
+  }
+
+  attachments.value.push(newAttachment)
+  if (attachments.value.length > MAX_ATTACHMENTS) {
+    attachments.value.pop()
+    formError.value = `Limite de ${MAX_ATTACHMENTS} anexos atingido`
+    return
+  }
+  uploadingAttachmentIds.value.add(attachmentId)
+  closeModal()
+
+  try {
+    await saveMessage({
+      attachments: [newAttachment],
+      auto: true,
+      successMessage: 'Anexo salvo automaticamente!'
     })
-    closeModal()
+  } finally {
+    uploadingAttachmentIds.value.delete(attachmentId)
   }
 }
 
@@ -443,10 +691,125 @@ const closeModal = () => {
   selectedFile.value = null
   caption.value = ''
   currentAttachmentType.value = ''
+  attachmentModalError.value = ''
+  if (fileInputRef.value) {
+    fileInputRef.value.value = ''
+  }
 }
 
-const removeAttachment = (index) => {
-  attachments.value.splice(index, 1)
+const removeAttachment = async (index) => {
+  const attachment = attachments.value[index]
+
+  if (!attachment) {
+    return
+  }
+
+  if (!attachment.persisted) {
+    attachments.value.splice(index, 1)
+    return
+  }
+
+  if (deletingAttachmentIds.value.has(attachment.id)) {
+    return
+  }
+
+  deletingAttachmentIds.value.add(attachment.id)
+
+  try {
+    await $fetch('/api/dashboard/messages/attachments', {
+      method: 'DELETE',
+      body: {
+        attachmentId: attachment.id
+      }
+    })
+
+    attachments.value.splice(index, 1)
+    formSuccess.value = 'Anexo removido com sucesso'
+  } catch (error) {
+    console.error('[dashboard/messages] delete attachment error', error)
+    formError.value = error?.data?.statusMessage || 'Erro ao remover anexo'
+  } finally {
+    deletingAttachmentIds.value.delete(attachment.id)
+  }
+}
+
+const openEditAttachment = (index: number) => {
+  const attachment = attachments.value[index]
+  if (!attachment) {
+    return
+  }
+  editingAttachmentIndex.value = index
+  editingCaption.value = attachment.caption || ''
+  isEditAttachmentModalOpen.value = true
+}
+
+const closeEditAttachmentModal = () => {
+  isEditAttachmentModalOpen.value = false
+  editingAttachmentIndex.value = -1
+  editingCaption.value = ''
+  isSavingAttachmentEdit.value = false
+}
+
+const saveAttachmentEdit = async () => {
+  if (editingAttachmentIndex.value < 0) {
+    return
+  }
+
+  const attachment = attachments.value[editingAttachmentIndex.value]
+
+  if (!attachment) {
+    closeEditAttachmentModal()
+    return
+  }
+
+  const newCaption = editingCaption.value.trim()
+
+  if (!attachment.persisted) {
+    attachment.caption = newCaption
+    attachments.value.splice(editingAttachmentIndex.value, 1, { ...attachment })
+    formSuccess.value = 'Legenda atualizada'
+    closeEditAttachmentModal()
+    return
+  }
+
+  isSavingAttachmentEdit.value = true
+
+  try {
+    const response = await $fetch(`/api/dashboard/messages/attachments/${attachment.id}`, {
+      method: 'PUT',
+      body: {
+        caption: newCaption
+      }
+    })
+
+    const normalized = normalizeAttachmentPayload(response.attachment as Record<string, any>)
+
+    const updatedAttachment: DashboardAttachment = {
+      ...attachment,
+      id: normalized.id || attachment.id,
+      name: normalized.fileName || attachment.name,
+      size:
+        typeof normalized.fileSizeBytes === 'number' && normalized.fileSizeBytes > 0
+          ? normalized.fileSizeBytes
+          : attachment.size,
+      caption: normalized.caption || newCaption,
+      mimeType: normalized.mimeType || attachment.mimeType,
+      previewUrl:
+        normalized.mimeType?.startsWith?.('image/') && normalized.publicUrl
+          ? normalized.publicUrl
+          : attachment.previewUrl,
+      publicUrl: normalized.publicUrl ?? attachment.publicUrl,
+      persisted: true,
+      file: attachment.file
+    }
+    attachments.value.splice(editingAttachmentIndex.value, 1, updatedAttachment)
+    formSuccess.value = 'Legenda atualizada'
+    closeEditAttachmentModal()
+  } catch (error: any) {
+    console.error('[dashboard/messages] update attachment error', error)
+    formError.value = error?.data?.statusMessage || 'Erro ao atualizar legenda'
+    isSavingAttachmentEdit.value = false
+  }
 }
 
 const previewMessage = () => {
@@ -467,11 +830,243 @@ const getAttachmentIcon = (type) => {
   return icons[type] || icons.document
 }
 
-const getImagePreview = (file) => {
-  if (file && file.type?.startsWith('image/')) {
-    return URL.createObjectURL(file)
+const getAttachmentPreview = (attachment) => {
+  if (!attachment) return null
+  if (attachment.previewUrl) return attachment.previewUrl
+  if (attachment.publicUrl && (attachment.mimeType?.startsWith?.('image/') ?? false)) {
+    return attachment.publicUrl
   }
   return null
+}
+
+const truncateCaption = (text: string, maxLength = 50) => {
+  if (!text) {
+    return ''
+  }
+  const caption = text.trim()
+  if (caption.length <= maxLength) {
+    return caption
+  }
+  return `${caption.slice(0, maxLength)}...`
+}
+
+const isAttachmentUploading = (id?: string) => {
+  if (!id) return false
+  return uploadingAttachmentIds.value.has(id)
+}
+
+const canClearMessage = computed(() => {
+  return message.value.trim().length > 0 || attachments.value.length > 0
+})
+
+const openClearConfirmModal = () => {
+  if (!canClearMessage.value) return
+  formError.value = ''
+  formSuccess.value = ''
+  isClearConfirmOpen.value = true
+}
+
+const closeClearConfirmModal = () => {
+  isClearConfirmOpen.value = false
+}
+
+const confirmClearMessage = async () => {
+  isClearConfirmOpen.value = false
+  await clearMessage()
+}
+
+const clearMessage = async () => {
+  formError.value = ''
+  formSuccess.value = ''
+
+  try {
+    if (currentMessageId.value) {
+      await $fetch('/api/dashboard/messages/clear', {
+        method: 'DELETE',
+        body: {
+          messageId: currentMessageId.value
+        }
+      })
+    }
+  } catch (error: any) {
+    console.error('[dashboard/messages] clear message error', error)
+    formError.value = error?.data?.statusMessage || 'Erro ao limpar a mensagem'
+    return
+  }
+
+  attachments.value.forEach((attachment) => {
+    if (attachment.previewUrl && attachment.previewUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(attachment.previewUrl)
+    }
+  })
+
+  attachments.value = []
+  message.value = ''
+  currentMessageId.value = null
+  formSuccess.value = 'Mensagem limpa com sucesso'
+}
+
+const normalizeAttachmentPayload = (payload: Record<string, any>) => ({
+  id: payload.id ?? payload?.attachmentId ?? '',
+  fileName: payload.file_name ?? payload.fileName ?? payload.name ?? '',
+  mimeType: payload.mime_type ?? payload.mimeType ?? '',
+  fileSizeBytes: payload.file_size_bytes ?? payload.fileSizeBytes ?? payload.size ?? 0,
+  publicUrl: payload.public_url ?? payload.publicUrl ?? null,
+  caption: payload.caption ?? ''
+})
+
+const mapApiAttachment = (
+  apiAttachment:
+    | DashboardAttachment
+    | {
+        id?: string
+        file_name?: string
+        fileName?: string
+        file_size_bytes?: number
+        fileSizeBytes?: number
+        mime_type?: string
+        mimeType?: string
+        public_url?: string
+        publicUrl?: string
+        caption?: string | null
+      }
+): DashboardAttachment => {
+  if ('persisted' in apiAttachment && apiAttachment.persisted) {
+    return apiAttachment
+  }
+
+  const normalized = normalizeAttachmentPayload(apiAttachment as Record<string, any>)
+
+  return {
+    id: normalized.id,
+    type: deriveTypeFromMime(normalized.mimeType),
+    name: normalized.fileName || 'arquivo',
+    size: typeof normalized.fileSizeBytes === 'number' ? normalized.fileSizeBytes : 0,
+    caption: normalized.caption || '',
+    file: null,
+    mimeType: normalized.mimeType || '',
+    previewUrl: normalized.mimeType?.startsWith?.('image/') ? normalized.publicUrl ?? null : null,
+    publicUrl: normalized.publicUrl || null,
+    persisted: true
+  }
+}
+
+const normalizeApiAttachments = (raw: any[]) => {
+  if (!Array.isArray(raw)) {
+    return []
+  }
+
+  const seen = new Set<string>()
+
+  return raw.reduce<DashboardAttachment[]>((acc, attachment) => {
+    const key = attachment.id || attachment.storage_path || `${attachment.file_name}-${attachment.created_at}`
+    if (seen.has(key)) {
+      return acc
+    }
+    seen.add(key)
+    acc.push(mapApiAttachment(attachment))
+    return acc
+  }, [])
+}
+
+const loadLastMessage = async (showLoader = true) => {
+  if (showLoader) {
+    isLoadingInitial.value = true
+  }
+  loadError.value = ''
+  try {
+    const response = await $fetch('/api/dashboard/messages', {
+      query: { limit: 1, page: 1 }
+    })
+    const lastMessage = response?.messages?.[0]
+    if (lastMessage) {
+      currentMessageId.value = lastMessage.id || null
+      message.value = lastMessage.body || ''
+      attachments.value = normalizeApiAttachments(lastMessage.attachments ?? [])
+    } else {
+      currentMessageId.value = null
+      message.value = ''
+      attachments.value = []
+    }
+  } catch (error) {
+    console.error('[dashboard/messages] load error', error)
+    loadError.value = error?.data?.statusMessage || 'Erro ao carregar mensagem salva'
+  } finally {
+    if (showLoader) {
+      isLoadingInitial.value = false
+    }
+  }
+}
+
+onMounted(loadLastMessage)
+
+const saveMessage = async (options: SaveMessageOptions = {}) => {
+  const isAutoSave = options.auto ?? false
+
+  formError.value = ''
+  if (!isAutoSave) {
+    formSuccess.value = ''
+  }
+
+  if (!isAutoSave) {
+    isSubmitting.value = true
+  }
+
+  const formData = new FormData()
+  formData.append('body', message.value.trim())
+  if (currentMessageId.value) {
+    formData.append('message_id', currentMessageId.value)
+  }
+
+  const attachmentsToProcess = (options.attachments ?? attachments.value).filter((attachment) => !!attachment.file)
+
+  if (!message.value.trim() && attachmentsToProcess.length === 0) {
+    formError.value = 'Adicione texto ou anexos para salvar.'
+    if (!isAutoSave) {
+      isSubmitting.value = false
+    }
+    return false
+  }
+
+  if (attachmentsToProcess.length > 0) {
+    const attachmentsMeta = attachmentsToProcess.map((attachment) => {
+      const file = attachment.file as File
+      const attachmentId = attachment.id || generateAttachmentId()
+      attachment.id = attachmentId
+      formData.append(`file-${attachmentId}`, file, file.name)
+      return {
+        id: attachmentId,
+        caption: attachment.caption || '',
+        mimeType: attachment.mimeType || file.type,
+        fileName: file.name,
+        type: attachment.type
+      }
+    })
+    formData.append('attachments_meta', JSON.stringify(attachmentsMeta))
+  }
+
+  try {
+    const response = await $fetch('/api/dashboard/messages', {
+      method: 'POST',
+      body: formData
+    })
+
+    currentMessageId.value = response?.message?.id || currentMessageId.value
+    await loadLastMessage(false)
+
+    formSuccess.value =
+      options.successMessage || (isAutoSave ? 'Anexo salvo automaticamente!' : 'Mensagem salva com sucesso!')
+    return true
+  } catch (error: any) {
+    console.error('[dashboard/messages] send error', error)
+    formError.value =
+      error?.data?.statusMessage || (isAutoSave ? 'Erro ao salvar anexo automaticamente' : 'Erro ao salvar mensagem')
+    return false
+  } finally {
+    if (!isAutoSave) {
+      isSubmitting.value = false
+    }
+  }
 }
 
 const sendMessage = () => {

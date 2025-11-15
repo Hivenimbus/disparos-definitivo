@@ -21,7 +21,33 @@
           </svg>
           <span>Importar Arquivo</span>
         </button>
+        <button
+          @click="openCountryCodeModal"
+          class="flex items-center space-x-2 px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3C7.03 3 3 7.03 3 12s4.03 9 9 9 9-4.03 9-9-4.03-9-9-9zm0 0c2.5 2.5 4 5.5 4 9s-1.5 6.5-4 9m0-18c-2.5 2.5-4 5.5-4 9s1.5 6.5 4 9m-9-9h18" />
+          </svg>
+          <span>Inserir código do País</span>
+        </button>
+        <button
+          @click="deleteAllContacts"
+          :disabled="isClearingContacts || contacts.length === 0"
+          class="flex items-center space-x-2 px-4 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+          <span>{{ isClearingContacts ? 'Apagando...' : 'Apagar Todos' }}</span>
+        </button>
       </div>
+    </div>
+
+    <div v-if="errorMessage" class="mb-4 rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+      {{ errorMessage }}
+    </div>
+    <div v-if="successMessage" class="mb-4 rounded border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+      {{ successMessage }}
     </div>
 
     <div class="grid grid-cols-2 gap-4 mb-6">
@@ -92,6 +118,26 @@
           </tr>
         </tbody>
       </table>
+    </div>
+
+    <div v-if="totalPages > 1" class="flex items-center justify-center space-x-4 mt-6">
+      <button
+        @click="fetchContacts(currentPage - 1)"
+        :disabled="currentPage === 1 || isLoadingContacts"
+        class="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        Anterior
+      </button>
+      <span class="text-sm text-gray-600">
+        Página {{ currentPage }} de {{ totalPages }}
+      </span>
+      <button
+        @click="fetchContacts(currentPage + 1)"
+        :disabled="currentPage === totalPages || isLoadingContacts"
+        class="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        Próxima
+      </button>
     </div>
 
     <div v-if="isImportModalOpen" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" @click.self="closeImportModal">
@@ -239,13 +285,17 @@
             Formatos aceitos: TXT, CSV, XLS, XLSX
           </p>
           
-          <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-500 transition-colors">
+          <div
+            class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-500 transition-colors"
+            :class="{ 'opacity-60 pointer-events-none': isProcessingFile }"
+          >
             <input
               type="file"
               id="fileInput"
               accept=".txt,.csv,.xls,.xlsx"
               @change="handleFileSelect"
               class="hidden"
+              :disabled="isProcessingFile"
             >
             <label for="fileInput" class="cursor-pointer">
               <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 mx-auto mb-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -273,6 +323,10 @@
           </div>
         </div>
 
+        <div v-if="isProcessingFile" class="text-sm text-gray-600 mb-3">
+          Processando arquivo, aguarde...
+        </div>
+
         <div class="flex justify-end space-x-3">
           <button
             @click="closeFileImportModal"
@@ -282,10 +336,60 @@
           </button>
           <button
             @click="processFile"
-            :disabled="!selectedFile"
+            :disabled="!selectedFile || isProcessingFile"
             class="px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Importar
+            {{ isProcessingFile ? 'Importando...' : 'Importar' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div
+      v-if="isCountryCodeModalOpen"
+      class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+      @click.self="closeCountryCodeModal"
+    >
+      <div class="bg-white rounded-lg shadow-xl max-w-sm w-full p-6">
+        <div class="flex items-center justify-between mb-6">
+          <h3 class="text-xl font-semibold text-gray-800">Inserir código do país</h3>
+          <button @click="closeCountryCodeModal" class="text-gray-400 hover:text-gray-600">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div class="space-y-4 mb-6">
+          <div>
+            <label class="block text-gray-700 font-medium mb-2">Código do país (somente números)</label>
+            <input
+              v-model="countryCodeInput"
+              type="text"
+              inputmode="numeric"
+              pattern="[0-9]*"
+              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="Ex: 55"
+            >
+          </div>
+          <p class="text-sm text-gray-500">
+            O código será adicionado no início de cada número exibido na lista atual.
+          </p>
+        </div>
+
+        <div class="flex justify-end space-x-3">
+          <button
+            @click="closeCountryCodeModal"
+            class="px-6 py-2 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            @click="applyCountryCodeToContacts"
+            :disabled="!countryCodeInput.trim() || isSavingContacts"
+            class="px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {{ isSavingContacts ? 'Aplicando...' : 'Aplicar' }}
           </button>
         </div>
       </div>
@@ -294,15 +398,25 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import * as XLSX from 'xlsx'
 
 const contacts = ref([])
+const currentPage = ref(1)
+const totalPages = ref(1)
+const limit = 10
+const isLoadingContacts = ref(false)
+const isSavingContacts = ref(false)
+const isClearingContacts = ref(false)
+const errorMessage = ref('')
+const successMessage = ref('')
 const isImportModalOpen = ref(false)
 const contactListText = ref('')
 const isEditModalOpen = ref(false)
 const isFileImportModalOpen = ref(false)
 const selectedFile = ref(null)
+const isCountryCodeModalOpen = ref(false)
+const countryCodeInput = ref('')
 const editForm = ref({
   id: null,
   name: '',
@@ -312,8 +426,10 @@ const editForm = ref({
   var3: ''
 })
 
-const totalContacts = computed(() => contacts.value.length)
-const validContacts = computed(() => contacts.value.filter(c => c.status === 'valid').length)
+const totalContacts = ref(0)
+const totalValidContacts = ref(0)
+const validContacts = computed(() => totalValidContacts.value)
+const isProcessingFile = ref(false)
 
 // Dynamic column detection
 const hasVar1 = computed(() => contacts.value.some(c => c.var1 && c.var1.trim()))
@@ -330,7 +446,13 @@ const totalColumns = computed(() => {
   return count
 })
 
+const resetFeedback = () => {
+  errorMessage.value = ''
+  successMessage.value = ''
+}
+
 const openImportModal = () => {
+  resetFeedback()
   isImportModalOpen.value = true
 }
 
@@ -340,6 +462,7 @@ const closeImportModal = () => {
 }
 
 const openEditModal = (contact) => {
+  resetFeedback()
   editForm.value = {
     id: contact.id,
     name: contact.name,
@@ -363,21 +486,38 @@ const closeEditModal = () => {
   }
 }
 
-const saveEdit = () => {
-  const index = contacts.value.findIndex(c => c.id === editForm.value.id)
-  if (index !== -1) {
-    const isValid = validateWhatsApp(editForm.value.whatsapp)
-    contacts.value[index] = {
-      ...contacts.value[index],
-      name: editForm.value.name,
-      whatsapp: editForm.value.whatsapp,
-      var1: editForm.value.var1,
-      var2: editForm.value.var2,
-      var3: editForm.value.var3,
-      status: isValid ? 'valid' : 'invalid'
-    }
+const saveEdit = async () => {
+  if (!editForm.value.id) {
+    return
   }
-  closeEditModal()
+
+  isSavingContacts.value = true
+  resetFeedback()
+
+  try {
+    const { contact } = await $fetch('/api/dashboard/contacts', {
+      method: 'PUT',
+      body: {
+        id: editForm.value.id,
+        name: editForm.value.name,
+        whatsapp: editForm.value.whatsapp,
+        var1: editForm.value.var1,
+        var2: editForm.value.var2,
+        var3: editForm.value.var3
+      }
+    })
+
+    if (contact) {
+      successMessage.value = 'Contato atualizado com sucesso'
+      await fetchContacts(currentPage.value)
+    }
+    closeEditModal()
+  } catch (error) {
+    console.error('[dashboard/contacts] edit error', error)
+    errorMessage.value = error?.data?.statusMessage || 'Erro ao atualizar o contato'
+  } finally {
+    isSavingContacts.value = false
+  }
 }
 
 const parseContactLine = (line) => {
@@ -450,7 +590,67 @@ const validateWhatsApp = (number) => {
   return cleaned.length >= 10 && cleaned.length <= 15
 }
 
-const importContacts = () => {
+const fetchContacts = async (page = 1) => {
+  isLoadingContacts.value = true
+  resetFeedback()
+  try {
+    const { contacts: apiContacts, meta } = await $fetch('/api/dashboard/contacts', {
+      query: { page, limit }
+    })
+    contacts.value = (apiContacts ?? []).map((contact) => ({
+      ...contact,
+      status: validateWhatsApp(contact.whatsapp) ? 'valid' : 'invalid'
+    }))
+    currentPage.value = meta?.page || page
+    totalContacts.value = meta?.total ?? contacts.value.length
+    totalValidContacts.value = meta?.validTotal ?? totalValidContacts.value
+    totalPages.value = Math.max(1, Math.ceil(totalContacts.value / limit))
+  } catch (error) {
+    console.error('[dashboard/contacts] fetch error', error)
+    errorMessage.value = error?.data?.statusMessage || 'Erro ao carregar contatos'
+  } finally {
+    isLoadingContacts.value = false
+  }
+}
+
+onMounted(() => fetchContacts(currentPage.value))
+
+const saveContactsToApi = async (newContacts) => {
+  if (!newContacts.length) {
+    return []
+  }
+
+  isSavingContacts.value = true
+  try {
+    const payload = newContacts.map((contact) => ({
+      name: contact.name,
+      whatsapp: contact.whatsapp,
+      var1: contact.var1,
+      var2: contact.var2,
+      var3: contact.var3
+    }))
+
+    const { contacts: createdContacts } = await $fetch('/api/dashboard/contacts', {
+      method: 'POST',
+      body: {
+        contacts: payload
+      }
+    })
+
+    return (createdContacts ?? []).map((contact) => ({
+      ...contact,
+      status: validateWhatsApp(contact.whatsapp) ? 'valid' : 'invalid'
+    }))
+  } catch (error) {
+    console.error('[dashboard/contacts] batch save error', error)
+    errorMessage.value = error?.data?.statusMessage || 'Erro ao salvar os contatos'
+    return []
+  } finally {
+    isSavingContacts.value = false
+  }
+}
+
+const importContacts = async () => {
   const lines = contactListText.value.split('\n')
   const newContacts = []
 
@@ -470,17 +670,102 @@ const importContacts = () => {
     }
   })
 
-  contacts.value = [...contacts.value, ...newContacts]
-  closeImportModal()
+  if (newContacts.length === 0) {
+    errorMessage.value = 'Nenhum contato válido encontrado'
+    return
+  }
 
-  console.log(`Importados ${newContacts.length} contatos`)
+    const savedContacts = await saveContactsToApi(newContacts)
+
+    if (savedContacts.length) {
+      successMessage.value = `Importados ${savedContacts.length} contatos`
+      await fetchContacts(currentPage.value)
+      closeImportModal()
+    }
 }
 
-const deleteContact = (id) => {
-  contacts.value = contacts.value.filter(contact => contact.id !== id)
+const deleteContact = async (id) => {
+  resetFeedback()
+  try {
+    await $fetch('/api/dashboard/contacts', {
+      method: 'DELETE',
+      body: { contactId: id }
+    })
+    await fetchContacts(currentPage.value)
+    successMessage.value = 'Contato removido'
+  } catch (error) {
+    console.error('[dashboard/contacts] delete error', error)
+    errorMessage.value = error?.data?.statusMessage || 'Erro ao remover contato'
+  }
+}
+
+const deleteAllContacts = async () => {
+  if (!contacts.value.length) {
+    return
+  }
+
+  const confirmed = window.confirm('Tem certeza que deseja apagar todos os contatos?')
+  if (!confirmed) {
+    return
+  }
+
+  isClearingContacts.value = true
+  resetFeedback()
+
+  try {
+    const { deleted } = await $fetch('/api/dashboard/contacts/clear', {
+      method: 'DELETE'
+    })
+    await fetchContacts(1)
+    const removed = typeof deleted === 'number' ? deleted : contacts.value.length
+    successMessage.value = removed
+      ? `Removidos ${removed} contato${removed === 1 ? '' : 's'}`
+      : 'Nenhum contato para remover'
+  } catch (error) {
+    console.error('[dashboard/contacts] bulk delete error', error)
+    errorMessage.value = error?.data?.statusMessage || 'Erro ao remover contatos'
+  } finally {
+    isClearingContacts.value = false
+  }
+}
+
+const applyCountryCodeToContacts = async () => {
+  const code = countryCodeInput.value.replace(/\D/g, '')
+  if (!code) {
+    errorMessage.value = 'Informe um código de país válido'
+    return
+  }
+
+  resetFeedback()
+  isSavingContacts.value = true
+
+  try {
+    const { updated } = await $fetch('/api/dashboard/contacts/country-code', {
+      method: 'POST',
+      body: {
+        countryCode: code
+      }
+    })
+
+    await fetchContacts(currentPage.value)
+
+    if (updated) {
+      successMessage.value = `Código do país aplicado em ${updated} contato${updated === 1 ? '' : 's'}`
+    } else {
+      successMessage.value = 'Nenhum contato precisava ser atualizado'
+    }
+
+    closeCountryCodeModal()
+  } catch (error) {
+    console.error('[dashboard/contacts] bulk country code error', error)
+    errorMessage.value = error?.data?.statusMessage || 'Erro ao aplicar código do país'
+  } finally {
+    isSavingContacts.value = false
+  }
 }
 
 const openFileImportModal = () => {
+  resetFeedback()
   isFileImportModalOpen.value = true
   selectedFile.value = null
 }
@@ -488,6 +773,17 @@ const openFileImportModal = () => {
 const closeFileImportModal = () => {
   isFileImportModalOpen.value = false
   selectedFile.value = null
+}
+
+const openCountryCodeModal = () => {
+  resetFeedback()
+  countryCodeInput.value = ''
+  isCountryCodeModalOpen.value = true
+}
+
+const closeCountryCodeModal = () => {
+  isCountryCodeModalOpen.value = false
+  countryCodeInput.value = ''
 }
 
 const handleFileSelect = (event) => {
@@ -498,7 +794,10 @@ const handleFileSelect = (event) => {
 }
 
 const processFile = async () => {
-  if (!selectedFile.value) return
+  if (!selectedFile.value || isProcessingFile.value) return
+
+  isProcessingFile.value = true
+  resetFeedback()
 
   const file = selectedFile.value
   const fileName = file.name.toLowerCase()
@@ -565,12 +864,23 @@ const processFile = async () => {
       })
     }
 
-    contacts.value = [...contacts.value, ...newContacts]
-    closeFileImportModal()
-    console.log(`Importados ${newContacts.length} contatos do arquivo`)
+    if (newContacts.length === 0) {
+      errorMessage.value = 'Nenhum contato válido encontrado no arquivo'
+      return
+    }
+
+    const savedContacts = await saveContactsToApi(newContacts)
+
+    if (savedContacts.length) {
+      successMessage.value = `Importados ${savedContacts.length} contatos`
+      await fetchContacts(currentPage.value)
+      closeFileImportModal()
+    }
   } catch (error) {
     console.error('Erro ao processar arquivo:', error)
-    alert('Erro ao processar arquivo. Verifique o formato e tente novamente.')
+    errorMessage.value = 'Erro ao processar arquivo. Verifique o formato e tente novamente.'
+  } finally {
+    isProcessingFile.value = false
   }
 }
 </script>
