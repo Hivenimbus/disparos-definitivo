@@ -97,7 +97,7 @@
               <p class="text-xs text-gray-500 mt-1">{{ formatFileSize(attachment.size) }}</p>
               <p
                 v-if="attachment.caption"
-                class="text-gray-600 mt-2 text-xs italic break-all"
+                class="text-gray-600 mt-2 text-xs break-all"
               >
                 "{{ truncateCaption(attachment.caption) }}"
               </p>
@@ -141,7 +141,7 @@
 
       <button
         @click="sendMessage"
-        class="flex items-center space-x-2 px-6 py-3 text-gray-700 bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 transition-colors"
+        class="flex items-center space-x-2 px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
       >
         <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
@@ -323,7 +323,7 @@
                   <p class="text-sm text-gray-500 mt-1">{{ formatFileSize(attachment.size) }}</p>
                   <p
                     v-if="attachment.caption"
-                    class="text-gray-700 mt-3 p-3 bg-gray-50 rounded-lg italic text-sm break-all"
+                    class="text-gray-700 mt-3 p-3 bg-gray-50 rounded-lg text-sm break-all"
                   >
                     "{{ truncateCaption(attachment.caption, 80) }}"
                   </p>
