@@ -83,6 +83,52 @@
         </div>
       </div>
 
+      <div v-if="nextPending" class="mt-6 border rounded-lg p-4 bg-yellow-50 border-yellow-200">
+        <div class="flex items-start justify-between">
+          <div class="flex-1">
+            <div class="flex items-center space-x-3 mb-2">
+              <div class="flex flex-col">
+                <span class="font-semibold text-gray-800">{{ nextPending.contactName || nextPending.whatsappDisplay }}</span>
+                <span class="text-xs text-gray-500">{{ nextPending.contactName ? nextPending.whatsappDisplay : '' }}</span>
+              </div>
+              <span class="text-xs text-gray-500">{{ nextPending.timestamp }}</span>
+            </div>
+            <p class="text-sm text-gray-700 mb-3 whitespace-pre-wrap">{{ nextPending.mensagem }}</p>
+            <div v-if="nextPending.anexos.length > 0" class="flex items-center space-x-2">
+              <span class="text-xs text-gray-600">Anexos:</span>
+              <div class="flex flex-wrap gap-2">
+                <div
+                  v-for="(anexo, idx) in nextPending.anexos"
+                  :key="idx"
+                  class="flex items-center space-x-1 bg-white px-2 py-1 rounded text-xs"
+                >
+                  <svg v-if="anexo.tipo === 'imagem'" xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
+                  </svg>
+                  <svg v-else-if="anexo.tipo === 'video'" xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/>
+                  </svg>
+                  <svg v-else-if="anexo.tipo === 'audio'" xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 3v9.28c-.47-.17-.97-.28-1.5-.28C8.01 12 6 14.01 6 16.5S8.01 21 10.5 21c2.31 0 4.2-1.75 4.45-4H15V6h4V3h-7z"/>
+                  </svg>
+                  <svg v-else xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
+                  </svg>
+                  <span class="text-gray-700">{{ anexo.nome }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="ml-4">
+            <div class="flex items-center space-x-2 px-3 py-1.5 rounded-full text-sm font-medium bg-yellow-100 text-yellow-700">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M12 5a7 7 0 100 14 7 7 0 000-14z" />
+              </svg>
+              <span>Pendente</span>
+            </div>
+          </div>
+        </div>
+      </div>
     </section>
 
     <section class="bg-white rounded-lg shadow p-6">
@@ -285,6 +331,7 @@ const {
 } = useSendJob()
 
 const listaDisparos = ref<DisparoItem[]>([])
+const nextPending = ref<DisparoItem | null>(null)
 const totalLogs = ref(0)
 const isLoadingLogs = ref(false)
 const currentPage = ref(1)
@@ -433,16 +480,22 @@ const fetchLogs = async () => {
   if (!jobStatus.value) {
     listaDisparos.value = []
     totalLogs.value = 0
+    nextPending.value = null
     return
   }
 
   isLoadingLogs.value = true
   try {
-    const response = await $fetch<{ logs: SendJobLog[]; meta: { total: number } }>('/api/dashboard/send/logs', {
-      query: { page: currentPage.value, limit: itemsPerPage }
-    })
+    const [finalResponse, pendingResponse] = await Promise.all([
+      $fetch<{ logs: SendJobLog[]; meta: { total: number } }>('/api/dashboard/send/logs', {
+        query: { page: currentPage.value, limit: itemsPerPage, status: 'finalized', order: 'desc' }
+      }),
+      $fetch<{ logs: SendJobLog[] }>('/api/dashboard/send/logs', {
+        query: { page: 1, limit: 1, status: 'pending', order: 'asc' }
+      })
+    ])
 
-    const newTotal = response.meta.total ?? response.logs.length ?? 0
+    const newTotal = finalResponse.meta.total ?? finalResponse.logs.length ?? 0
     totalLogs.value = newTotal
     const computedPages = Math.max(1, Math.ceil(newTotal / itemsPerPage))
 
@@ -451,10 +504,20 @@ const fetchLogs = async () => {
       return
     }
 
-    listaDisparos.value = (response.logs ?? []).map(transformLog)
+    listaDisparos.value = (finalResponse.logs ?? []).map(transformLog)
+
+    const sortedPending = pendingResponse.logs ?? []
+    sortedPending.sort((a, b) => {
+      const dateA = a.processedAt ?? a.createdAt
+      const dateB = b.processedAt ?? b.createdAt
+      return new Date(dateA || 0).getTime() - new Date(dateB || 0).getTime()
+    })
+
+    nextPending.value = sortedPending.length > 0 ? transformLog(sortedPending[0]) : null
   } catch (error: any) {
     console.error('[disparos] fetch logs error', error)
     toast.error(error?.data?.statusMessage || 'Erro ao carregar histórico de disparos')
+    nextPending.value = null
   } finally {
     isLoadingLogs.value = false
   }
@@ -544,6 +607,7 @@ watch(jobStatus, (state) => {
     stopLogPolling()
     listaDisparos.value = []
     totalLogs.value = 0
+    nextPending.value = null
   }
 })
 
