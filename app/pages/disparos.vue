@@ -8,27 +8,27 @@
           </svg>
           <h2 class="text-xl font-semibold text-gray-800">Disparos em Andamento</h2>
         </div>
-        <div v-if="jobStatus" class="flex items-center space-x-3">
+        <div v-if="jobStatus" class="flex flex-col md:flex-row md:items-center md:space-x-3 space-y-3 md:space-y-0">
           <span :class="['px-3 py-1 rounded-full text-xs font-semibold', jobStatusBadgeClass]">
             {{ jobStatusLabel }}
           </span>
-          <span v-if="jobStatus.requestedStop" class="text-xs font-semibold text-yellow-600">Cancelamento solicitado</span>
           <button
-            v-if="isJobActive"
+            v-if="showStopButton"
             @click="handleStopJob"
-            :disabled="isStoppingJob"
+            :disabled="isStoppingJob || isStopRequested"
             class="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors disabled:opacity-50"
           >
-            {{ isStoppingJob ? 'Parando...' : 'Parar disparos' }}
+            {{ stopButtonLabel }}
           </button>
           <button
-            v-else
+            v-else-if="!isJobActive"
             @click="handleFinishJob"
             :disabled="isFinishingJob"
             class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
           >
             {{ isFinishingJob ? 'Finalizando...' : 'Finalizar disparo' }}
           </button>
+          <p v-if="stopErrorMessage" class="text-xs text-red-600 md:ml-3">{{ stopErrorMessage }}</p>
         </div>
       </div>
 
@@ -290,8 +290,19 @@ const isLoadingLogs = ref(true)
 const currentPage = ref(1)
 const itemsPerPage = 10
 const logPollingHandle = ref<number | null>(null)
+const stopErrorMessage = ref<string | null>(null)
 
 const hasJob = computed(() => !!jobStatus.value)
+const isStopRequested = computed(() => jobStatus.value?.requestedStop ?? false)
+const showStopButton = computed(() => {
+  if (!jobStatus.value) return false
+  return isJobActive.value || isStopRequested.value
+})
+const stopButtonLabel = computed(() => {
+  if (isStoppingJob.value) return 'Parando...'
+  if (isStopRequested.value) return 'Cancelamento solicitado'
+  return 'Parar disparos'
+})
 
 const jobStatusLabel = computed(() => {
   const status = jobStatus.value?.status
@@ -510,16 +521,30 @@ const stopLogPolling = () => {
 }
 
 const handleStopJob = async () => {
-  if (!jobStatus.value || !isJobActive.value || isStoppingJob.value) {
+  if (!jobStatus.value || isStoppingJob.value) {
+    return
+  }
+
+  stopErrorMessage.value = null
+
+  if (!isJobActive.value && !isStopRequested.value) {
+    toast.info('Nenhum disparo em andamento para interromper.')
+    return
+  }
+
+  if (isStopRequested.value) {
+    toast.info('Cancelamento já solicitado. Aguarde a finalização.')
     return
   }
 
   try {
     await stopJob()
-    await fetchLogs()
+    await fetchLogs({ skipSpinner: true })
   } catch (error: any) {
     console.error('[disparos] stop job error', error)
-    toast.error(error?.data?.statusMessage || 'Erro ao interromper disparo')
+    const message = error?.data?.statusMessage || 'Erro ao interromper disparo'
+    stopErrorMessage.value = message
+    toast.error(message)
   }
 }
 
@@ -533,6 +558,7 @@ const handleFinishJob = async () => {
     stopLogPolling()
     listaDisparos.value = []
     totalLogs.value = 0
+    stopErrorMessage.value = null
   } catch (error: any) {
     console.error('[disparos] finish job error', error)
     toast.error(error?.data?.statusMessage || 'Erro ao finalizar disparo')
@@ -579,6 +605,7 @@ watch(jobStatus, (state, previous) => {
     totalLogs.value = 0
     nextPending.value = null
     isLoadingLogs.value = false
+    stopErrorMessage.value = null
   }
 })
 
