@@ -1,7 +1,7 @@
 import { createError } from 'h3'
 import { $fetch } from 'ofetch'
 import type { AuthenticatedUser } from './auth'
-import type { SendJobStatus, SendJobSummary } from '~/types/send-job'
+import type { SendJobStatus, SendJobSummary } from '../../types/send-job'
 import { getEvolutionConfig, sanitizePhoneNumber } from './evolution'
 import { getServiceSupabaseClient } from './supabase'
 
@@ -227,18 +227,46 @@ const sendMediaMessage = async (instance: string, number: string, attachment: At
 
 const sendAudioMessage = async (instance: string, number: string, attachment: AttachmentRow) => {
   const { evolutionApiUrl, evolutionApiKey } = getEvolutionConfig()
-  await $fetch(`/message/sendAudio/${instance}`, {
-    baseURL: evolutionApiUrl,
-    method: 'POST',
-    headers: { apikey: evolutionApiKey },
-    body: {
+  const payload = {
+    number,
+    audio: attachment.public_url
+  }
+
+  try {
+    await $fetch(`/message/sendWhatsAppAudio/${instance}`, {
+      baseURL: evolutionApiUrl,
+      method: 'POST',
+      headers: { apikey: evolutionApiKey },
+      body: payload
+    })
+  } catch (error: any) {
+    const status = error?.response?.status
+    console.error('[send-jobs] sendAudio error', {
+      status,
       number,
-      mimetype: attachment.mime_type,
-      audio: attachment.public_url,
-      fileName: attachment.file_name,
-      caption: attachment.caption ?? ''
+      attachmentUrl: attachment.public_url,
+      data: error?.response?._data ?? error?.data ?? null
+    })
+
+    if (status === 404) {
+      await $fetch(`/message/sendMedia/${instance}`, {
+        baseURL: evolutionApiUrl,
+        method: 'POST',
+        headers: { apikey: evolutionApiKey },
+        body: {
+          number,
+          mediatype: 'audio',
+          mimetype: attachment.mime_type,
+          caption: attachment.caption ?? '',
+          media: attachment.public_url,
+          fileName: attachment.file_name
+        }
+      })
+      return
     }
-  })
+
+    throw error
+  }
 }
 
 const updateJobRow = async (jobId: string, patch: Partial<JobRow>) => {
