@@ -22,7 +22,7 @@ export default defineEventHandler(async (event) => {
 
   const { data: user, error } = await supabase
     .from('users')
-    .select('id, nome, email, senha_hash, role, status, empresa, numero, vencimento, created_at')
+    .select('id, nome, email, senha_hash, role, status, empresa, numero, vencimento, created_at, must_change_password')
     .eq('email', email)
     .single()
 
@@ -71,7 +71,8 @@ export default defineEventHandler(async (event) => {
       empresa: user.empresa,
       numero: user.numero,
       vencimento: user.vencimento,
-      created_at: user.created_at
+      created_at: user.created_at,
+      mustChangePassword: user.must_change_password
     }
   }
 })

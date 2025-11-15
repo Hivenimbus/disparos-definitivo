@@ -22,7 +22,7 @@ export default defineEventHandler(async (event) => {
 
   const { data: user, error } = await supabase
     .from('users')
-    .select('id, nome, email, role, status, empresa, numero, vencimento, created_at')
+    .select('id, nome, email, role, status, empresa, numero, vencimento, created_at, must_change_password')
     .eq('id', payload.sub)
     .single()
 
@@ -31,8 +31,14 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 401, statusMessage: 'Usuário não autorizado' })
   }
 
+  const { must_change_password, ...rest } = user as typeof user & { must_change_password: boolean }
+  const formattedUser = {
+    ...rest,
+    mustChangePassword: must_change_password
+  }
+
   return {
-    user
+    user: formattedUser
   }
 })
 

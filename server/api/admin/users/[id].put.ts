@@ -125,6 +125,7 @@ export default defineEventHandler(async (event) => {
     }
     if (payload.password) {
       updates.senha_hash = await hashPassword(payload.password)
+      updates.must_change_password = true
     }
   }
 
@@ -175,6 +176,7 @@ export default defineEventHandler(async (event) => {
         'cpf',
         'created_at',
         'updated_at',
+        'must_change_password',
         'companies:company_id (id, nome, max_usuarios, usuarios_atuais)'
       ].join(', ')
     )

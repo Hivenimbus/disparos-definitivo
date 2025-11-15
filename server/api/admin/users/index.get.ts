@@ -21,6 +21,7 @@ export default defineEventHandler(async () => {
         'cpf',
         'created_at',
         'updated_at',
+        'must_change_password',
         'companies:company_id (id, nome, max_usuarios, usuarios_atuais)'
       ].join(', ')
     )

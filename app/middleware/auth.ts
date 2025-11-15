@@ -1,9 +1,11 @@
 const PUBLIC_ROUTES = ['/login', '/register']
+const PASSWORD_ROUTE = '/definir-senha'
 
 export default defineNuxtRouteMiddleware(async (to) => {
   const authUser = useAuthUser()
   const authCookie = useCookie<string | null>('auth_token', { sameSite: 'lax' })
   const isPublicRoute = PUBLIC_ROUTES.includes(to.path)
+  const isPasswordRoute = to.path === PASSWORD_ROUTE
 
   const redirectToDashboard = () => navigateTo('/dashboard')
   const redirectToLogin = () => navigateTo('/login')
@@ -13,6 +15,14 @@ export default defineNuxtRouteMiddleware(async (to) => {
       authUser.value = null
       authCookie.value = null
       return redirectToLogin()
+    }
+
+    if (authUser.value.mustChangePassword) {
+      if (!isPasswordRoute) {
+        return navigateTo(PASSWORD_ROUTE)
+      }
+    } else if (isPasswordRoute) {
+      return redirectToDashboard()
     }
 
     if (isPublicRoute) {
@@ -51,9 +61,20 @@ export default defineNuxtRouteMiddleware(async (to) => {
     return redirectToLogin()
   }
 
-  if (authUser.value && isPublicRoute) {
-    return redirectToDashboard()
+  if (authUser.value) {
+    if (authUser.value.mustChangePassword) {
+      if (!isPasswordRoute) {
+        return navigateTo(PASSWORD_ROUTE)
+      }
+      return
+    }
+
+    if (isPasswordRoute) {
+      return redirectToDashboard()
+    }
+
+    if (isPublicRoute) {
+      return redirectToDashboard()
+    }
   }
 })
-
-

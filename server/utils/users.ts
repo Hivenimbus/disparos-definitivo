@@ -27,6 +27,7 @@ type UserRow = {
   cpf: string | null
   created_at: string
   updated_at: string
+  must_change_password: boolean
 }
 
 type UserRowWithCompany = UserRow & {
@@ -47,6 +48,7 @@ export type AdminUserDTO = {
   role: UiRole
   createdAt: string
   updatedAt: string
+  mustChangePassword: boolean
 }
 
 export const normalizeEmail = (email: string) => email.trim().toLowerCase()
@@ -99,7 +101,8 @@ export const mapAdminUserRow = (row: UserRowWithCompany): AdminUserDTO => {
     statusLabel: computeStatusLabel(uiStatus, row.vencimento),
     role: mapRoleToUi(row.role),
     createdAt: row.created_at,
-    updatedAt: row.updated_at
+    updatedAt: row.updated_at,
+    mustChangePassword: row.must_change_password
   }
 }
 

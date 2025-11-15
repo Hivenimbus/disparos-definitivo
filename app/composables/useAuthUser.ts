@@ -8,6 +8,7 @@ type AuthUser = {
   numero: string | null
   vencimento: string | null
   created_at: string
+  mustChangePassword?: boolean
 }
 
 export const useAuthUser = () => useState<AuthUser | null>('auth-user', () => null)

@@ -113,7 +113,9 @@ const handleLogin = async () => {
     const authUser = useAuthUser()
     authUser.value = user
 
-    await navigateTo('/dashboard', { replace: true })
+    const destination = user.mustChangePassword ? '/definir-senha' : '/dashboard'
+
+    await navigateTo(destination, { replace: true })
   } catch (error) {
     const statusError = error as { status?: number; statusMessage?: string }
     if (statusError?.status === 403) {

@@ -101,7 +101,8 @@ export default defineEventHandler(async (event) => {
       empresa: companyRecord?.nome || null,
       vencimento: finalVencimento,
       numero: payload.celular?.trim() || null,
-      cpf: payload.cpf?.trim() || null
+      cpf: payload.cpf?.trim() || null,
+      must_change_password: true
     })
     .select(
       [
@@ -117,6 +118,7 @@ export default defineEventHandler(async (event) => {
         'cpf',
         'created_at',
         'updated_at',
+        'must_change_password',
         'companies:company_id (id, nome, max_usuarios, usuarios_atuais)'
       ].join(', ')
     )
