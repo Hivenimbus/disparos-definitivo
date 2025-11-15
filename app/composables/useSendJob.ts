@@ -1,0 +1,129 @@
+import { computed, watch } from 'vue'
+import type { SendJobStatus, SendJobSummary } from '~/types/send-job'
+
+const ACTIVE_STATUSES: SendJobStatus[] = ['queued', 'processing']
+
+const useJobStatusState = () => useState<SendJobSummary | null>('send-job/status', () => null)
+const useIsStartingState = () => useState<boolean>('send-job/is-starting', () => false)
+const useIsStoppingState = () => useState<boolean>('send-job/is-stopping', () => false)
+const useIsFetchingState = () => useState<boolean>('send-job/is-fetching', () => false)
+const usePollingHandleState = () => useState<number | null>('send-job/polling-handle', () => null)
+
+export const useSendJob = () => {
+  const toast = useToast()
+  const jobStatus = useJobStatusState()
+  const isStartingJob = useIsStartingState()
+  const isStoppingJob = useIsStoppingState()
+  const isFetchingStatus = useIsFetchingState()
+  const pollingHandle = usePollingHandleState()
+
+  const fetchStatus = async () => {
+    isFetchingStatus.value = true
+    try {
+      const response = await $fetch<{ job: SendJobSummary | null }>('/api/dashboard/send/status')
+      jobStatus.value = response.job ?? null
+      return jobStatus.value
+    } catch (error: any) {
+      console.error('[sendJob] status error', error)
+      toast.error(error?.data?.statusMessage || 'Erro ao buscar status do disparo')
+      throw error
+    } finally {
+      isFetchingStatus.value = false
+    }
+  }
+
+  const startPolling = (intervalMs = 4000) => {
+    if (!process.client) {
+      return
+    }
+    if (pollingHandle.value !== null) {
+      return
+    }
+    pollingHandle.value = window.setInterval(() => {
+      fetchStatus().catch(() => {
+        // erro já tratado em fetchStatus
+      })
+    }, intervalMs)
+  }
+
+  const stopPolling = () => {
+    if (pollingHandle.value !== null && process.client) {
+      window.clearInterval(pollingHandle.value)
+      pollingHandle.value = null
+    }
+  }
+
+  const startJob = async () => {
+    if (isStartingJob.value) {
+      return jobStatus.value
+    }
+    isStartingJob.value = true
+    try {
+      const response = await $fetch<{ job: SendJobSummary }>('/api/dashboard/send/start', { method: 'POST' })
+      jobStatus.value = response.job
+      startPolling()
+      toast.success('Disparo iniciado!')
+      return jobStatus.value
+    } catch (error: any) {
+      console.error('[sendJob] start error', error)
+      toast.error(error?.data?.statusMessage || 'Erro ao iniciar disparo')
+      throw error
+    } finally {
+      isStartingJob.value = false
+    }
+  }
+
+  const stopJob = async () => {
+    if (isStoppingJob.value) {
+      return jobStatus.value
+    }
+    isStoppingJob.value = true
+    try {
+      const response = await $fetch<{ job: SendJobSummary }>('/api/dashboard/send/stop', { method: 'POST' })
+      jobStatus.value = response.job
+      toast.success('Cancelamento solicitado')
+      return jobStatus.value
+    } catch (error: any) {
+      console.error('[sendJob] stop error', error)
+      toast.error(error?.data?.statusMessage || 'Erro ao parar disparo')
+      throw error
+    } finally {
+      isStoppingJob.value = false
+    }
+  }
+
+  const isJobActive = computed(() => {
+    if (!jobStatus.value) {
+      return false
+    }
+    return ACTIVE_STATUSES.includes(jobStatus.value.status)
+  })
+
+  watch(
+    jobStatus,
+    (state) => {
+      if (!state) {
+        stopPolling()
+        return
+      }
+      if (!ACTIVE_STATUSES.includes(state.status)) {
+        stopPolling()
+      }
+    },
+    { immediate: true }
+  )
+
+  return {
+    jobStatus,
+    isJobActive,
+    isStartingJob,
+    isStoppingJob,
+    isFetchingStatus,
+    startJob,
+    stopJob,
+    fetchStatus,
+    startPolling,
+    stopPolling
+  }
+}
+

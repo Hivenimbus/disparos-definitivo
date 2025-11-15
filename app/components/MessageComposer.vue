@@ -180,7 +180,7 @@
 
       <button
         @click="sendMessage"
-        :disabled="isCheckingSendReadiness"
+        :disabled="isCheckingSendReadiness || isJobActive"
         class="flex items-center space-x-2 px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
       >
         <svg
@@ -192,7 +192,15 @@
         >
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
         </svg>
-        <span>{{ isCheckingSendReadiness ? 'Verificando...' : 'Enviar Mensagem' }}</span>
+        <span>
+          {{
+            isJobActive
+              ? 'Disparo em andamento'
+              : isCheckingSendReadiness
+                ? 'Verificando...'
+                : 'Enviar Mensagem'
+          }}
+        </span>
       </button>
     </div>
 
@@ -474,10 +482,115 @@
           </button>
           <button
             @click="confirmSendFromModal"
-            class="px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
+            :disabled="isConfirmingSend || isStartingJob"
+            class="px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Confirmar disparo
+            {{ isConfirmingSend || isStartingJob ? 'Iniciando...' : 'Confirmar disparo' }}
           </button>
+        </div>
+      </div>
+    </div>
+
+    <div
+      v-if="isSendMonitorOpen"
+      class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+      @click.self="closeSendMonitorModal"
+    >
+      <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
+        <div class="flex items-center justify-between mb-6">
+          <div>
+            <h3 class="text-xl font-semibold text-gray-800">Disparo iniciado</h3>
+            <div class="mt-3 flex items-center space-x-3">
+              <span :class="['px-3 py-1 rounded-full text-xs font-semibold', jobStatusBadgeClass]">
+                {{ jobStatusLabel }}
+              </span>
+              <span
+                v-if="jobStatus && jobStatus.requestedStop"
+                class="text-xs font-semibold text-yellow-600"
+              >
+                Cancelamento solicitado
+              </span>
+            </div>
+          </div>
+          <button
+            @click="closeSendMonitorModal"
+            class="text-gray-400 hover:text-gray-600"
+            :disabled="isJobActive"
+            :class="{ 'cursor-not-allowed opacity-50': isJobActive }"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div v-if="jobStatus" class="space-y-6">
+          <div>
+            <div class="flex items-end space-x-3">
+              <p class="text-3xl font-semibold text-gray-800">
+                {{ jobStatus.processedContacts }} / {{ jobStatus.totalContacts }}
+              </p>
+              <span class="text-sm text-gray-500">contatos</span>
+            </div>
+            <div class="w-full h-3 bg-gray-200 rounded-full overflow-hidden mt-4">
+              <div
+                class="h-3 bg-blue-500 transition-all duration-300"
+                :style="{ width: `${jobProgress}%` }"
+              ></div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="border rounded-lg p-4">
+              <p class="text-sm text-gray-500 mb-1">Sucesso</p>
+              <p class="text-2xl font-semibold text-gray-800">{{ jobStatus.successContacts }}</p>
+            </div>
+            <div class="border rounded-lg p-4">
+              <p class="text-sm text-gray-500 mb-1">Falhas</p>
+              <p class="text-2xl font-semibold text-red-600">{{ jobStatus.failedContacts }}</p>
+            </div>
+            <div class="border rounded-lg p-4">
+              <p class="text-sm text-gray-500 mb-1">Último contato</p>
+              <p class="text-gray-800 font-medium break-all">
+                {{ jobStatus.lastContactName || '—' }}
+              </p>
+            </div>
+          </div>
+
+          <div
+            v-if="jobStatus.lastError"
+            class="p-4 bg-red-50 border border-red-100 rounded-lg text-sm text-red-700"
+          >
+            <p class="font-semibold">Último erro</p>
+            <p class="mt-1 break-words">{{ jobStatus.lastError }}</p>
+          </div>
+          <div
+            v-else
+            class="p-4 bg-gray-50 border border-gray-100 rounded-lg text-sm text-gray-600"
+          >
+            Nenhum erro registrado até o momento.
+          </div>
+
+          <div class="flex justify-end space-x-3">
+            <button
+              @click="requestStopJob"
+              :disabled="!canStopJob || isStoppingJob"
+              class="px-6 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {{ isStoppingJob ? 'Parando...' : 'Parar disparos' }}
+            </button>
+            <button
+              @click="closeSendMonitorModal"
+              :disabled="isJobActive"
+              class="px-6 py-2 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Fechar
+            </button>
+          </div>
+        </div>
+
+        <div v-else class="text-center py-8 text-sm text-gray-500">
+          {{ isFetchingStatus ? 'Carregando status...' : 'Nenhum disparo encontrado.' }}
         </div>
       </div>
     </div>
@@ -603,7 +716,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import type { SendJobStatus } from '~/types/send-job'
 
 type DashboardAttachment = {
   id: string
@@ -657,6 +771,24 @@ const isVariableMenuOpen = ref(false)
 const variableMenuRef = ref<HTMLElement | null>(null)
 const variableButtonRef = ref<HTMLElement | null>(null)
 const toast = useToast()
+
+const {
+  jobStatus,
+  isJobActive,
+  isStartingJob,
+  isStoppingJob,
+  isFetchingStatus,
+  startJob: startSendJob,
+  stopJob: stopSendJob,
+  fetchStatus: fetchSendStatus,
+  startPolling: startSendJobPolling,
+  stopPolling: stopSendJobPolling
+} = useSendJob()
+
+const isSendMonitorOpen = ref(false)
+const isConfirmingSend = ref(false)
+const activeJobStatuses: SendJobStatus[] = ['queued', 'processing']
+const lastNotifiedJobStatus = ref<SendJobStatus | null>(null)
 
 type VariableKey = 'var1' | 'var2' | 'var3'
 
@@ -989,6 +1121,46 @@ const hasSendableContent = computed(() => canClearMessage.value)
 const isWhatsappReady = computed(() => lastWhatsappState.value === 'open')
 const hasContactsConfigured = computed(() => contactsSummary.value.total > 0)
 
+const jobProgress = computed(() => {
+  if (!jobStatus.value || jobStatus.value.totalContacts <= 0) {
+    return 0
+  }
+  return Math.min(100, Math.round((jobStatus.value.processedContacts / jobStatus.value.totalContacts) * 100))
+})
+
+const jobStatusLabel = computed(() => {
+  const status = jobStatus.value?.status
+  if (!status) return 'Sem disparo'
+  switch (status) {
+    case 'queued':
+      return 'Na fila'
+    case 'processing':
+      return 'Enviando'
+    case 'completed':
+      return 'Concluído'
+    case 'failed':
+      return 'Falhou'
+    case 'stopped':
+      return 'Interrompido'
+    default:
+      return 'Sem disparo'
+  }
+})
+
+const jobStatusBadgeClass = computed(() => {
+  const status = jobStatus.value?.status
+  if (!status) return 'text-gray-600 bg-gray-100'
+  if (status === 'queued' || status === 'processing') return 'text-blue-700 bg-blue-100'
+  if (status === 'completed') return 'text-green-700 bg-green-100'
+  if (status === 'failed') return 'text-red-700 bg-red-100'
+  return 'text-yellow-700 bg-yellow-100'
+})
+
+const canStopJob = computed(() => {
+  if (!jobStatus.value) return false
+  return activeJobStatuses.includes(jobStatus.value.status) && !jobStatus.value.requestedStop
+})
+
 const openClearConfirmModal = () => {
   if (!canClearMessage.value) return
   isClearConfirmOpen.value = true
@@ -1011,9 +1183,37 @@ const closeSendConfirmationModal = () => {
   isSendConfirmationOpen.value = false
 }
 
-const confirmSendFromModal = () => {
-  console.info('[dashboard/messages] confirmação de disparo solicitada')
-  closeSendConfirmationModal()
+const confirmSendFromModal = async () => {
+  if (isConfirmingSend.value || isStartingJob.value) {
+    return
+  }
+  isConfirmingSend.value = true
+  try {
+    await startSendJob()
+    closeSendConfirmationModal()
+    isSendMonitorOpen.value = true
+  } catch (error) {
+    console.error('[dashboard/messages] erro ao iniciar disparo', error)
+  } finally {
+    isConfirmingSend.value = false
+  }
+}
+
+const requestStopJob = async () => {
+  if (!canStopJob.value) return
+  try {
+    await stopSendJob()
+  } catch (error) {
+    console.error('[dashboard/messages] erro ao parar disparo', error)
+  }
+}
+
+const closeSendMonitorModal = () => {
+  if (isJobActive.value) {
+    toast.info('Finalize ou pare o disparo antes de fechar o monitor')
+    return
+  }
+  isSendMonitorOpen.value = false
 }
 
 const validateSendReadiness = async () => {
@@ -1196,11 +1396,47 @@ const handleVariableMenuClickOutside = (event: MouseEvent) => {
 
 onMounted(() => {
   loadLastMessage()
+  fetchSendStatus()
+    .then((status) => {
+      if (status && activeJobStatuses.includes(status.status)) {
+        isSendMonitorOpen.value = true
+        startSendJobPolling()
+      }
+    })
+    .catch(() => {
+      // erros já tratados no composable
+    })
   document.addEventListener('click', handleVariableMenuClickOutside)
 })
 
 onBeforeUnmount(() => {
   document.removeEventListener('click', handleVariableMenuClickOutside)
+  stopSendJobPolling()
+})
+
+watch(jobStatus, (state) => {
+  if (!state) {
+    isSendMonitorOpen.value = false
+    lastNotifiedJobStatus.value = null
+    return
+  }
+
+  if (activeJobStatuses.includes(state.status)) {
+    isSendMonitorOpen.value = true
+    lastNotifiedJobStatus.value = state.status
+    return
+  }
+
+  if (state.status !== lastNotifiedJobStatus.value) {
+    if (state.status === 'completed') {
+      toast.success('Disparo concluído!')
+    } else if (state.status === 'failed') {
+      toast.error(state.lastError || 'Falha no disparo')
+    } else if (state.status === 'stopped') {
+      toast.info('Disparo interrompido')
+    }
+    lastNotifiedJobStatus.value = state.status
+  }
 })
 
 const saveMessage = async (options: SaveMessageOptions = {}) => {
@@ -1267,6 +1503,10 @@ const saveMessage = async (options: SaveMessageOptions = {}) => {
 }
 
 const sendMessage = async () => {
+  if (isJobActive.value) {
+    toast.info('Aguarde o disparo atual finalizar antes de iniciar outro.')
+    return
+  }
   const isReady = await validateSendReadiness()
 
   if (!isReady) {
