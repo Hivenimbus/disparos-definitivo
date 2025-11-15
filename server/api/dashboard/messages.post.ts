@@ -76,6 +76,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const body = fields.body?.trim()
+  const messageId = fields.message_id?.trim()
 
   if (!body) {
     throw createError({ statusCode: 400, statusMessage: 'Mensagem é obrigatória' })
@@ -93,18 +94,64 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  const { data: message, error: messageError } = await supabase
-    .from('dashboard_messages')
-    .insert({
-      user_id: user.id,
-      body
-    })
-    .select('id, body, caption, status, scheduled_for, created_at, updated_at')
-    .single()
+  let messageIdForAttachments: string
+  let message:
+    | {
+        id: string
+        body: string
+        caption: string | null
+        status: string
+        scheduled_for: string | null
+        created_at: string
+        updated_at: string
+      }
+    | null = null
+  const createdNewMessage = !messageId
 
-  if (messageError || !message) {
-    console.error('[dashboard/messages] POST insert message error', messageError)
-    throw createError({ statusCode: 500, statusMessage: 'Não foi possível salvar a mensagem' })
+  if (messageId) {
+    const { data: existingMessage, error: fetchError } = await supabase
+      .from('dashboard_messages')
+      .select('id, user_id')
+      .eq('id', messageId)
+      .single()
+
+    if (fetchError || !existingMessage || existingMessage.user_id !== user.id) {
+      throw createError({ statusCode: 404, statusMessage: 'Mensagem não encontrada' })
+    }
+
+    const { data: updatedMessage, error: updateError } = await supabase
+      .from('dashboard_messages')
+      .update({
+        body
+      })
+      .eq('id', messageId)
+      .select('id, body, caption, status, scheduled_for, created_at, updated_at')
+      .single()
+
+    if (updateError || !updatedMessage) {
+      console.error('[dashboard/messages] POST update message error', updateError)
+      throw createError({ statusCode: 500, statusMessage: 'Não foi possível atualizar a mensagem' })
+    }
+
+    message = updatedMessage
+    messageIdForAttachments = updatedMessage.id
+  } else {
+    const { data: newMessage, error: messageError } = await supabase
+      .from('dashboard_messages')
+      .insert({
+        user_id: user.id,
+        body
+      })
+      .select('id, body, caption, status, scheduled_for, created_at, updated_at')
+      .single()
+
+    if (messageError || !newMessage) {
+      console.error('[dashboard/messages] POST insert message error', messageError)
+      throw createError({ statusCode: 500, statusMessage: 'Não foi possível salvar a mensagem' })
+    }
+
+    message = newMessage
+    messageIdForAttachments = newMessage.id
   }
 
   const uploadedPaths: string[] = []
@@ -123,7 +170,7 @@ export default defineEventHandler(async (event) => {
       }
 
       const fileName = sanitizeFileName(meta.fileName || filePart.filename || 'arquivo')
-      const storagePath = `${user.id}/${message.id}/${Date.now()}-${randomUUID()}-${fileName}`
+      const storagePath = `${user.id}/${messageIdForAttachments}/${Date.now()}-${randomUUID()}-${fileName}`
 
       const { error: uploadError } = await supabase.storage.from(BUCKET_ID).upload(storagePath, filePart.data, {
         contentType: filePart.type || meta.mimeType || 'application/octet-stream',
@@ -142,7 +189,7 @@ export default defineEventHandler(async (event) => {
       const { data: attachmentRow, error: attachmentError } = await supabase
         .from('dashboard_message_attachments')
         .insert({
-          message_id: message.id,
+          message_id: messageIdForAttachments,
           bucket_id: BUCKET_ID,
           storage_path: storagePath,
           public_url: publicUrlData?.publicUrl ?? '',
@@ -164,7 +211,9 @@ export default defineEventHandler(async (event) => {
   } catch (error) {
     console.error('[dashboard/messages] POST attachments error', error)
 
-    await supabase.from('dashboard_messages').delete().eq('id', message.id)
+    if (createdNewMessage && message) {
+      await supabase.from('dashboard_messages').delete().eq('id', message.id)
+    }
 
     if (uploadedPaths.length > 0) {
       await supabase.storage.from(BUCKET_ID).remove(uploadedPaths)

@@ -8,6 +8,13 @@
       <h2 class="text-xl font-semibold text-gray-800">Composição da Mensagem</h2>
     </div>
 
+    <div v-if="isLoadingInitial" class="mb-4 text-sm text-gray-500">
+      Carregando mensagem salva...
+    </div>
+    <div v-else-if="loadError" class="mb-4 rounded border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
+      {{ loadError }}
+    </div>
+
     <div class="mb-6">
       <label class="block text-gray-700 font-medium mb-2">Mensagem</label>
       <textarea
@@ -95,22 +102,22 @@
 
     <div v-if="attachments.length > 0" class="bg-gray-100 rounded-lg p-4 mb-6">
       <div class="flex flex-wrap gap-3">
-        <div
-          v-for="(attachment, index) in attachments"
-          :key="attachment.id || index"
-          class="bg-white px-4 py-3 rounded-lg text-sm flex items-start space-x-3 max-w-xs"
-        >
-          <div class="flex-1">
-            <p class="font-medium text-gray-800">{{ attachment.name }}</p>
-            <p class="text-xs text-gray-500 mt-1">{{ formatFileSize(attachment.size) }}</p>
-            <p v-if="attachment.caption" class="text-gray-600 mt-2 text-xs italic">"{{ attachment.caption }}"</p>
+          <div
+            v-for="(attachment, index) in attachments"
+            :key="attachment.id || index"
+            class="bg-white px-4 py-3 rounded-lg text-sm flex items-start space-x-3 max-w-xs"
+          >
+            <div class="flex-1">
+              <p class="font-medium text-gray-800">{{ attachment.name }}</p>
+              <p class="text-xs text-gray-500 mt-1">{{ formatFileSize(attachment.size) }}</p>
+              <p v-if="attachment.caption" class="text-gray-600 mt-2 text-xs italic">"{{ attachment.caption }}"</p>
+            </div>
+            <button @click="removeAttachment(index)" class="text-red-500 hover:text-red-700 flex-shrink-0">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
-          <button @click="removeAttachment(index)" class="text-red-500 hover:text-red-700 flex-shrink-0">
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
       </div>
     </div>
 
@@ -251,8 +258,8 @@
               class="bg-white border border-gray-200 rounded-lg p-4"
             >
               <div class="flex items-start space-x-4">
-                <div v-if="getImagePreview(attachment.file)" class="flex-shrink-0">
-                  <img :src="getImagePreview(attachment.file)" alt="Preview" class="w-24 h-24 object-cover rounded-lg">
+                <div v-if="getAttachmentPreview(attachment)" class="flex-shrink-0">
+                  <img :src="getAttachmentPreview(attachment)" alt="Preview" class="w-24 h-24 object-cover rounded-lg">
                 </div>
                 <div v-else class="flex-shrink-0">
                   <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
@@ -373,11 +380,12 @@
   </div>
 </template>
 
-<script setup>
-import { computed, ref } from 'vue'
+<script setup lang="ts">
+import { computed, onMounted, ref } from 'vue'
 
 const message = ref('')
 const attachments = ref([])
+const currentMessageId = ref(null)
 const isModalOpen = ref(false)
 const isPreviewModalOpen = ref(false)
 const currentAttachmentType = ref('')
@@ -388,6 +396,8 @@ const fileInputRef = ref(null)
 const isSubmitting = ref(false)
 const formError = ref('')
 const formSuccess = ref('')
+const isLoadingInitial = ref(true)
+const loadError = ref('')
 
 const generateAttachmentId = () => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -463,15 +473,27 @@ const formatFileSize = (bytes = 0) => {
   return `${Math.round((bytes / Math.pow(k, i)) * 100) / 100} ${sizes[i]}`
 }
 
+const deriveTypeFromMime = (mime = '') => {
+  if (mime?.startsWith?.('image/')) return 'image'
+  if (mime?.startsWith?.('video/')) return 'video'
+  if (mime?.startsWith?.('audio/')) return 'audio'
+  return 'document'
+}
+
 const confirmAttachment = () => {
   if (selectedFile.value) {
+    const attachmentId = generateAttachmentId()
     attachments.value.push({
-      id: generateAttachmentId(),
-      type: currentAttachmentType.value,
+      id: attachmentId,
+      type: currentAttachmentType.value || deriveTypeFromMime(selectedFile.value.type),
       name: selectedFile.value.name,
       size: selectedFile.value.size,
       caption: caption.value,
-      file: selectedFile.value
+      file: selectedFile.value,
+      mimeType: selectedFile.value.type,
+      previewUrl: selectedFile.value.type?.startsWith('image/') ? URL.createObjectURL(selectedFile.value) : null,
+      publicUrl: null,
+      persisted: false
     })
     closeModal()
   }
@@ -499,26 +521,6 @@ const closePreviewModal = () => {
   isPreviewModalOpen.value = false
 }
 
-const statusLabel = (status) => {
-  const map = {
-    draft: 'Rascunho',
-    scheduled: 'Agendada',
-    published: 'Publicada',
-    archived: 'Arquivada'
-  }
-  return map[status] || status
-}
-
-const statusBadgeClass = (status) => {
-  const variants = {
-    draft: 'bg-gray-100 text-gray-700',
-    scheduled: 'bg-yellow-100 text-yellow-800',
-    published: 'bg-green-100 text-green-700',
-    archived: 'bg-blue-100 text-blue-700'
-  }
-  return variants[status] || 'bg-gray-100 text-gray-700'
-}
-
 const getAttachmentIcon = (type) => {
   const icons = {
     image: 'M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z',
@@ -529,12 +531,76 @@ const getAttachmentIcon = (type) => {
   return icons[type] || icons.document
 }
 
-const getImagePreview = (file) => {
-  if (file && file.type?.startsWith('image/')) {
-    return URL.createObjectURL(file)
+const getAttachmentPreview = (attachment) => {
+  if (!attachment) return null
+  if (attachment.previewUrl) return attachment.previewUrl
+  if (attachment.publicUrl && (attachment.mimeType?.startsWith?.('image/') ?? false)) {
+    return attachment.publicUrl
   }
   return null
 }
+
+const mapApiAttachment = (apiAttachment) => ({
+  id: apiAttachment.id,
+  type: deriveTypeFromMime(apiAttachment.mimeType ?? ''),
+  name: apiAttachment.fileName,
+  size: apiAttachment.fileSizeBytes,
+  caption: apiAttachment.caption || '',
+  file: null,
+  mimeType: apiAttachment.mimeType,
+  previewUrl: apiAttachment.mimeType?.startsWith('image/') ? apiAttachment.publicUrl : null,
+  publicUrl: apiAttachment.publicUrl,
+  persisted: true
+})
+
+const normalizeApiAttachments = (raw) => {
+  if (!Array.isArray(raw)) {
+    return []
+  }
+
+  const seen = new Set<string>()
+
+  return raw.reduce((acc, attachment) => {
+    const key = attachment.id || attachment.storagePath || `${attachment.fileName}-${attachment.createdAt}`
+    if (seen.has(key)) {
+      return acc
+    }
+    seen.add(key)
+    acc.push(mapApiAttachment(attachment))
+    return acc
+  }, [])
+}
+
+const loadLastMessage = async (showLoader = true) => {
+  if (showLoader) {
+    isLoadingInitial.value = true
+  }
+  loadError.value = ''
+  try {
+    const response = await $fetch('/api/dashboard/messages', {
+      query: { limit: 1, page: 1 }
+    })
+    const lastMessage = response?.messages?.[0]
+    if (lastMessage) {
+      currentMessageId.value = lastMessage.id || null
+      message.value = lastMessage.body || ''
+      attachments.value = normalizeApiAttachments(lastMessage.attachments ?? [])
+    } else {
+      currentMessageId.value = null
+      message.value = ''
+      attachments.value = []
+    }
+  } catch (error) {
+    console.error('[dashboard/messages] load error', error)
+    loadError.value = error?.data?.statusMessage || 'Erro ao carregar mensagem salva'
+  } finally {
+    if (showLoader) {
+      isLoadingInitial.value = false
+    }
+  }
+}
+
+onMounted(loadLastMessage)
 
 const saveMessage = async () => {
   formError.value = ''
@@ -548,6 +614,9 @@ const saveMessage = async () => {
   isSubmitting.value = true
   const formData = new FormData()
   formData.append('body', message.value.trim())
+  if (currentMessageId.value) {
+    formData.append('message_id', currentMessageId.value)
+  }
 
   const attachmentsMeta = []
   attachments.value.forEach((attachment) => {
@@ -575,6 +644,7 @@ const saveMessage = async () => {
       method: 'POST',
       body: formData
     })
+    await loadLastMessage(false)
     formSuccess.value = 'Mensagem salva com sucesso!'
   } catch (error) {
     console.error('[dashboard/messages] send error', error)

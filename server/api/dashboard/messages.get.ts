@@ -4,6 +4,7 @@ import { requireAuthUser } from '../../utils/auth'
 
 type AttachmentRow = {
   id: string
+  message_id: string
   bucket_id: string
   storage_path: string
   public_url: string
@@ -22,7 +23,6 @@ type MessageRow = {
   scheduled_for: string | null
   created_at: string
   updated_at: string
-  attachments?: AttachmentRow[] | null
 }
 
 const MAX_LIMIT = 50
@@ -40,7 +40,7 @@ const mapAttachment = (attachment: AttachmentRow) => ({
   createdAt: attachment.created_at
 })
 
-const mapMessage = (row: MessageRow) => ({
+const mapMessage = (row: MessageRow, attachments: AttachmentRow[]) => ({
   id: row.id,
   body: row.body,
   caption: row.caption,
@@ -48,7 +48,7 @@ const mapMessage = (row: MessageRow) => ({
   scheduledFor: row.scheduled_for,
   createdAt: row.created_at,
   updatedAt: row.updated_at,
-  attachments: (row.attachments ?? []).map(mapAttachment)
+  attachments: attachments.map(mapAttachment)
 })
 
 export default defineEventHandler(async (event) => {
@@ -65,18 +65,7 @@ export default defineEventHandler(async (event) => {
 
   const { data, error } = await supabase
     .from('dashboard_messages')
-    .select(
-      [
-        'id',
-        'body',
-        'caption',
-        'status',
-        'scheduled_for',
-        'created_at',
-        'updated_at',
-        'attachments:dashboard_message_attachments (id, bucket_id, storage_path, public_url, file_name, mime_type, file_size_bytes, caption, created_at)'
-      ].join(', ')
-    )
+    .select('id, body, caption, status, scheduled_for, created_at, updated_at')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
     .range(from, to)
@@ -86,8 +75,32 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 500, statusMessage: 'Erro ao carregar mensagens' })
   }
 
+  const messageRows = data ?? []
+  const messageIds = messageRows.map((row) => row.id)
+  let attachmentsByMessage: Record<string, AttachmentRow[]> = {}
+
+  if (messageIds.length > 0) {
+    const { data: attachmentRows, error: attachmentsError } = await supabase
+      .from('dashboard_message_attachments')
+      .select('id, message_id, bucket_id, storage_path, public_url, file_name, mime_type, file_size_bytes, caption, created_at')
+      .in('message_id', messageIds)
+
+    if (attachmentsError) {
+      console.error('[dashboard/messages] GET attachments error', attachmentsError)
+      throw createError({ statusCode: 500, statusMessage: 'Erro ao carregar anexos' })
+    }
+
+    attachmentsByMessage = (attachmentRows ?? []).reduce<Record<string, AttachmentRow[]>>((acc, attachment) => {
+      if (!acc[attachment.message_id]) {
+        acc[attachment.message_id] = []
+      }
+      acc[attachment.message_id].push(attachment)
+      return acc
+    }, {})
+  }
+
   return {
-    messages: (data ?? []).map(mapMessage),
+    messages: messageRows.map((row) => mapMessage(row, attachmentsByMessage[row.id] ?? [])),
     meta: {
       page,
       limit
