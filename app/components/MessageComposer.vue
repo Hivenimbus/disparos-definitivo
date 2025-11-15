@@ -95,7 +95,12 @@
             <div class="min-w-0">
               <p class="font-medium text-gray-800 break-all">{{ attachment.name }}</p>
               <p class="text-xs text-gray-500 mt-1">{{ formatFileSize(attachment.size) }}</p>
-              <p v-if="attachment.caption" class="text-gray-600 mt-2 text-xs italic break-words">"{{ attachment.caption }}"</p>
+              <p
+                v-if="attachment.caption"
+                class="text-gray-600 mt-2 text-xs italic break-all"
+              >
+                "{{ truncateCaption(attachment.caption) }}"
+              </p>
               </div>
           </div>
           <div class="flex items-center space-x-2 ml-2">
@@ -314,9 +319,14 @@
                   <div class="flex items-center space-x-2 mb-1">
                     <span class="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded">{{ attachment.type }}</span>
                   </div>
-                  <p class="font-medium text-gray-800">{{ attachment.name }}</p>
+                  <p class="font-medium text-gray-800 break-all">{{ attachment.name }}</p>
                   <p class="text-sm text-gray-500 mt-1">{{ formatFileSize(attachment.size) }}</p>
-                  <p v-if="attachment.caption" class="text-gray-700 mt-3 p-3 bg-gray-50 rounded-lg italic text-sm">"{{ attachment.caption }}"</p>
+                  <p
+                    v-if="attachment.caption"
+                    class="text-gray-700 mt-3 p-3 bg-gray-50 rounded-lg italic text-sm break-all"
+                  >
+                    "{{ truncateCaption(attachment.caption, 80) }}"
+                  </p>
                 </div>
               </div>
             </div>
@@ -721,6 +731,17 @@ const getAttachmentPreview = (attachment) => {
     return attachment.publicUrl
   }
   return null
+}
+
+const truncateCaption = (text: string, maxLength = 50) => {
+  if (!text) {
+    return ''
+  }
+  const caption = text.trim()
+  if (caption.length <= maxLength) {
+    return caption
+  }
+  return `${caption.slice(0, maxLength)}...`
 }
 
 const normalizeAttachmentPayload = (payload: Record<string, any>) => ({
