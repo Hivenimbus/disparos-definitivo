@@ -20,7 +20,7 @@ export default defineEventHandler(async (event) => {
 
   const { data: attachment, error: fetchError } = await supabase
     .from('dashboard_message_attachments')
-    .select('id, message_id, file_name, file_size_bytes, caption, dashboard_messages!inner (id, user_id)')
+    .select('id, message_id, file_name, file_size_bytes, mime_type, public_url, caption, dashboard_messages!inner (id, user_id)')
     .eq('id', attachmentId)
     .maybeSingle()
 

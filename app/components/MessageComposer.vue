@@ -59,43 +59,24 @@
       <h3 class="text-gray-700 font-medium mb-4">Anexos</h3>
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <button
-          @click="handleAttachment('image')"
+          v-for="option in attachmentOptions"
+          :key="option.type"
+          @click="handleAttachment(option.type)"
           class="bg-gray-100 hover:bg-gray-200 rounded-lg p-8 flex flex-col items-center justify-center transition-colors cursor-pointer"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 text-blue-600 mb-2" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
+          <svg v-if="option.icon === 'image'" xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 text-blue-600 mb-2" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z" />
           </svg>
-          <span class="text-gray-700 font-medium">Imagem</span>
-        </button>
-
-        <button
-          @click="handleAttachment('video')"
-          class="bg-gray-100 hover:bg-gray-200 rounded-lg p-8 flex flex-col items-center justify-center transition-colors cursor-pointer"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 text-blue-600 mb-2" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/>
+          <svg v-else-if="option.icon === 'video'" xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 text-blue-600 mb-2" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z" />
           </svg>
-          <span class="text-gray-700 font-medium">Vídeo</span>
-        </button>
-
-        <button
-          @click="handleAttachment('audio')"
-          class="bg-gray-100 hover:bg-gray-200 rounded-lg p-8 flex flex-col items-center justify-center transition-colors cursor-pointer"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 text-blue-600 mb-2" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M12 3v9.28c-.47-.17-.97-.28-1.5-.28C8.01 12 6 14.01 6 16.5S8.01 21 10.5 21c2.31 0 4.2-1.75 4.45-4H15V6h4V3h-7z"/>
+          <svg v-else-if="option.icon === 'audio'" xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 text-blue-600 mb-2" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 3v9.28c-.47-.17-.97-.28-1.5-.28C8.01 12 6 14.01 6 16.5S8.01 21 10.5 21c2.31 0 4.2-1.75 4.45-4H15V6h4V3h-7z" />
           </svg>
-          <span class="text-gray-700 font-medium">Áudio</span>
-        </button>
-
-        <button
-          @click="handleAttachment('document')"
-          class="bg-gray-100 hover:bg-gray-200 rounded-lg p-8 flex flex-col items-center justify-center transition-colors cursor-pointer"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 text-blue-600 mb-2" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
+          <svg v-else xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 text-blue-600 mb-2" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" />
           </svg>
-          <span class="text-gray-700 font-medium">Documento</span>
+          <span class="text-gray-700 font-medium">{{ option.label }}</span>
         </button>
       </div>
     </div>
@@ -107,10 +88,15 @@
             :key="attachment.id || index"
             class="bg-white px-4 py-3 rounded-lg text-sm flex items-start space-x-3 max-w-xs"
           >
-            <div class="flex-1">
-              <p class="font-medium text-gray-800">{{ attachment.name }}</p>
-              <p class="text-xs text-gray-500 mt-1">{{ formatFileSize(attachment.size) }}</p>
-              <p v-if="attachment.caption" class="text-gray-600 mt-2 text-xs italic">"{{ attachment.caption }}"</p>
+            <div class="flex-1 flex space-x-3">
+              <div v-if="getAttachmentPreview(attachment)" class="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border border-gray-200">
+                <img :src="getAttachmentPreview(attachment)" alt="Preview" class="w-full h-full object-cover">
+              </div>
+              <div>
+                <p class="font-medium text-gray-800">{{ attachment.name }}</p>
+                <p class="text-xs text-gray-500 mt-1">{{ formatFileSize(attachment.size) }}</p>
+                <p v-if="attachment.caption" class="text-gray-600 mt-2 text-xs italic">"{{ attachment.caption }}"</p>
+              </div>
             </div>
             <div class="flex items-center space-x-2">
               <button
@@ -441,8 +427,21 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 
+type DashboardAttachment = {
+  id: string
+  type: string
+  name: string
+  size: number
+  caption: string
+  file: File | null
+  mimeType: string
+  previewUrl: string | null
+  publicUrl: string | null
+  persisted: boolean
+}
+
 const message = ref('')
-const attachments = ref<any[]>([])
+const attachments = ref<DashboardAttachment[]>([])
 const deletingAttachmentIds = ref(new Set<string>())
 const currentMessageId = ref<string | null>(null)
 const isEditAttachmentModalOpen = ref(false)
@@ -469,13 +468,28 @@ const generateAttachmentId = () => {
   return `att-${Date.now()}-${Math.random().toString(16).slice(2)}`
 }
 
-// Spintax states
-const isSpintaxModalOpen = ref(false)
-const spintaxFields = ref([
-  { value: '' },
-  { value: '' },
-  { value: '' }
-])
+const attachmentOptions = [
+  {
+    type: 'image',
+    label: 'Imagem',
+    icon: 'image'
+  },
+  {
+    type: 'video',
+    label: 'Vídeo',
+    icon: 'video'
+  },
+  {
+    type: 'audio',
+    label: 'Áudio',
+    icon: 'audio'
+  },
+  {
+    type: 'document',
+    label: 'Documento',
+    icon: 'document'
+  }
+]
 
 const acceptedFileTypes = computed(() => {
   const types = {
@@ -488,13 +502,8 @@ const acceptedFileTypes = computed(() => {
 })
 
 const attachmentTypeLabel = computed(() => {
-  const labels = {
-    image: 'Imagem',
-    video: 'Vídeo',
-    audio: 'Áudio',
-    document: 'Documento'
-  }
-  return labels[currentAttachmentType.value] || 'Anexo'
+  const option = attachmentOptions.find((opt) => opt.type === currentAttachmentType.value)
+  return option?.label || 'Anexo'
 })
 
 // Spintax computed properties
@@ -657,11 +666,24 @@ const saveAttachmentEdit = async () => {
       }
     })
 
-    const updatedAttachment = {
+    const normalized = normalizeAttachmentPayload(response.attachment as Record<string, any>)
+
+    const updatedAttachment: DashboardAttachment = {
       ...attachment,
-      ...mapApiAttachment(response.attachment),
-      name: response.attachment.file_name ?? attachment.name,
-      size: typeof response.attachment.file_size_bytes === 'number' ? response.attachment.file_size_bytes : attachment.size,
+      id: normalized.id || attachment.id,
+      name: normalized.fileName || attachment.name,
+      size:
+        typeof normalized.fileSizeBytes === 'number' && normalized.fileSizeBytes > 0
+          ? normalized.fileSizeBytes
+          : attachment.size,
+      caption: normalized.caption || newCaption,
+      mimeType: normalized.mimeType || attachment.mimeType,
+      previewUrl:
+        normalized.mimeType?.startsWith?.('image/') && normalized.publicUrl
+          ? normalized.publicUrl
+          : attachment.previewUrl,
+      publicUrl: normalized.publicUrl ?? attachment.publicUrl,
+      persisted: true,
       file: attachment.file
     }
     attachments.value.splice(editingAttachmentIndex.value, 1, updatedAttachment)
@@ -701,39 +723,60 @@ const getAttachmentPreview = (attachment) => {
   return null
 }
 
-const mapApiAttachment = (apiAttachment: {
-  id?: string
-  messageId?: string
-  bucketId?: string
-  storagePath?: string
-  publicUrl?: string
-  fileName?: string
-  mimeType?: string
-  fileSizeBytes?: number
-  caption?: string | null
-  createdAt?: string
-}) => ({
-  id: apiAttachment.id || '',
-  type: deriveTypeFromMime(apiAttachment.mimeType ?? ''),
-  name: apiAttachment.fileName || 'arquivo',
-  size: typeof apiAttachment.fileSizeBytes === 'number' ? apiAttachment.fileSizeBytes : 0,
-  caption: apiAttachment.caption || '',
-  file: null,
-  mimeType: apiAttachment.mimeType || '',
-  previewUrl: apiAttachment.mimeType?.startsWith?.('image/') ? apiAttachment.publicUrl : null,
-  publicUrl: apiAttachment.publicUrl || null,
-  persisted: true
+const normalizeAttachmentPayload = (payload: Record<string, any>) => ({
+  id: payload.id ?? payload?.attachmentId ?? '',
+  fileName: payload.file_name ?? payload.fileName ?? payload.name ?? '',
+  mimeType: payload.mime_type ?? payload.mimeType ?? '',
+  fileSizeBytes: payload.file_size_bytes ?? payload.fileSizeBytes ?? payload.size ?? 0,
+  publicUrl: payload.public_url ?? payload.publicUrl ?? null,
+  caption: payload.caption ?? ''
 })
 
-const normalizeApiAttachments = (raw) => {
+const mapApiAttachment = (
+  apiAttachment:
+    | DashboardAttachment
+    | {
+        id?: string
+        file_name?: string
+        fileName?: string
+        file_size_bytes?: number
+        fileSizeBytes?: number
+        mime_type?: string
+        mimeType?: string
+        public_url?: string
+        publicUrl?: string
+        caption?: string | null
+      }
+): DashboardAttachment => {
+  if ('persisted' in apiAttachment && apiAttachment.persisted) {
+    return apiAttachment
+  }
+
+  const normalized = normalizeAttachmentPayload(apiAttachment as Record<string, any>)
+
+  return {
+    id: normalized.id,
+    type: deriveTypeFromMime(normalized.mimeType),
+    name: normalized.fileName || 'arquivo',
+    size: typeof normalized.fileSizeBytes === 'number' ? normalized.fileSizeBytes : 0,
+    caption: normalized.caption || '',
+    file: null,
+    mimeType: normalized.mimeType || '',
+    previewUrl: normalized.mimeType?.startsWith?.('image/') ? normalized.publicUrl ?? null : null,
+    publicUrl: normalized.publicUrl || null,
+    persisted: true
+  }
+}
+
+const normalizeApiAttachments = (raw: any[]) => {
   if (!Array.isArray(raw)) {
     return []
   }
 
   const seen = new Set<string>()
 
-  return raw.reduce((acc, attachment) => {
-    const key = attachment.id || attachment.storagePath || `${attachment.fileName}-${attachment.createdAt}`
+  return raw.reduce<DashboardAttachment[]>((acc, attachment) => {
+    const key = attachment.id || attachment.storage_path || `${attachment.file_name}-${attachment.created_at}`
     if (seen.has(key)) {
       return acc
     }
