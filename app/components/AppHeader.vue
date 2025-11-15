@@ -56,7 +56,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
               </svg>
             </div>
-            <span class="text-base font-normal">João Silva</span>
+            <span class="text-base font-normal">{{ displayName }}</span>
             <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 transition-transform" :class="{ 'rotate-180': isDropdownOpen }" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
             </svg>
@@ -220,6 +220,10 @@ const dropdownOptions = [
   { name: 'Meu Perfil', path: '/perfil' },
   { name: 'Painel Admin', path: '/admin', requiresAdmin: true }
 ]
+
+const displayName = computed(() => {
+  return authUser.value?.nome || authUser.value?.name || 'Usuário'
+})
 
 const availableMenuItems = computed(() => {
   return menuItems.filter((item) => {
