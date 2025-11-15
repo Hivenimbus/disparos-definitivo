@@ -8,7 +8,7 @@
           </h1>
           
           <nav class="flex items-center space-x-8">
-            <template v-for="item in menuItems" :key="item.name">
+            <template v-for="item in availableMenuItems" :key="item.name">
               <NuxtLink
                 v-if="item.name !== 'Configurações'"
                 :to="item.path"
@@ -66,14 +66,22 @@
             v-if="isDropdownOpen"
             class="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-10"
           >
-            <button
-              v-for="option in filteredDropdownOptions"
+            <NuxtLink
+              v-for="option in availableDropdownOptions"
               :key="option.name"
-              @click="handleDropdownClick(option)"
-              class="block w-full text-left px-4 py-2 text-base text-gray-700 hover:bg-gray-100 transition-colors"
+              :to="option.path"
+              @click="isDropdownOpen = false"
+              class="block px-4 py-2 text-base text-gray-700 hover:bg-gray-100 transition-colors"
             >
               {{ option.name }}
-            </button>
+            </NuxtLink>
+          <button
+            type="button"
+            @click="handleLogout"
+            class="w-full text-left px-4 py-2 text-base text-red-600 hover:bg-red-50 transition-colors"
+          >
+            Sair
+          </button>
           </div>
         </div>
       </div>
@@ -159,38 +167,13 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed } from 'vue'
+
+const logout = useLogout()
+const authUser = useAuthUser()
 
 const isDropdownOpen = ref(false)
 const isConfigOpen = ref(false)
-
-const { isAdmin, fetchUserRole } = useUserRole()
-const user = useSupabaseUser()
-
-watch(user, async (newUser) => {
-  console.log('🔍 AppHeader: User mudou:', newUser)
-  console.log('🔍 AppHeader: Estrutura completa:', {
-    hasUser: !!newUser,
-    id: newUser?.id,
-    sub: newUser?.sub,
-    email: newUser?.email,
-    aud: newUser?.aud,
-    role: newUser?.role,
-    'Todas chaves': newUser ? Object.keys(newUser) : 'null'
-  })
-
-  // Extrair ID do JWT
-  const userId = newUser?.id || newUser?.sub
-  console.log('🔍 AppHeader: ID extraído:', userId)
-
-  if (newUser && userId) {
-    console.log('🔍 AppHeader: Buscando role do usuário...')
-    const role = await fetchUserRole()
-    console.log('🔍 AppHeader: Role obtida:', role)
-  } else {
-    console.log('🔍 AppHeader: Usuário deslogado ou sem ID/sub')
-  }
-}, { immediate: true })
 
 const configForm = ref({
   intervalo: 10,
@@ -202,12 +185,12 @@ const configForm = ref({
 const menuItems = [
   {
     name: 'Dashboard',
-    path: '/',
+    path: '/dashboard',
     icon: 'IconDashboard'
   },
   {
     name: 'Contatos',
-    path: '/#contatos',
+    path: '/dashboard#contatos',
     icon: 'IconContacts'
   },
   {
@@ -224,50 +207,40 @@ const menuItems = [
     name: 'Configurações',
     path: '/configuracoes',
     icon: 'IconSettings'
+  },
+  {
+    name: 'Painel Admin',
+    path: '/admin',
+    icon: 'IconDashboard',
+    requiresAdmin: true
   }
 ]
 
 const dropdownOptions = [
   { name: 'Meu Perfil', path: '/perfil' },
-  { name: 'Painel Admin', path: '/admin' },
-  { name: 'Sair', path: '/logout', action: 'logout' }
+  { name: 'Painel Admin', path: '/admin', requiresAdmin: true }
 ]
 
-const filteredDropdownOptions = computed(() => {
-  console.log('🔍 AppHeader: Filtrando opções dropdown - isAdmin:', isAdmin.value)
-
-  const filtered = dropdownOptions.filter(option => {
-    if (option.name === 'Painel Admin') {
-      console.log('🔍 AppHeader: Verificando Painel Admin - isAdmin.value:', isAdmin.value)
-      return isAdmin.value
+const availableMenuItems = computed(() => {
+  return menuItems.filter((item) => {
+    if (item.requiresAdmin) {
+      return authUser.value?.role === 'admin'
     }
     return true
   })
-
-  console.log('🔍 AppHeader: Opções filtradas:', filtered.map(opt => opt.name))
-  return filtered
 })
 
-const supabase = useSupabaseClient()
+const availableDropdownOptions = computed(() => {
+  return dropdownOptions.filter((option) => {
+    if (option.requiresAdmin) {
+      return authUser.value?.role === 'admin'
+    }
+    return true
+  })
+})
 
 const toggleDropdown = () => {
   isDropdownOpen.value = !isDropdownOpen.value
-}
-
-const handleDropdownClick = async (option) => {
-  isDropdownOpen.value = false
-  
-  if (option.action === 'logout') {
-    try {
-      const { error } = await supabase.auth.signOut()
-      if (error) throw error
-      navigateTo('/login')
-    } catch (error) {
-      console.error('Erro ao fazer logout:', error)
-    }
-  } else {
-    navigateTo(option.path)
-  }
 }
 
 const toggleConfigPanel = () => {
@@ -276,6 +249,11 @@ const toggleConfigPanel = () => {
 
 const saveConfigurations = () => {
   console.log('Configurações salvas:', configForm.value)
+}
+
+const handleLogout = async () => {
+  isDropdownOpen.value = false
+  await logout()
 }
 
 const IconDashboard = {

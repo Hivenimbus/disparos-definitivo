@@ -1,41 +1,29 @@
-export default defineNuxtRouteMiddleware(async (to, from) => {
-  console.log('🔍 Middleware admin: Verificando permissão')
+export default defineNuxtRouteMiddleware(async () => {
+  const authUser = useAuthUser()
 
-  const { user, userId } = useAuthUser()
-  const supabase = useSupabaseClient()
-
-  if (!user.value || !userId.value) {
-    console.log('❌ Middleware admin: Usuário não autenticado ou sem ID', {
-      hasUser: !!user.value,
-      userId: userId.value,
-      email: user.value?.email
-    })
-    return navigateTo('/login')
+  if (authUser.value?.role === 'admin') {
+    return
   }
 
-  console.log('🔍 Middleware admin: Verificando role para usuário', userId.value)
+  const authCookie = useCookie<string | null>('auth_token', { sameSite: 'lax' })
+
+  if (!authCookie.value) {
+    return navigateTo('/dashboard')
+  }
 
   try {
-    const { data, error } = await supabase
-      .from('users')
-      .select('role')
-      .eq('id', userId.value)
-      .single()
+    const headers = process.server ? useRequestHeaders(['cookie']) : undefined
+    const { user } = await $fetch('/api/auth/session', { headers })
+    authUser.value = user
 
-    if (error) {
-      console.error('❌ Middleware admin: Erro ao buscar role:', error)
-      return navigateTo('/')
+    if (user.role !== 'admin') {
+      return navigateTo('/dashboard')
     }
-
-    if (!data || data.role !== 'admin') {
-      console.log('❌ Middleware admin: Usuário não é admin. Role:', data?.role)
-      return navigateTo('/')
-    }
-
-    console.log('✅ Middleware admin: Acesso permitido para admin')
-    // Continuar para a rota admin
-  } catch (err) {
-    console.error('❌ Middleware admin: Erro inesperado:', err)
-    return navigateTo('/')
+  } catch (error) {
+    console.warn('[admin-middleware] sessão inválida', error)
+    authCookie.value = null
+    return navigateTo('/dashboard')
   }
 })
+
+

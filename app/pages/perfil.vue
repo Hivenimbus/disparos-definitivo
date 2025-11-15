@@ -32,12 +32,17 @@
               </div>
             </div>
             
-            <label class="mt-4 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 cursor-pointer transition-colors">
+            <label
+              class="mt-4 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 cursor-pointer transition-colors"
+              title="Upload de foto estará disponível em breve"
+              @click.prevent="notifyPhotoUnavailable"
+            >
               Alterar Foto
               <input 
                 type="file" 
                 accept="image/jpeg,image/png,image/jpg" 
-                @change="handleFileChange"
+                disabled
+                aria-disabled="true"
                 class="hidden"
               >
             </label>
@@ -50,6 +55,7 @@
               <input
                 v-model="profileForm.name"
                 type="text"
+                :disabled="isSavingProfile"
                 class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="Seu nome completo"
               >
@@ -69,12 +75,14 @@
             <div class="flex justify-end space-x-3 pt-4">
               <button
                 @click="cancelProfileChanges"
+                :disabled="isSavingProfile || !hasProfileChanges"
                 class="px-6 py-2 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
               >
                 Cancelar
               </button>
               <button
                 @click="saveProfileChanges"
+                :disabled="isSavingProfile || !hasProfileChanges"
                 class="px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
               >
                 Salvar Alterações
@@ -127,12 +135,14 @@
           <div class="flex justify-end space-x-3 pt-4">
             <button
               @click="cancelPasswordChanges"
+              :disabled="isChangingPassword"
               class="px-6 py-2 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
             >
               Cancelar
             </button>
             <button
               @click="changePassword"
+              :disabled="isChangingPassword"
               class="px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
             >
               Alterar Senha
@@ -144,23 +154,25 @@
   </div>
 </template>
 
-<script setup>
-import { ref } from 'vue'
+<script setup lang="ts">
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 
 definePageMeta({
-  middleware: 'auth'
+  middleware: ['auth']
 })
 
+const authUser = useAuthUser()
+
 const profileForm = ref({
-  name: 'João Silva',
-  email: 'joao.silva@example.com',
-  photo: null
+  name: '',
+  email: '',
+  photo: null as File | null
 })
 
 const originalProfile = ref({
-  name: 'João Silva',
-  email: 'joao.silva@example.com',
-  photo: null
+  name: '',
+  email: '',
+  photo: null as File | null
 })
 
 const passwordForm = ref({
@@ -169,88 +181,154 @@ const passwordForm = ref({
   confirmPassword: ''
 })
 
-const previewUrl = ref(null)
+const previewUrl = ref<string | null>(null)
 const successMessage = ref('')
 const errorMessage = ref('')
+const isSavingProfile = ref(false)
+const isChangingPassword = ref(false)
 
-const handleFileChange = (event) => {
-  const file = event.target.files[0]
-  
-  if (!file) return
-  
-  if (!['image/jpeg', 'image/png', 'image/jpg'].includes(file.type)) {
-    showError('Por favor, selecione uma imagem JPG ou PNG')
-    return
+let feedbackTimeout: ReturnType<typeof setTimeout> | null = null
+
+const resetFeedbackTimeout = () => {
+  if (feedbackTimeout) {
+    clearTimeout(feedbackTimeout)
+    feedbackTimeout = null
   }
-  
-  if (file.size > 2 * 1024 * 1024) {
-    showError('A imagem deve ter no máximo 2MB')
-    return
-  }
-  
-  profileForm.value.photo = file
-  
-  const reader = new FileReader()
-  reader.onload = (e) => {
-    previewUrl.value = e.target.result
-  }
-  reader.readAsDataURL(file)
 }
 
-const saveProfileChanges = () => {
-  if (!profileForm.value.name.trim()) {
+const showSuccess = (message: string) => {
+  resetFeedbackTimeout()
+  successMessage.value = message
+  errorMessage.value = ''
+  feedbackTimeout = setTimeout(() => {
+    successMessage.value = ''
+  }, 5000)
+}
+
+const showError = (message: string) => {
+  resetFeedbackTimeout()
+  errorMessage.value = message
+  successMessage.value = ''
+  feedbackTimeout = setTimeout(() => {
+    errorMessage.value = ''
+  }, 5000)
+}
+
+const extractErrorMessage = (error: any) => {
+  if (!error) return 'Ocorreu um erro inesperado'
+
+  const errorMessage =
+    error?.data?.statusMessage ||
+    error?.data?.message ||
+    error?.statusMessage ||
+    error?.message
+
+  return typeof errorMessage === 'string' && errorMessage.trim()
+    ? errorMessage
+    : 'Ocorreu um erro inesperado'
+}
+
+const requestHeaders = process.server ? useRequestHeaders(['cookie']) : undefined
+
+const {
+  data: profileData,
+  error: profileError
+} = await useAsyncData('profile', () =>
+  $fetch('/api/profile', {
+    headers: requestHeaders
+  })
+)
+
+const profile = computed(() => profileData.value?.profile ?? null)
+const hasProfileChanges = computed(
+  () => profileForm.value.name.trim() !== originalProfile.value.name.trim()
+)
+
+const syncProfileForm = (profileValue: any) => {
+  if (!profileValue) return
+
+  profileForm.value.name = profileValue.nome ?? ''
+  profileForm.value.email = profileValue.email ?? ''
+  profileForm.value.photo = null
+  previewUrl.value = null
+
+  originalProfile.value = {
+    name: profileForm.value.name,
+    email: profileForm.value.email,
+    photo: null
+  }
+}
+
+watch(
+  profile,
+  (value) => {
+    syncProfileForm(value)
+  },
+  { immediate: true }
+)
+
+watch(profileError, (err) => {
+  if (err) {
+    showError('Não foi possível carregar o perfil. Recarregue a página.')
+  }
+})
+
+onBeforeUnmount(() => {
+  resetFeedbackTimeout()
+})
+
+const notifyPhotoUnavailable = () => {
+  showError('Upload de foto estará disponível em breve.')
+}
+
+const saveProfileChanges = async () => {
+  if (isSavingProfile.value) return
+
+  const name = profileForm.value.name.trim()
+
+  if (!name) {
     showError('O nome não pode estar vazio')
     return
   }
-  
-  originalProfile.value.name = profileForm.value.name
-  originalProfile.value.photo = profileForm.value.photo
-  
-  showSuccess('Dados pessoais atualizados com sucesso!')
-  
-  console.log('Perfil atualizado:', {
-    name: profileForm.value.name,
-    photo: profileForm.value.photo
-  })
+
+  if (!hasProfileChanges.value) {
+    showSuccess('Nada para atualizar')
+    return
+  }
+
+  try {
+    isSavingProfile.value = true
+
+    const { profile: updatedProfile } = await $fetch('/api/profile', {
+      method: 'PUT',
+      body: { nome: name }
+    })
+
+    syncProfileForm(updatedProfile)
+
+    if (authUser.value) {
+      authUser.value = {
+        ...authUser.value,
+        nome: updatedProfile.nome
+      }
+    }
+
+    showSuccess('Dados pessoais atualizados com sucesso!')
+  } catch (error) {
+    showError(extractErrorMessage(error))
+  } finally {
+    isSavingProfile.value = false
+  }
 }
 
 const cancelProfileChanges = () => {
   profileForm.value.name = originalProfile.value.name
+  profileForm.value.email = originalProfile.value.email
   profileForm.value.photo = originalProfile.value.photo
-  
+
   if (!profileForm.value.photo) {
     previewUrl.value = null
   }
-}
-
-const changePassword = () => {
-  if (!passwordForm.value.currentPassword) {
-    showError('Digite sua senha atual')
-    return
-  }
-  
-  if (!passwordForm.value.newPassword) {
-    showError('Digite sua nova senha')
-    return
-  }
-  
-  if (passwordForm.value.newPassword.length < 8) {
-    showError('A nova senha deve ter no mínimo 8 caracteres')
-    return
-  }
-  
-  if (passwordForm.value.newPassword !== passwordForm.value.confirmPassword) {
-    showError('As senhas não coincidem')
-    return
-  }
-  
-  showSuccess('Senha alterada com sucesso!')
-  
-  console.log('Senha alterada')
-  
-  passwordForm.value.currentPassword = ''
-  passwordForm.value.newPassword = ''
-  passwordForm.value.confirmPassword = ''
 }
 
 const cancelPasswordChanges = () => {
@@ -259,19 +337,47 @@ const cancelPasswordChanges = () => {
   passwordForm.value.confirmPassword = ''
 }
 
-const showSuccess = (message) => {
-  successMessage.value = message
-  errorMessage.value = ''
-  setTimeout(() => {
-    successMessage.value = ''
-  }, 5000)
-}
+const changePassword = async () => {
+  if (isChangingPassword.value) return
 
-const showError = (message) => {
-  errorMessage.value = message
-  successMessage.value = ''
-  setTimeout(() => {
-    errorMessage.value = ''
-  }, 5000)
+  if (!passwordForm.value.currentPassword) {
+    showError('Digite sua senha atual')
+    return
+  }
+
+  if (!passwordForm.value.newPassword) {
+    showError('Digite sua nova senha')
+    return
+  }
+
+  if (passwordForm.value.newPassword.length < 8) {
+    showError('A nova senha deve ter no mínimo 8 caracteres')
+    return
+  }
+
+  if (passwordForm.value.newPassword !== passwordForm.value.confirmPassword) {
+    showError('As senhas não coincidem')
+    return
+  }
+
+  try {
+    isChangingPassword.value = true
+
+    await $fetch('/api/profile/password', {
+      method: 'PUT',
+      body: {
+        currentPassword: passwordForm.value.currentPassword,
+        newPassword: passwordForm.value.newPassword,
+        confirmPassword: passwordForm.value.confirmPassword
+      }
+    })
+
+    showSuccess('Senha alterada com sucesso!')
+    cancelPasswordChanges()
+  } catch (error) {
+    showError(extractErrorMessage(error))
+  } finally {
+    isChangingPassword.value = false
+  }
 }
 </script>

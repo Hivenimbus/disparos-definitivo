@@ -55,23 +55,23 @@
     </form>
 
     <div class="mt-6 text-center">
-      <p class="text-sm text-gray-600">
-        Não tem uma conta? 
-        <NuxtLink to="/register" class="text-blue-600 hover:text-blue-700 font-medium">Cadastre-se</NuxtLink>
-      </p>
+      <span class="text-sm text-gray-600">
+        Não tem uma conta?
+        <NuxtLink to="/register" class="text-blue-600 hover:text-blue-700 font-medium">
+          Criar conta
+        </NuxtLink>
+      </span>
     </div>
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref } from 'vue'
 
 definePageMeta({
   layout: 'auth',
-  middleware: 'guest'
+  middleware: ['guest']
 })
-
-const supabase = useSupabaseClient()
 
 const form = ref({
   email: '',
@@ -81,6 +81,9 @@ const form = ref({
 
 const errorMessage = ref('')
 const isLoading = ref(false)
+
+const nuxtApp = useNuxtApp()
+const request = nuxtApp.$fetch ?? $fetch
 
 const handleLogin = async () => {
   errorMessage.value = ''
@@ -99,16 +102,21 @@ const handleLogin = async () => {
   isLoading.value = true
 
   try {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: form.value.email,
-      password: form.value.password
+    const { user } = await request('/api/auth/login', {
+      method: 'POST',
+      body: {
+        email: form.value.email,
+        password: form.value.password
+      }
     })
 
-    if (error) throw error
+    const authUser = useAuthUser()
+    authUser.value = user
 
-    navigateTo('/')
+    await navigateTo('/dashboard', { replace: true })
   } catch (error) {
-    errorMessage.value = 'Email ou senha incorretos'
+    const message = (error as { statusMessage?: string })?.statusMessage
+    errorMessage.value = message || 'Email ou senha incorretos'
   } finally {
     isLoading.value = false
   }
