@@ -738,6 +738,14 @@ type SaveMessageOptions = {
   successMessage?: string
 }
 
+type SpintaxField = { value: string }
+
+const createDefaultSpintaxFields = (): SpintaxField[] => ([
+  { value: '' },
+  { value: '' },
+  { value: '' }
+])
+
 const message = ref('')
 const attachments = ref<DashboardAttachment[]>([])
 const deletingAttachmentIds = ref(new Set<string>())
@@ -761,6 +769,8 @@ const contactsSummary = ref({
   total: 0,
   validTotal: 0
 })
+const isSpintaxModalOpen = ref(false)
+const spintaxFields = ref<SpintaxField[]>(createDefaultSpintaxFields())
 const MAX_ATTACHMENTS = 3
 const MAX_FILE_BYTES = 50 * 1024 * 1024
 const attachmentModalError = ref('')
@@ -1520,20 +1530,12 @@ const sendMessage = async () => {
 const openSpintaxModal = () => {
   isSpintaxModalOpen.value = true
   // Reset fields to initial 3 empty fields
-  spintaxFields.value = [
-    { value: '' },
-    { value: '' },
-    { value: '' }
-  ]
+  spintaxFields.value = createDefaultSpintaxFields()
 }
 
 const closeSpintaxModal = () => {
   isSpintaxModalOpen.value = false
-  spintaxFields.value = [
-    { value: '' },
-    { value: '' },
-    { value: '' }
-  ]
+  spintaxFields.value = createDefaultSpintaxFields()
 }
 
 const addSpintaxField = () => {
