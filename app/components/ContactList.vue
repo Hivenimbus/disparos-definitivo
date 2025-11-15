@@ -22,6 +22,15 @@
           <span>Importar Arquivo</span>
         </button>
         <button
+          @click="openCountryCodeModal"
+          class="flex items-center space-x-2 px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5h12M9 3v2m6 14v2m-6-2v2m9-4h-4a2 2 0 01-2-2V9a2 2 0 012-2h4l4 4-4 4z" />
+          </svg>
+          <span>Inserir código do País</span>
+        </button>
+        <button
           @click="deleteAllContacts"
           :disabled="isClearingContacts || contacts.length === 0"
           class="flex items-center space-x-2 px-4 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -335,6 +344,56 @@
         </div>
       </div>
     </div>
+
+    <div
+      v-if="isCountryCodeModalOpen"
+      class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+      @click.self="closeCountryCodeModal"
+    >
+      <div class="bg-white rounded-lg shadow-xl max-w-sm w-full p-6">
+        <div class="flex items-center justify-between mb-6">
+          <h3 class="text-xl font-semibold text-gray-800">Inserir código do país</h3>
+          <button @click="closeCountryCodeModal" class="text-gray-400 hover:text-gray-600">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div class="space-y-4 mb-6">
+          <div>
+            <label class="block text-gray-700 font-medium mb-2">Código do país (somente números)</label>
+            <input
+              v-model="countryCodeInput"
+              type="text"
+              inputmode="numeric"
+              pattern="[0-9]*"
+              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="Ex: 55"
+            >
+          </div>
+          <p class="text-sm text-gray-500">
+            O código será adicionado no início de cada número exibido na lista atual.
+          </p>
+        </div>
+
+        <div class="flex justify-end space-x-3">
+          <button
+            @click="closeCountryCodeModal"
+            class="px-6 py-2 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            @click="applyCountryCodeToContacts"
+            :disabled="!countryCodeInput.trim() || isSavingContacts"
+            class="px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {{ isSavingContacts ? 'Aplicando...' : 'Aplicar' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </section>
 </template>
 
@@ -356,6 +415,8 @@ const contactListText = ref('')
 const isEditModalOpen = ref(false)
 const isFileImportModalOpen = ref(false)
 const selectedFile = ref(null)
+const isCountryCodeModalOpen = ref(false)
+const countryCodeInput = ref('')
 const editForm = ref({
   id: null,
   name: '',
@@ -558,36 +619,35 @@ const saveContactsToApi = async (newContacts) => {
   if (!newContacts.length) {
     return []
   }
+
   isSavingContacts.value = true
-  const created = []
   try {
-    for (const contact of newContacts) {
-      try {
-        const { contact: createdContact } = await $fetch('/api/dashboard/contacts', {
-          method: 'POST',
-          body: {
-            name: contact.name,
-            whatsapp: contact.whatsapp,
-            var1: contact.var1,
-            var2: contact.var2,
-            var3: contact.var3
-          }
-        })
-        if (createdContact) {
-          created.push({
-            ...createdContact,
-            status: contact.status
-          })
-        }
-      } catch (error) {
-        console.error('[dashboard/contacts] save error', error)
-        errorMessage.value = error?.data?.statusMessage || 'Erro ao salvar alguns contatos'
+    const payload = newContacts.map((contact) => ({
+      name: contact.name,
+      whatsapp: contact.whatsapp,
+      var1: contact.var1,
+      var2: contact.var2,
+      var3: contact.var3
+    }))
+
+    const { contacts: createdContacts } = await $fetch('/api/dashboard/contacts', {
+      method: 'POST',
+      body: {
+        contacts: payload
       }
-    }
+    })
+
+    return (createdContacts ?? []).map((contact) => ({
+      ...contact,
+      status: validateWhatsApp(contact.whatsapp) ? 'valid' : 'invalid'
+    }))
+  } catch (error) {
+    console.error('[dashboard/contacts] batch save error', error)
+    errorMessage.value = error?.data?.statusMessage || 'Erro ao salvar os contatos'
+    return []
   } finally {
     isSavingContacts.value = false
   }
-  return created
 }
 
 const importContacts = async () => {
@@ -653,16 +713,54 @@ const deleteAllContacts = async () => {
   resetFeedback()
 
   try {
-    await $fetch('/api/dashboard/contacts/clear', {
+    const { deleted } = await $fetch('/api/dashboard/contacts/clear', {
       method: 'DELETE'
     })
     await fetchContacts(1)
-    successMessage.value = 'Todos os contatos foram removidos'
+    const removed = typeof deleted === 'number' ? deleted : contacts.value.length
+    successMessage.value = removed
+      ? `Removidos ${removed} contato${removed === 1 ? '' : 's'}`
+      : 'Nenhum contato para remover'
   } catch (error) {
     console.error('[dashboard/contacts] bulk delete error', error)
     errorMessage.value = error?.data?.statusMessage || 'Erro ao remover contatos'
   } finally {
     isClearingContacts.value = false
+  }
+}
+
+const applyCountryCodeToContacts = async () => {
+  const code = countryCodeInput.value.replace(/\D/g, '')
+  if (!code) {
+    errorMessage.value = 'Informe um código de país válido'
+    return
+  }
+
+  resetFeedback()
+  isSavingContacts.value = true
+
+  try {
+    const { updated } = await $fetch('/api/dashboard/contacts/country-code', {
+      method: 'POST',
+      body: {
+        countryCode: code
+      }
+    })
+
+    await fetchContacts(currentPage.value)
+
+    if (updated) {
+      successMessage.value = `Código do país aplicado em ${updated} contato${updated === 1 ? '' : 's'}`
+    } else {
+      successMessage.value = 'Nenhum contato precisava ser atualizado'
+    }
+
+    closeCountryCodeModal()
+  } catch (error) {
+    console.error('[dashboard/contacts] bulk country code error', error)
+    errorMessage.value = error?.data?.statusMessage || 'Erro ao aplicar código do país'
+  } finally {
+    isSavingContacts.value = false
   }
 }
 
@@ -675,6 +773,17 @@ const openFileImportModal = () => {
 const closeFileImportModal = () => {
   isFileImportModalOpen.value = false
   selectedFile.value = null
+}
+
+const openCountryCodeModal = () => {
+  resetFeedback()
+  countryCodeInput.value = ''
+  isCountryCodeModalOpen.value = true
+}
+
+const closeCountryCodeModal = () => {
+  isCountryCodeModalOpen.value = false
+  countryCodeInput.value = ''
 }
 
 const handleFileSelect = (event) => {
