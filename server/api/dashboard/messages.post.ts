@@ -75,14 +75,17 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  const body = fields.body?.trim()
+  const body = fields.body?.trim() ?? ''
   const messageId = fields.message_id?.trim()
 
-  if (!body) {
-    throw createError({ statusCode: 400, statusMessage: 'Mensagem é obrigatória' })
-  }
-
   const attachmentsMeta = parseAttachmentsMeta(fields.attachments_meta)
+
+  if (!body && attachmentsMeta.length === 0) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'Informe uma mensagem ou anexe pelo menos um arquivo'
+    })
+  }
 
   const expectedFileKeys = new Set(attachmentsMeta.map((meta) => `file-${meta.id}`))
   for (const key of files.keys()) {

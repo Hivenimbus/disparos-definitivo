@@ -443,41 +443,43 @@
     </div>
     </section>
 
-  <div
-    v-if="isClearConfirmOpen"
-    class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
-    @click.self="closeClearConfirmModal"
-  >
-    <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-      <div class="flex items-center justify-between mb-4">
-        <h3 class="text-lg font-semibold text-gray-800">Limpar mensagem</h3>
-        <button @click="closeClearConfirmModal" class="text-gray-400 hover:text-gray-600">
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-      </div>
+  <Teleport to="body">
+    <div
+      v-if="isClearConfirmOpen"
+      class="fixed inset-0 bg-black bg-opacity-50 z-[999] flex items-center justify-center p-4"
+      @click.self="closeClearConfirmModal"
+    >
+      <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-semibold text-gray-800">Limpar mensagem</h3>
+          <button @click="closeClearConfirmModal" class="text-gray-400 hover:text-gray-600">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
 
-      <p class="text-gray-700 mb-4">
-        Tem certeza de que deseja remover o texto atual e {{ attachments.length || 'todos os' }} anexo(s)? Esta ação não pode ser desfeita.
-      </p>
+        <p class="text-gray-700 mb-4">
+          Tem certeza de que deseja remover o texto atual e {{ attachments.length || 'todos os' }} anexo(s)? Esta ação não pode ser desfeita.
+        </p>
 
-      <div class="flex justify-end space-x-3">
-        <button
-          @click="closeClearConfirmModal"
-          class="px-6 py-2 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
-        >
-          Cancelar
-        </button>
-        <button
-          @click="confirmClearMessage"
-          class="px-6 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors"
-        >
-          Limpar tudo
-        </button>
+        <div class="flex justify-end space-x-3">
+          <button
+            @click="closeClearConfirmModal"
+            class="px-6 py-2 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            @click="confirmClearMessage"
+            class="px-6 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors"
+          >
+            Limpar tudo
+          </button>
+        </div>
       </div>
     </div>
-  </div>
+  </Teleport>
   </div>
 </template>
 
@@ -970,16 +972,9 @@ onMounted(loadLastMessage)
 const saveMessage = async (options: SaveMessageOptions = {}) => {
   const isAutoSave = options.auto ?? false
 
+  formError.value = ''
   if (!isAutoSave) {
-    formError.value = ''
     formSuccess.value = ''
-  } else {
-    formError.value = ''
-  }
-
-  if (!message.value.trim()) {
-    formError.value = 'Mensagem é obrigatória'
-    return false
   }
 
   if (!isAutoSave) {
@@ -993,6 +988,14 @@ const saveMessage = async (options: SaveMessageOptions = {}) => {
   }
 
   const attachmentsToProcess = (options.attachments ?? attachments.value).filter((attachment) => !!attachment.file)
+
+  if (!message.value.trim() && attachmentsToProcess.length === 0) {
+    formError.value = 'Adicione texto ou anexos para salvar.'
+    if (!isAutoSave) {
+      isSubmitting.value = false
+    }
+    return false
+  }
 
   if (attachmentsToProcess.length > 0) {
     const attachmentsMeta = attachmentsToProcess.map((attachment) => {
