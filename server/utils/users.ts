@@ -9,6 +9,7 @@ type UiStatus = 'ativo' | 'desativado'
 type CompanyRow = {
   id: string
   nome: string | null
+  data_vencimento?: string | null
   max_usuarios: number
   usuarios_atuais: number
 }
@@ -102,7 +103,7 @@ export const fetchCompanyById = async (
 ): Promise<CompanyRow> => {
   const { data, error } = await supabase
     .from('companies')
-    .select('id, nome, max_usuarios, usuarios_atuais')
+    .select('id, nome, data_vencimento, max_usuarios, usuarios_atuais')
     .eq('id', companyId)
     .single()
 

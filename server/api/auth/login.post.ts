@@ -31,7 +31,10 @@ export default defineEventHandler(async (event) => {
   }
 
   if (user.status !== 'ativo') {
-    throw createError({ statusCode: 403, statusMessage: 'Usuário desativado' })
+    throw createError({
+      statusCode: 403,
+      statusMessage: 'Sua conta está desativada. Entre em contato com o suporte.'
+    })
   }
 
   const isPasswordValid = await verifyPassword(body.password, user.senha_hash)

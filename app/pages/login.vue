@@ -115,8 +115,12 @@ const handleLogin = async () => {
 
     await navigateTo('/dashboard', { replace: true })
   } catch (error) {
-    const message = (error as { statusMessage?: string })?.statusMessage
-    errorMessage.value = message || 'Email ou senha incorretos'
+    const statusError = error as { status?: number; statusMessage?: string }
+    if (statusError?.status === 403) {
+      errorMessage.value = statusError.statusMessage || 'Sua conta está desativada. Entre em contato com o suporte.'
+    } else {
+      errorMessage.value = statusError?.statusMessage || 'Email ou senha incorretos'
+    }
   } finally {
     isLoading.value = false
   }

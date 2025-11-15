@@ -86,16 +86,26 @@
               <td class="px-4 py-3 text-gray-600">{{ user.celular || '-' }}</td>
               <td class="px-4 py-3 text-gray-600">{{ formatDate(user.dataVencimento) }}</td>
               <td class="px-4 py-3">
-              <span
-                class="px-3 py-1 rounded-full text-xs font-medium"
-                :class="{
-                  'bg-green-100 text-green-700': user.statusLabel === 'ativo',
-                  'bg-yellow-100 text-yellow-700': user.statusLabel === 'vencido',
-                  'bg-red-100 text-red-700': user.statusLabel === 'desativado'
-                }"
-              >
-                {{ user.statusLabel.charAt(0).toUpperCase() + user.statusLabel.slice(1) }}
-              </span>
+                <div class="flex flex-col">
+                  <select
+                    :key="`${user.id}-${user.status}`"
+                    @change="handleStatusChange(user, ($event.target as HTMLSelectElement).value as UiStatus)"
+                    :disabled="statusUpdating[user.id]"
+                    class="px-3 py-1 rounded-full text-xs font-medium border border-transparent focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    :class="{
+                      'bg-green-100 text-green-700': user.status === 'ativo',
+                      'bg-red-100 text-red-700': user.status === 'desativado',
+                      'opacity-50 cursor-not-allowed': statusUpdating[user.id]
+                    }"
+                  >
+                    <option value="ativo" :selected="user.status === 'ativo'">Ativo</option>
+                    <option value="desativado" :selected="user.status === 'desativado'">Desativado</option>
+                  </select>
+                  <p v-if="statusUpdating[user.id]" class="text-[11px] text-gray-500 mt-1">Atualizando...</p>
+                  <p v-else-if="statusErrors[user.id]" class="text-[11px] text-red-600 mt-1">
+                    {{ statusErrors[user.id] }}
+                  </p>
+                </div>
               </td>
               <td class="px-4 py-3">
                 <span
@@ -221,8 +231,12 @@
             <input
               v-model="userForm.dataVencimento"
               type="date"
-              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              :disabled="isVencimentoLocked"
+              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500"
             >
+            <p v-if="isVencimentoLocked" class="text-xs text-gray-500 mt-1">
+              A data de vencimento segue a data da empresa selecionada.
+            </p>
           </div>
 
           <div>
@@ -308,7 +322,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 
 type UiRole = 'admin' | 'usuario'
 type UiStatus = 'ativo' | 'desativado'
@@ -334,6 +348,7 @@ type CompanyItem = {
   nome: string
   maxUsuarios: number
   usuariosAtuais: number
+  dataVencimento: string
 }
 
 type UserFormState = {
@@ -359,6 +374,8 @@ const deleteError = ref('')
 const isSaving = ref(false)
 const isDeleting = ref(false)
 const originalCompanyId = ref<string | null>(null)
+const statusUpdating = ref<Record<string, boolean>>({})
+const statusErrors = ref<Record<string, string>>({})
 
 const defaultForm = (): UserFormState => ({
   id: null,
@@ -443,6 +460,33 @@ const findCompany = (companyId: string | null) => {
 
 const getCompanyName = (user: AdminUserItem) => {
   return findCompany(user.empresaId)?.nome || user.empresaNome || 'Sem empresa'
+}
+
+const isVencimentoLocked = computed(() => Boolean(userForm.value.empresaId))
+
+watch(
+  () => userForm.value.empresaId,
+  (newCompanyId) => {
+    if (newCompanyId) {
+      const company = findCompany(newCompanyId)
+      if (company?.dataVencimento) {
+        userForm.value.dataVencimento = company.dataVencimento
+      }
+    }
+  }
+)
+
+const setStatusUpdating = (id: string, value: boolean) => {
+  statusUpdating.value = { ...statusUpdating.value, [id]: value }
+}
+
+const setStatusError = (id: string, message: string) => {
+  if (!message) {
+    const { [id]: _, ...rest } = statusErrors.value
+    statusErrors.value = rest
+  } else {
+    statusErrors.value = { ...statusErrors.value, [id]: message }
+  }
 }
 
 const resetForm = () => {
@@ -594,6 +638,30 @@ const confirmDelete = async () => {
     deleteError.value = error?.statusMessage || 'Erro ao excluir usuário.'
   } finally {
     isDeleting.value = false
+  }
+}
+
+const handleStatusChange = async (user: AdminUserItem, nextStatus: UiStatus) => {
+  if (nextStatus === user.status) {
+    return
+  }
+
+  setStatusError(user.id, '')
+  setStatusUpdating(user.id, true)
+
+  try {
+    await $fetch(`/api/admin/users/${user.id}`, {
+      method: 'PUT',
+      body: {
+        status: nextStatus
+      }
+    })
+    await refreshUsers()
+  } catch (error) {
+    const message = (error as { statusMessage?: string })?.statusMessage || 'Não foi possível atualizar o status.'
+    setStatusError(user.id, message)
+  } finally {
+    setStatusUpdating(user.id, false)
   }
 }
 </script>

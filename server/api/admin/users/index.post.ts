@@ -18,12 +18,12 @@ type CreateUserPayload = {
   role?: 'admin' | 'usuario'
   status?: 'ativo' | 'desativado'
   companyId?: string | null
-  dataVencimento: string
+  dataVencimento?: string
   celular?: string | null
   cpf?: string | null
 }
 
-const validateCreatePayload = (payload: CreateUserPayload) => {
+const validateCreatePayload = (payload: CreateUserPayload, requireVencimento: boolean) => {
   if (!payload?.nome?.trim()) {
     throw createError({ statusCode: 400, statusMessage: 'Nome é obrigatório' })
   }
@@ -36,14 +36,15 @@ const validateCreatePayload = (payload: CreateUserPayload) => {
     throw createError({ statusCode: 400, statusMessage: 'Senha deve ter ao menos 8 caracteres' })
   }
 
-  if (!payload?.dataVencimento) {
+  if (requireVencimento && !payload?.dataVencimento) {
     throw createError({ statusCode: 400, statusMessage: 'Data de vencimento é obrigatória' })
   }
 }
 
 export default defineEventHandler(async (event) => {
   const payload = (await readBody(event)) as CreateUserPayload
-  validateCreatePayload(payload)
+  const requireVencimento = !payload.companyId
+  validateCreatePayload(payload, requireVencimento)
 
   const supabase = getServiceSupabaseClient()
   const email = normalizeEmail(payload.email)
@@ -65,6 +66,15 @@ export default defineEventHandler(async (event) => {
     ensureCompanyCapacity(companyRecord)
   }
 
+  const finalVencimento = companyRecord?.data_vencimento ?? payload.dataVencimento
+
+  if (!finalVencimento) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'Data de vencimento não encontrada para esta empresa.'
+    })
+  }
+
   const hashedPassword = await hashPassword(payload.password)
   const statusDb = mapStatusToDb(payload.status)
   const roleDb = mapRoleToDb(payload.role)
@@ -79,7 +89,7 @@ export default defineEventHandler(async (event) => {
       status: statusDb,
       company_id: payload.companyId || null,
       empresa: companyRecord?.nome || null,
-      vencimento: payload.dataVencimento,
+      vencimento: finalVencimento,
       numero: payload.celular?.trim() || null,
       cpf: payload.cpf?.trim() || null
     })

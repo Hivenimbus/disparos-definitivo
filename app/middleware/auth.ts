@@ -5,9 +5,18 @@ export default defineNuxtRouteMiddleware(async (to) => {
   const authCookie = useCookie<string | null>('auth_token', { sameSite: 'lax' })
   const isPublicRoute = PUBLIC_ROUTES.includes(to.path)
 
+  const redirectToDashboard = () => navigateTo('/dashboard')
+  const redirectToLogin = () => navigateTo('/login')
+
   if (authUser.value) {
+    if (authUser.value.status !== 'ativo') {
+      authUser.value = null
+      authCookie.value = null
+      return redirectToLogin()
+    }
+
     if (isPublicRoute) {
-      return navigateTo('/dashboard')
+      return redirectToDashboard()
     }
 
     return
@@ -15,7 +24,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
 
   if (!authCookie.value) {
     if (!isPublicRoute) {
-      return navigateTo('/login')
+      return redirectToLogin()
     }
 
     return
@@ -27,6 +36,11 @@ export default defineNuxtRouteMiddleware(async (to) => {
       headers
     })
 
+    if (user.status !== 'ativo') {
+      authCookie.value = null
+      return redirectToLogin()
+    }
+
     authUser.value = user
   } catch (error) {
     console.warn('[auth-middleware] sessão inválida', error)
@@ -34,11 +48,11 @@ export default defineNuxtRouteMiddleware(async (to) => {
   }
 
   if (!authUser.value && !isPublicRoute) {
-    return navigateTo('/login')
+    return redirectToLogin()
   }
 
   if (authUser.value && isPublicRoute) {
-      return navigateTo('/dashboard')
+    return redirectToDashboard()
   }
 })
 
