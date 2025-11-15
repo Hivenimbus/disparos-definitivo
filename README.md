@@ -23,6 +23,8 @@ Aplicação Nuxt 4 para disparos e gerenciamento de campanhas no WhatsApp com ba
    NUXT_SUPABASE_ANON_KEY=your-anon-key
    NUXT_SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
    NUXT_JWT_SECRET=uma-chave-segura-com-32caracteres
+   NUXT_EVOLUTION_API_URL=https://api.evolution-api.com
+   NUXT_EVOLUTION_API_KEY=sua-chave-do-evolution
    ```
 
 3. Rode `npm run dev` para iniciar em `http://localhost:3000`.

@@ -427,6 +427,10 @@ type UserFormState = {
   role: UiRole
 }
 
+type AdminUserResponse = {
+  user: AdminUserItem
+}
+
 const searchQuery = ref('')
 const isModalOpen = ref(false)
 const isDeleteModalOpen = ref(false)
@@ -621,6 +625,66 @@ const canSelectCompany = (companyId: string) => {
   return company.usuariosAtuais < company.maxUsuarios
 }
 
+const updateUsersState = (updatedUser: AdminUserItem, prependWhenMissing = false) => {
+  const currentUsers = usersData.value ?? []
+  const existingIndex = currentUsers.findIndex((user) => user.id === updatedUser.id)
+
+  if (existingIndex === -1) {
+    if (prependWhenMissing) {
+      usersData.value = [updatedUser, ...currentUsers]
+    } else {
+      usersData.value = [...currentUsers, updatedUser]
+    }
+    return
+  }
+
+  const nextUsers = [...currentUsers]
+  nextUsers[existingIndex] = updatedUser
+  usersData.value = nextUsers
+}
+
+const removeUserFromState = (userId: string) => {
+  if (!usersData.value) return
+  usersData.value = usersData.value.filter((user) => user.id !== userId)
+}
+
+const adjustCompanyUserCount = (companyId: string | null, delta: number) => {
+  if (!companyId || !companiesData.value) return
+  const currentCompanies = companiesData.value
+  const targetIndex = currentCompanies.findIndex((company) => company.id === companyId)
+  if (targetIndex === -1) return
+
+  const nextCompanies = [...currentCompanies]
+  const targetCompany = nextCompanies[targetIndex]
+  nextCompanies[targetIndex] = {
+    ...targetCompany,
+    usuariosAtuais: Math.max(0, targetCompany.usuariosAtuais + delta)
+  }
+  companiesData.value = nextCompanies
+}
+
+const applyUserChanges = (savedUser: AdminUserItem, isEdit: boolean, previousCompanyId: string | null) => {
+  updateUsersState(savedUser, !isEdit)
+
+  const currentCompanyId = savedUser.empresaId
+
+  if (!isEdit) {
+    if (currentCompanyId) {
+      adjustCompanyUserCount(currentCompanyId, 1)
+    }
+    return
+  }
+
+  if (previousCompanyId !== currentCompanyId) {
+    if (previousCompanyId) {
+      adjustCompanyUserCount(previousCompanyId, -1)
+    }
+    if (currentCompanyId) {
+      adjustCompanyUserCount(currentCompanyId, 1)
+    }
+  }
+}
+
 const openAddModal = () => {
   isEditMode.value = false
   resetForm()
@@ -705,21 +769,26 @@ const saveUser = async () => {
 
   try {
     const payload = buildPayload(isEditMode.value)
+    const previousCompanyId = originalCompanyId.value
+
+    let response: AdminUserResponse
 
     if (isEditMode.value && userForm.value.id) {
-      await $fetch(`/api/admin/users/${userForm.value.id}`, {
+      response = await $fetch<AdminUserResponse>(`/api/admin/users/${userForm.value.id}`, {
         method: 'PUT',
         body: payload
       })
     } else {
-      await $fetch('/api/admin/users', {
+      response = await $fetch<AdminUserResponse>('/api/admin/users', {
         method: 'POST',
         body: payload
       })
     }
 
-    await Promise.all([refreshUsers(), refreshCompanies()])
+    applyUserChanges(response.user, isEditMode.value, previousCompanyId)
     closeModal()
+
+    await Promise.allSettled([refreshUsers(), refreshCompanies()])
   } catch (error) {
     const message = error?.statusMessage || 'Erro ao salvar usuário.'
     formError.value = message
@@ -750,8 +819,13 @@ const confirmDelete = async () => {
     await $fetch(`/api/admin/users/${userToDelete.value.id}`, {
       method: 'DELETE'
     })
-    await Promise.all([refreshUsers(), refreshCompanies()])
+    const deletedUser = userToDelete.value
+    removeUserFromState(deletedUser.id)
+    if (deletedUser.empresaId) {
+      adjustCompanyUserCount(deletedUser.empresaId, -1)
+    }
     closeDeleteModal()
+    await Promise.allSettled([refreshUsers(), refreshCompanies()])
   } catch (error) {
     deleteError.value = error?.statusMessage || 'Erro ao excluir usuário.'
   } finally {
@@ -768,13 +842,13 @@ const handleStatusChange = async (user: AdminUserItem, nextStatus: UiStatus) => 
   setStatusUpdating(user.id, true)
 
   try {
-    await $fetch(`/api/admin/users/${user.id}`, {
+    const response = await $fetch<AdminUserResponse>(`/api/admin/users/${user.id}`, {
       method: 'PUT',
       body: {
         status: nextStatus
       }
     })
-    await refreshUsers()
+    updateUsersState(response.user)
   } catch (error) {
     const message = (error as { statusMessage?: string })?.statusMessage || 'Não foi possível atualizar o status.'
     setStatusError(user.id, message)

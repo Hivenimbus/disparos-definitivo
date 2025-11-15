@@ -1,4 +1,5 @@
 import { readBody, createError, setResponseStatus } from 'h3'
+import { $fetch } from 'ofetch'
 import { getServiceSupabaseClient } from '../../../utils/supabase'
 import { hashPassword } from '../../../utils/password'
 import {
@@ -45,6 +46,17 @@ export default defineEventHandler(async (event) => {
   const payload = (await readBody(event)) as CreateUserPayload
   const requireVencimento = !payload.companyId
   validateCreatePayload(payload, requireVencimento)
+
+  const config = useRuntimeConfig()
+  const evolutionApiUrl = config.evolutionApiUrl?.replace(/\/$/, '')
+  const evolutionApiKey = config.evolutionApiKey
+
+  if (!evolutionApiUrl || !evolutionApiKey) {
+    throw createError({
+      statusCode: 500,
+      statusMessage: 'Configurações da Evolution API não encontradas'
+    })
+  }
 
   const supabase = getServiceSupabaseClient()
   const email = normalizeEmail(payload.email)
@@ -127,6 +139,38 @@ export default defineEventHandler(async (event) => {
   if (error || !data) {
     console.error('[admin/users] POST error', error)
     throw createError({ statusCode: 500, statusMessage: 'Erro ao criar usuário' })
+  }
+
+  try {
+    await $fetch('/instance/create', {
+      baseURL: evolutionApiUrl,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: evolutionApiKey
+      },
+      body: {
+        instanceName: data.id,
+        integration: 'WHATSAPP-BAILEYS',
+        qrcode: true
+      }
+    })
+  } catch (e: any) {
+    console.error('[admin/users] Erro ao criar instância no Evolution', {
+      message: e?.message,
+      status: e?.response?.status,
+      data: e?.data || e?.response?._data || null
+    })
+
+    const { error: rollbackError } = await supabase.from('users').delete().eq('id', data.id)
+    if (rollbackError) {
+      console.error('[admin/users] Erro ao remover usuário após falha no Evolution', rollbackError)
+    }
+
+    throw createError({
+      statusCode: 500,
+      statusMessage: 'Erro ao criar instância no Evolution'
+    })
   }
 
   if (companyRecord) {

@@ -8,6 +8,8 @@ export default defineNuxtConfig({
     supabaseAnonKey: '',
     supabaseServiceRoleKey: '',
     jwtSecret: '',
+    evolutionApiUrl: '',
+    evolutionApiKey: '',
     public: {}
   }
 })

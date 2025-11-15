@@ -1,4 +1,5 @@
 import { createError, setResponseStatus } from 'h3'
+import { $fetch } from 'ofetch'
 import { getServiceSupabaseClient } from '../../../utils/supabase'
 import { fetchCompanyById, buildCompanyUpdatePayload } from '../../../utils/users'
 
@@ -10,6 +11,16 @@ export default defineEventHandler(async (event) => {
   }
 
   const supabase = getServiceSupabaseClient()
+  const config = useRuntimeConfig()
+  const evolutionApiUrl = config.evolutionApiUrl?.replace(/\/$/, '')
+  const evolutionApiKey = config.evolutionApiKey
+
+  if (!evolutionApiUrl || !evolutionApiKey) {
+    throw createError({
+      statusCode: 500,
+      statusMessage: 'Configurações da Evolution API não encontradas'
+    })
+  }
 
   const { data: user, error: userError } = await supabase
     .from('users')
@@ -39,6 +50,27 @@ export default defineEventHandler(async (event) => {
     } catch (companyError) {
       console.error('[admin/users] erro ao atualizar contagem da empresa', companyError)
     }
+  }
+
+  try {
+    await $fetch(`/instance/delete/${id}`, {
+      baseURL: evolutionApiUrl,
+      method: 'DELETE',
+      headers: {
+        apikey: evolutionApiKey
+      }
+    })
+  } catch (e: any) {
+    console.error('[admin/users] Erro ao remover instância no Evolution', {
+      message: e?.message,
+      status: e?.response?.status,
+      data: e?.data || e?.response?._data || null
+    })
+
+    throw createError({
+      statusCode: 500,
+      statusMessage: 'Erro ao remover instância no Evolution'
+    })
   }
 
   setResponseStatus(event, 204)
