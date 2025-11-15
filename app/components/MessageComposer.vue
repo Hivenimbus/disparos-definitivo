@@ -843,6 +843,24 @@ const confirmClearMessage = async () => {
 }
 
 const clearMessage = async () => {
+  formError.value = ''
+  formSuccess.value = ''
+
+  try {
+    if (currentMessageId.value) {
+      await $fetch('/api/dashboard/messages/clear', {
+        method: 'DELETE',
+        body: {
+          messageId: currentMessageId.value
+        }
+      })
+    }
+  } catch (error: any) {
+    console.error('[dashboard/messages] clear message error', error)
+    formError.value = error?.data?.statusMessage || 'Erro ao limpar a mensagem'
+    return
+  }
+
   attachments.value.forEach((attachment) => {
     if (attachment.previewUrl && attachment.previewUrl.startsWith('blob:')) {
       URL.revokeObjectURL(attachment.previewUrl)
