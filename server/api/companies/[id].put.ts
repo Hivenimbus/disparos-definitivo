@@ -43,6 +43,7 @@ export default defineEventHandler(async (event) => {
   }
 
   let newDataVencimento = existing.data_vencimento
+  let shouldSyncUsers = false
 
   if (body.dataVencimento !== undefined) {
     if (!body.dataVencimento) {
@@ -50,6 +51,7 @@ export default defineEventHandler(async (event) => {
     }
     newDataVencimento = body.dataVencimento
     updates.data_vencimento = body.dataVencimento
+    shouldSyncUsers = body.dataVencimento !== existing.data_vencimento
   }
 
   let newMaxUsuarios = existing.max_usuarios
@@ -97,6 +99,21 @@ export default defineEventHandler(async (event) => {
   if (error || !data) {
     console.error('[companies] PUT error', error)
     throw createError({ statusCode: 500, statusMessage: 'Erro ao atualizar empresa' })
+  }
+
+  if (shouldSyncUsers && newDataVencimento) {
+    const { error: usersUpdateError } = await supabase
+      .from('users')
+      .update({ vencimento: newDataVencimento })
+      .eq('company_id', id)
+
+    if (usersUpdateError) {
+      console.error('[companies] sync users vencimento error', usersUpdateError)
+      throw createError({
+        statusCode: 500,
+        statusMessage: 'Empresa atualizada, mas não foi possível sincronizar os usuários vinculados.'
+      })
+    }
   }
 
   return {

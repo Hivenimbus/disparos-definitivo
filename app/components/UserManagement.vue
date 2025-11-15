@@ -169,21 +169,84 @@
 
           <div>
             <label class="block text-gray-700 font-medium mb-2">Empresa</label>
-            <select
-              v-model="userForm.empresaId"
-              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option :value="null">Sem empresa</option>
-              <option
-                v-for="company in companies"
-                :key="company.id"
-                :value="company.id"
-                :disabled="!canSelectCompany(company.id)"
+            <div class="relative">
+              <input
+                v-model="companySearch"
+                type="text"
+                placeholder="Digite para buscar empresas"
+                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                @focus="openCompanyDropdown"
+                @input="openCompanyDropdown"
+                @blur="scheduleCloseCompanyDropdown"
+                @keydown.escape.prevent="closeCompanyDropdown()"
               >
-                {{ company.nome }} ({{ company.usuariosAtuais }}/{{ company.maxUsuarios }})
-                <span v-if="!canSelectCompany(company.id) && originalCompanyId !== company.id"> - Lotado</span>
-              </option>
-            </select>
+              <div
+                v-if="isCompanyDropdownOpen"
+                class="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto"
+              >
+                <button
+                  type="button"
+                  class="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center justify-between"
+                  @mousedown.prevent
+                  @click="selectCompany(null)"
+                >
+                  <span>Sem empresa</span>
+                  <svg
+                    v-if="!userForm.empresaId"
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="w-4 h-4 text-blue-600"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                  </svg>
+                </button>
+                <div class="border-t border-gray-100"></div>
+                <template v-if="filteredCompanies.length">
+                  <button
+                    v-for="company in filteredCompanies"
+                    :key="company.id"
+                    type="button"
+                    class="w-full text-left px-4 py-2 text-sm flex items-center justify-between"
+                    @mousedown.prevent
+                    @click="selectCompany(company)"
+                    :disabled="!canSelectCompany(company.id)"
+                    :class="{
+                      'hover:bg-gray-50': canSelectCompany(company.id),
+                      'opacity-50 cursor-not-allowed': !canSelectCompany(company.id),
+                      'bg-blue-50 hover:bg-blue-50': userForm.empresaId === company.id
+                    }"
+                  >
+                    <div>
+                      <p class="font-medium text-gray-800">
+                        {{ company.nome }}
+                      </p>
+                      <p class="text-xs text-gray-500">
+                        {{ company.usuariosAtuais }}/{{ company.maxUsuarios }} usuários
+                        <span
+                          v-if="!canSelectCompany(company.id) && originalCompanyId !== company.id"
+                          class="text-red-600 font-semibold"
+                        >
+                          - Lotado
+                        </span>
+                      </p>
+                    </div>
+                    <svg
+                      v-if="userForm.empresaId === company.id"
+                      xmlns="http://www.w3.org/2000/svg"
+                      class="w-5 h-5 text-blue-600 flex-shrink-0"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                  </button>
+                </template>
+                <p v-else class="px-4 py-3 text-sm text-gray-500">Nenhuma empresa encontrada</p>
+              </div>
+            </div>
           </div>
 
           <div>
@@ -376,6 +439,9 @@ const isDeleting = ref(false)
 const originalCompanyId = ref<string | null>(null)
 const statusUpdating = ref<Record<string, boolean>>({})
 const statusErrors = ref<Record<string, string>>({})
+const companySearch = ref('')
+const isCompanyDropdownOpen = ref(false)
+let companyDropdownCloseTimeout: ReturnType<typeof setTimeout> | null = null
 
 const defaultForm = (): UserFormState => ({
   id: null,
@@ -414,6 +480,13 @@ const {
 
 const users = computed<AdminUserItem[]>(() => usersData.value ?? [])
 const companies = computed<CompanyItem[]>(() => companiesData.value ?? [])
+const filteredCompanies = computed<CompanyItem[]>(() => {
+  const query = companySearch.value.trim().toLowerCase()
+  if (!query) {
+    return companies.value
+  }
+  return companies.value.filter((company) => company.nome.toLowerCase().includes(query))
+})
 
 const totalUsers = computed(() => users.value.length)
 const activeUsers = computed(() => users.value.filter((u) => u.statusLabel === 'ativo').length)
@@ -462,6 +535,15 @@ const getCompanyName = (user: AdminUserItem) => {
   return findCompany(user.empresaId)?.nome || user.empresaNome || 'Sem empresa'
 }
 
+const updateCompanySearchFromSelection = (fallbackName = '') => {
+  if (!userForm.value.empresaId) {
+    companySearch.value = ''
+    return
+  }
+  const company = findCompany(userForm.value.empresaId)
+  companySearch.value = company?.nome || fallbackName || ''
+}
+
 const isVencimentoLocked = computed(() => Boolean(userForm.value.empresaId))
 
 watch(
@@ -475,6 +557,38 @@ watch(
     }
   }
 )
+
+const openCompanyDropdown = () => {
+  if (companyDropdownCloseTimeout) {
+    clearTimeout(companyDropdownCloseTimeout)
+    companyDropdownCloseTimeout = null
+  }
+  isCompanyDropdownOpen.value = true
+}
+
+const closeCompanyDropdown = () => {
+  if (companyDropdownCloseTimeout) {
+    clearTimeout(companyDropdownCloseTimeout)
+    companyDropdownCloseTimeout = null
+  }
+  isCompanyDropdownOpen.value = false
+  updateCompanySearchFromSelection()
+}
+
+const scheduleCloseCompanyDropdown = () => {
+  if (companyDropdownCloseTimeout) {
+    clearTimeout(companyDropdownCloseTimeout)
+  }
+  companyDropdownCloseTimeout = setTimeout(() => {
+    closeCompanyDropdown()
+  }, 150)
+}
+
+const selectCompany = (company: CompanyItem | null) => {
+  userForm.value.empresaId = company ? company.id : null
+  updateCompanySearchFromSelection(company?.nome || '')
+  closeCompanyDropdown()
+}
 
 const setStatusUpdating = (id: string, value: boolean) => {
   statusUpdating.value = { ...statusUpdating.value, [id]: value }
@@ -493,6 +607,8 @@ const resetForm = () => {
   userForm.value = defaultForm()
   originalCompanyId.value = null
   formError.value = ''
+  companySearch.value = ''
+  isCompanyDropdownOpen.value = false
 }
 
 const canSelectCompany = (companyId: string) => {
@@ -526,6 +642,7 @@ const openEditModal = (user: AdminUserItem) => {
     status: user.status,
     role: user.role
   }
+  updateCompanySearchFromSelection(user.empresaNome || '')
   isModalOpen.value = true
 }
 
