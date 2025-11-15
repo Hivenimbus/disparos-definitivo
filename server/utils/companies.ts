@@ -6,7 +6,7 @@ type CompanyRow = {
   usuarios_atuais: number
   celular: string | null
   cpf_cnpj: string | null
-  status: 'ativo' | 'vencido'
+  status: 'ativo' | 'desativado'
   created_at: string
   updated_at: string
 }
@@ -19,7 +19,7 @@ export type CompanyDTO = {
   usuariosAtuais: number
   celular: string | null
   cpfCnpj: string | null
-  status: 'ativo' | 'vencido'
+  status: 'ativo' | 'desativado'
   createdAt: string
   updatedAt: string
 }
@@ -37,14 +37,24 @@ export const mapCompanyRow = (row: CompanyRow): CompanyDTO => ({
   updatedAt: row.updated_at
 })
 
-export const calcCompanyStatus = (date: string): 'ativo' | 'vencido' => {
+const parseDateOnly = (date: string): Date | null => {
+  if (!date) return null
+  const [year, month, day] = date.split('-').map(Number)
+  if (!year || !month || !day) return null
+  return new Date(year, month - 1, day)
+}
+
+export const calcCompanyStatus = (date: string): 'ativo' | 'desativado' => {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
-  const expiration = new Date(date)
+  const expiration = parseDateOnly(date)
+  if (!expiration) {
+    return 'ativo'
+  }
   expiration.setHours(0, 0, 0, 0)
 
-  return expiration < today ? 'vencido' : 'ativo'
+  return expiration < today ? 'desativado' : 'ativo'
 }
 
 

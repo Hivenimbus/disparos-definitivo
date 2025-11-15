@@ -27,7 +27,7 @@
       </div>
       <div class="bg-gray-100 rounded-lg p-6 text-center">
         <div class="text-4xl font-bold text-red-600 mb-2">{{ expiredCompanies }}</div>
-        <div class="text-gray-600 text-sm">Empresas Vencidas</div>
+        <div class="text-gray-600 text-sm">Empresas Desativadas</div>
       </div>
       <div class="bg-gray-100 rounded-lg p-6 text-center">
         <div class="text-4xl font-bold text-purple-600 mb-2">{{ totalAvailableSlots }}</div>
@@ -100,15 +100,26 @@
             <td class="px-4 py-3 text-gray-600">{{ company.celular || '-' }}</td>
             <td class="px-4 py-3 text-gray-600">{{ company.cpfCnpj || '-' }}</td>
             <td class="px-4 py-3">
-              <span
-                class="px-3 py-1 rounded-full text-xs font-medium"
-                :class="{
-                  'bg-green-100 text-green-700': company.status === 'ativo',
-                  'bg-red-100 text-red-700': company.status === 'vencido'
-                }"
-              >
-                {{ company.status.charAt(0).toUpperCase() + company.status.slice(1) }}
-              </span>
+              <div class="flex flex-col">
+                <select
+                  :key="`${company.id}-${company.status}`"
+                  @change="handleCompanyStatusChange(company, ($event.target as HTMLSelectElement).value)"
+                  :disabled="companyStatusUpdating[company.id]"
+                  class="px-3 py-1 rounded-full text-xs font-medium border border-transparent focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  :class="{
+                    'bg-green-100 text-green-700': company.status === 'ativo',
+                    'bg-red-100 text-red-700': company.status === 'desativado',
+                    'opacity-50 cursor-not-allowed': companyStatusUpdating[company.id]
+                  }"
+                >
+                  <option value="ativo" :selected="company.status === 'ativo'">Ativo</option>
+                  <option value="desativado" :selected="company.status === 'desativado'">Desativado</option>
+                </select>
+                <p v-if="companyStatusUpdating[company.id]" class="text-[11px] text-gray-500 mt-1">Atualizando...</p>
+                <p v-else-if="companyStatusErrors[company.id]" class="text-[11px] text-red-600 mt-1">
+                  {{ companyStatusErrors[company.id] }}
+                </p>
+              </div>
             </td>
             <td class="px-4 py-3">
               <div class="flex items-center space-x-2">
@@ -264,7 +275,7 @@
   </section>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed } from 'vue'
 
 const searchQuery = ref('')
@@ -276,6 +287,8 @@ const formError = ref('')
 const deleteError = ref('')
 const isSaving = ref(false)
 const isDeleting = ref(false)
+const companyStatusUpdating = ref<Record<string, boolean>>({})
+const companyStatusErrors = ref<Record<string, string>>({})
 
 const companyForm = ref({
   id: null,
@@ -295,7 +308,7 @@ const companies = computed(() => companiesData.value ?? [])
 
 const totalCompanies = computed(() => companies.value.length)
 const activeCompanies = computed(() => companies.value.filter(c => c.status === 'ativo').length)
-const expiredCompanies = computed(() => companies.value.filter(c => c.status === 'vencido').length)
+const expiredCompanies = computed(() => companies.value.filter(c => c.status === 'desativado').length)
 const totalAvailableSlots = computed(() => {
   return companies.value.reduce((sum, company) => {
     return sum + (company.maxUsuarios - company.usuariosAtuais)
@@ -316,8 +329,9 @@ const isFormValid = computed(() => {
 
 const formatDate = (dateString) => {
   if (!dateString) return '-'
-  const date = new Date(dateString)
-  return date.toLocaleDateString('pt-BR')
+  const [year, month, day] = dateString.split('-')
+  if (!year || !month || !day) return dateString
+  return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`
 }
 
 const resetForm = () => {
@@ -364,6 +378,28 @@ const buildPayload = () => ({
   celular: companyForm.value.celular || null,
   cpfCnpj: companyForm.value.cpfCnpj || null
 })
+
+const handleCompanyStatusChange = async (company, nextStatus) => {
+  if (company.status === nextStatus) return
+
+  companyStatusErrors.value = { ...companyStatusErrors.value, [company.id]: '' }
+  companyStatusUpdating.value = { ...companyStatusUpdating.value, [company.id]: true }
+
+  try {
+    await $fetch(`/api/companies/${company.id}`, {
+      method: 'PUT',
+      body: {
+        status: nextStatus
+      }
+    })
+    await refresh()
+  } catch (error) {
+    const message = error?.statusMessage || 'Não foi possível atualizar o status.'
+    companyStatusErrors.value = { ...companyStatusErrors.value, [company.id]: message }
+  } finally {
+    companyStatusUpdating.value = { ...companyStatusUpdating.value, [company.id]: false }
+  }
+}
 
 const saveCompany = async () => {
   if (!isFormValid.value) return

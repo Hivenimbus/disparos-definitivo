@@ -64,6 +64,13 @@ export default defineEventHandler(async (event) => {
   if (payload.companyId) {
     companyRecord = await fetchCompanyById(supabase, payload.companyId)
     ensureCompanyCapacity(companyRecord)
+
+    if (companyRecord.status === 'desativado') {
+      throw createError({
+        statusCode: 400,
+        statusMessage: 'Não é possível vincular usuário a uma empresa desativada.'
+      })
+    }
   }
 
   const finalVencimento = companyRecord?.data_vencimento ?? payload.dataVencimento
@@ -76,7 +83,10 @@ export default defineEventHandler(async (event) => {
   }
 
   const hashedPassword = await hashPassword(payload.password)
-  const statusDb = mapStatusToDb(payload.status)
+  let statusDb = mapStatusToDb(payload.status)
+  if (companyRecord && companyRecord.status === 'desativado') {
+    statusDb = 'desativado'
+  }
   const roleDb = mapRoleToDb(payload.role)
 
   const { data, error } = await supabase

@@ -9,7 +9,7 @@ type UpdatePayload = {
   usuariosAtuais?: number
   celular?: string | null
   cpfCnpj?: string | null
-  status?: 'ativo' | 'vencido'
+  status?: 'ativo' | 'desativado'
 }
 
 export default defineEventHandler(async (event) => {
@@ -44,6 +44,7 @@ export default defineEventHandler(async (event) => {
 
   let newDataVencimento = existing.data_vencimento
   let shouldSyncUsers = false
+  let shouldSyncStatus = false
 
   if (body.dataVencimento !== undefined) {
     if (!body.dataVencimento) {
@@ -88,6 +89,7 @@ export default defineEventHandler(async (event) => {
 
   const newStatus = body.status ?? calcCompanyStatus(newDataVencimento)
   updates.status = newStatus
+  shouldSyncStatus = newStatus !== existing.status
 
   const { data, error } = await supabase
     .from('companies')
@@ -111,7 +113,22 @@ export default defineEventHandler(async (event) => {
       console.error('[companies] sync users vencimento error', usersUpdateError)
       throw createError({
         statusCode: 500,
-        statusMessage: 'Empresa atualizada, mas não foi possível sincronizar os usuários vinculados.'
+        statusMessage: 'Empresa atualizada, mas não foi possível sincronizar a data dos usuários vinculados.'
+      })
+    }
+  }
+
+  if (shouldSyncStatus) {
+    const { error: usersStatusError } = await supabase
+      .from('users')
+      .update({ status: newStatus })
+      .eq('company_id', id)
+
+    if (usersStatusError) {
+      console.error('[companies] sync users status error', usersStatusError)
+      throw createError({
+        statusCode: 500,
+        statusMessage: 'Empresa atualizada, mas não foi possível sincronizar o status dos usuários vinculados.'
       })
     }
   }

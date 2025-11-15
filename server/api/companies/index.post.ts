@@ -9,7 +9,7 @@ type CompanyPayload = {
   usuariosAtuais?: number
   celular?: string | null
   cpfCnpj?: string | null
-  status?: 'ativo' | 'vencido'
+  status?: 'ativo' | 'desativado'
 }
 
 const validatePayload = (payload: CompanyPayload) => {

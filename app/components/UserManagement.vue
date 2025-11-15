@@ -27,7 +27,7 @@
       </div>
       <div class="bg-gray-100 rounded-lg p-6 text-center">
         <div class="text-4xl font-bold text-red-600 mb-2">{{ expiredUsers }}</div>
-        <div class="text-gray-600 text-sm">Usuários Vencidos</div>
+        <div class="text-gray-600 text-sm">Usuários Desativados</div>
       </div>
       <div class="bg-gray-100 rounded-lg p-6 text-center">
         <div class="text-4xl font-bold text-purple-600 mb-2">{{ newUsersThisMonth }}</div>
@@ -174,12 +174,12 @@
                 v-model="companySearch"
                 type="text"
                 placeholder="Digite para buscar empresas"
-                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 @focus="openCompanyDropdown"
                 @input="openCompanyDropdown"
                 @blur="scheduleCloseCompanyDropdown"
                 @keydown.escape.prevent="closeCompanyDropdown()"
-              >
+            >
               <div
                 v-if="isCompanyDropdownOpen"
                 class="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto"
@@ -206,12 +206,12 @@
                 <template v-if="filteredCompanies.length">
                   <button
                     v-for="company in filteredCompanies"
-                    :key="company.id"
+                :key="company.id"
                     type="button"
                     class="w-full text-left px-4 py-2 text-sm flex items-center justify-between"
                     @mousedown.prevent
                     @click="selectCompany(company)"
-                    :disabled="!canSelectCompany(company.id)"
+                :disabled="!canSelectCompany(company.id)"
                     :class="{
                       'hover:bg-gray-50': canSelectCompany(company.id),
                       'opacity-50 cursor-not-allowed': !canSelectCompany(company.id),
@@ -389,7 +389,7 @@ import { ref, computed, watch } from 'vue'
 
 type UiRole = 'admin' | 'usuario'
 type UiStatus = 'ativo' | 'desativado'
-type StatusLabel = 'ativo' | 'desativado' | 'vencido'
+type StatusLabel = 'ativo' | 'desativado'
 
 type AdminUserItem = {
   id: string
@@ -490,7 +490,7 @@ const filteredCompanies = computed<CompanyItem[]>(() => {
 
 const totalUsers = computed(() => users.value.length)
 const activeUsers = computed(() => users.value.filter((u) => u.statusLabel === 'ativo').length)
-const expiredUsers = computed(() => users.value.filter((u) => u.statusLabel === 'vencido').length)
+const expiredUsers = computed(() => users.value.filter((u) => u.statusLabel === 'desativado').length)
 const newUsersThisMonth = computed(() => {
   const now = new Date()
   const currentMonth = now.getMonth()
@@ -522,8 +522,9 @@ const isFormValid = computed(() => {
 
 const formatDate = (dateString?: string | null) => {
   if (!dateString) return '-'
-  const date = new Date(dateString)
-  return date.toLocaleDateString('pt-BR')
+  const [year, month, day] = dateString.split('-')
+  if (!year || !month || !day) return dateString
+  return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`
 }
 
 const findCompany = (companyId: string | null) => {

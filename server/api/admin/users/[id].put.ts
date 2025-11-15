@@ -102,7 +102,20 @@ export default defineEventHandler(async (event) => {
     updates.role = mapRoleToDb(payload.role)
   }
 
+  const companyIdTarget = payload.companyId !== undefined ? payload.companyId : existing.company_id
+  let companyRecord: Awaited<ReturnType<typeof fetchCompanyById>> | null = null
+
+  if (companyIdTarget) {
+    companyRecord = await fetchCompanyById(supabase, companyIdTarget)
+  }
+
   if (payload.status !== undefined) {
+    if (companyRecord && companyRecord.status === 'desativado' && payload.status === 'ativo') {
+      throw createError({
+        statusCode: 400,
+        statusMessage: 'Não é possível ativar usuário vinculado a empresa desativada.'
+      })
+    }
     updates.status = mapStatusToDb(payload.status)
   }
 
@@ -116,13 +129,18 @@ export default defineEventHandler(async (event) => {
   }
 
   let newCompany = payload.companyId ?? existing.company_id
-  let companyRecord: Awaited<ReturnType<typeof fetchCompanyById>> | null = null
 
   if (payload.companyId !== undefined) {
     newCompany = payload.companyId
 
     if (payload.companyId) {
       companyRecord = await fetchCompanyById(supabase, payload.companyId)
+      if (companyRecord.status === 'desativado') {
+        throw createError({
+          statusCode: 400,
+          statusMessage: 'Não é possível vincular usuário a uma empresa desativada.'
+        })
+      }
       if (payload.companyId !== existing.company_id) {
         ensureCompanyCapacity(companyRecord)
       }

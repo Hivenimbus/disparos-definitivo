@@ -43,7 +43,7 @@ export type AdminUserDTO = {
   cpf: string | null
   dataVencimento: string | null
   status: UiStatus
-  statusLabel: 'ativo' | 'desativado' | 'vencido'
+  statusLabel: 'ativo' | 'desativado'
   role: UiRole
   createdAt: string
   updatedAt: string
@@ -60,16 +60,22 @@ export const mapStatusToUi = (status: DbStatus): UiStatus => (status === 'desati
 export const mapStatusToDb = (status: UiStatus | string | undefined): DbStatus =>
   status === 'desativado' ? 'desativado' : 'ativo'
 
-const computeStatusLabel = (uiStatus: UiStatus, dataVencimento: string | null): 'ativo' | 'desativado' | 'vencido' => {
-  if (dataVencimento) {
+const parseDateOnly = (dateString: string | null): Date | null => {
+  if (!dateString) return null
+  const [year, month, day] = dateString.split('-').map(Number)
+  if (!year || !month || !day) return null
+  return new Date(year, month - 1, day)
+}
+
+const computeStatusLabel = (uiStatus: UiStatus, dataVencimento: string | null): 'ativo' | 'desativado' => {
+  const expiration = parseDateOnly(dataVencimento)
+  if (expiration) {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
-
-    const expiration = new Date(dataVencimento)
     expiration.setHours(0, 0, 0, 0)
 
     if (expiration < today) {
-      return 'vencido'
+      return 'desativado'
     }
   }
 
