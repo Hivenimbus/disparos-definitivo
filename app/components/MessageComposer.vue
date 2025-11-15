@@ -112,15 +112,26 @@
               <p class="text-xs text-gray-500 mt-1">{{ formatFileSize(attachment.size) }}</p>
               <p v-if="attachment.caption" class="text-gray-600 mt-2 text-xs italic">"{{ attachment.caption }}"</p>
             </div>
-            <button
-              @click="removeAttachment(index)"
-              :disabled="attachment.persisted && deletingAttachmentIds.has(attachment.id)"
-              class="text-red-500 hover:text-red-700 flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+            <div class="flex items-center space-x-2">
+              <button
+                @click="openEditAttachment(index)"
+                class="text-blue-500 hover:text-blue-700 flex-shrink-0"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 4H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-4" />
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
+                </svg>
+              </button>
+              <button
+                @click="removeAttachment(index)"
+                :disabled="attachment.persisted && deletingAttachmentIds.has(attachment.id)"
+                class="text-red-500 hover:text-red-700 flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
           </div>
       </div>
     </div>
@@ -232,6 +243,49 @@
             class="px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Adicionar
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div
+      v-if="isEditAttachmentModalOpen"
+      class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+      @click.self="closeEditAttachmentModal"
+    >
+      <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-semibold text-gray-800">Editar legenda</h3>
+          <button @click="closeEditAttachmentModal" class="text-gray-400 hover:text-gray-600">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div class="mb-4">
+          <label class="block text-gray-700 font-medium mb-2">Legenda</label>
+          <textarea
+            v-model="editingCaption"
+            rows="4"
+            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+            placeholder="Atualize a legenda do anexo"
+          ></textarea>
+        </div>
+
+        <div class="flex justify-end space-x-3">
+          <button
+            @click="closeEditAttachmentModal"
+            class="px-4 py-2 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            @click="saveAttachmentEdit"
+            :disabled="isSavingAttachmentEdit"
+            class="px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {{ isSavingAttachmentEdit ? 'Salvando...' : 'Salvar' }}
           </button>
         </div>
       </div>
@@ -388,9 +442,13 @@
 import { computed, onMounted, ref } from 'vue'
 
 const message = ref('')
-const attachments = ref([])
+const attachments = ref<any[]>([])
 const deletingAttachmentIds = ref(new Set<string>())
-const currentMessageId = ref(null)
+const currentMessageId = ref<string | null>(null)
+const isEditAttachmentModalOpen = ref(false)
+const editingAttachmentIndex = ref(-1)
+const editingCaption = ref('')
+const isSavingAttachmentEdit = ref(false)
 const isModalOpen = ref(false)
 const isPreviewModalOpen = ref(false)
 const currentAttachmentType = ref('')
@@ -550,6 +608,72 @@ const removeAttachment = async (index) => {
   }
 }
 
+const openEditAttachment = (index: number) => {
+  const attachment = attachments.value[index]
+  if (!attachment) {
+    return
+  }
+  editingAttachmentIndex.value = index
+  editingCaption.value = attachment.caption || ''
+  isEditAttachmentModalOpen.value = true
+}
+
+const closeEditAttachmentModal = () => {
+  isEditAttachmentModalOpen.value = false
+  editingAttachmentIndex.value = -1
+  editingCaption.value = ''
+  isSavingAttachmentEdit.value = false
+}
+
+const saveAttachmentEdit = async () => {
+  if (editingAttachmentIndex.value < 0) {
+    return
+  }
+
+  const attachment = attachments.value[editingAttachmentIndex.value]
+
+  if (!attachment) {
+    closeEditAttachmentModal()
+    return
+  }
+
+  const newCaption = editingCaption.value.trim()
+
+  if (!attachment.persisted) {
+    attachment.caption = newCaption
+    attachments.value.splice(editingAttachmentIndex.value, 1, { ...attachment })
+    formSuccess.value = 'Legenda atualizada'
+    closeEditAttachmentModal()
+    return
+  }
+
+  isSavingAttachmentEdit.value = true
+
+  try {
+    const response = await $fetch(`/api/dashboard/messages/attachments/${attachment.id}`, {
+      method: 'PUT',
+      body: {
+        caption: newCaption
+      }
+    })
+
+    const updatedAttachment = {
+      ...attachment,
+      ...mapApiAttachment(response.attachment),
+      name: response.attachment.file_name ?? attachment.name,
+      size: typeof response.attachment.file_size_bytes === 'number' ? response.attachment.file_size_bytes : attachment.size,
+      file: attachment.file
+    }
+    attachments.value.splice(editingAttachmentIndex.value, 1, updatedAttachment)
+    formSuccess.value = 'Legenda atualizada'
+    closeEditAttachmentModal()
+  } catch (error: any) {
+    console.error('[dashboard/messages] update attachment error', error)
+    formError.value = error?.data?.statusMessage || 'Erro ao atualizar legenda'
+    isSavingAttachmentEdit.value = false
+  }
+}
+
 const previewMessage = () => {
   isPreviewModalOpen.value = true
 }
@@ -577,16 +701,27 @@ const getAttachmentPreview = (attachment) => {
   return null
 }
 
-const mapApiAttachment = (apiAttachment) => ({
-  id: apiAttachment.id,
+const mapApiAttachment = (apiAttachment: {
+  id?: string
+  messageId?: string
+  bucketId?: string
+  storagePath?: string
+  publicUrl?: string
+  fileName?: string
+  mimeType?: string
+  fileSizeBytes?: number
+  caption?: string | null
+  createdAt?: string
+}) => ({
+  id: apiAttachment.id || '',
   type: deriveTypeFromMime(apiAttachment.mimeType ?? ''),
-  name: apiAttachment.fileName,
-  size: apiAttachment.fileSizeBytes,
+  name: apiAttachment.fileName || 'arquivo',
+  size: typeof apiAttachment.fileSizeBytes === 'number' ? apiAttachment.fileSizeBytes : 0,
   caption: apiAttachment.caption || '',
   file: null,
-  mimeType: apiAttachment.mimeType,
-  previewUrl: apiAttachment.mimeType?.startsWith('image/') ? apiAttachment.publicUrl : null,
-  publicUrl: apiAttachment.publicUrl,
+  mimeType: apiAttachment.mimeType || '',
+  previewUrl: apiAttachment.mimeType?.startsWith?.('image/') ? apiAttachment.publicUrl : null,
+  publicUrl: apiAttachment.publicUrl || null,
   persisted: true
 })
 
