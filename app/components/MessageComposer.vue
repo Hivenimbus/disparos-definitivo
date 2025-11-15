@@ -55,6 +55,34 @@
         <span>Spintax</span>
       </button>
 
+      <div class="relative">
+        <button
+          ref="variableButtonRef"
+          @click="toggleVariableMenu"
+          class="flex items-center space-x-2 px-4 py-2 text-blue-600 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+          </svg>
+          <span>Variável</span>
+        </button>
+
+        <div
+          v-if="isVariableMenuOpen"
+          ref="variableMenuRef"
+          class="absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded-lg shadow-lg z-10 py-2"
+        >
+          <button
+            v-for="variable in variableOptions"
+            :key="variable.key"
+            @click="insertVariable(variable.key)"
+            class="w-full px-4 py-2 text-left text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+          >
+            {{ variable.label }}
+          </button>
+        </div>
+      </div>
+
       <button
         @click="insertNome"
         class="flex items-center space-x-2 px-4 py-2 text-blue-600 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
@@ -163,13 +191,30 @@
 
       <button
         @click="sendMessage"
-        class="flex items-center space-x-2 px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+        :disabled="isCheckingSendReadiness"
+        class="flex items-center space-x-2 px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          :class="['w-5 h-5', { 'animate-spin origin-center': isCheckingSendReadiness }]"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
         </svg>
-        <span>Enviar Mensagem</span>
+        <span>{{ isCheckingSendReadiness ? 'Verificando...' : 'Enviar Mensagem' }}</span>
       </button>
+    </div>
+
+    <div
+      v-if="sendValidationErrors.length"
+      class="mt-4 rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 space-y-2"
+    >
+      <p class="font-medium">Não foi possível iniciar o disparo. Ajuste os itens abaixo:</p>
+      <ul class="list-disc pl-5 space-y-1">
+        <li v-for="(error, index) in sendValidationErrors" :key="index">{{ error }}</li>
+      </ul>
     </div>
 
     <div v-if="isModalOpen" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" @click.self="closeModal">
@@ -366,6 +411,98 @@
       </div>
     </div>
 
+    <div
+      v-if="isSendConfirmationOpen"
+      class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+      @click.self="closeSendConfirmationModal"
+    >
+      <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
+        <div class="flex items-center justify-between mb-6">
+          <h3 class="text-xl font-semibold text-gray-800">Confirmar disparo</h3>
+          <button @click="closeSendConfirmationModal" class="text-gray-400 hover:text-gray-600">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div class="space-y-4 mb-6">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="border rounded-lg p-4">
+              <p class="text-sm text-gray-500 mb-1">WhatsApp</p>
+              <p :class="isWhatsappReady ? 'text-green-600 font-semibold' : 'text-yellow-600 font-semibold'">
+                {{ isWhatsappReady ? 'Conectado' : 'Aguardando conexão' }}
+              </p>
+            </div>
+            <div class="border rounded-lg p-4">
+              <p class="text-sm text-gray-500 mb-1">Contatos configurados</p>
+              <p class="text-gray-800 font-semibold">{{ contactsSummary.total }}</p>
+            </div>
+            <div class="border rounded-lg p-4">
+              <p class="text-sm text-gray-500 mb-1">Conteúdo preparado</p>
+              <p :class="hasSendableContent ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold'">
+                {{ hasSendableContent ? 'Sim' : 'Não' }}
+              </p>
+            </div>
+          </div>
+
+          <div v-if="message || attachments.length > 0" class="space-y-4">
+            <div v-if="message" class="bg-gray-50 rounded-lg p-4 border border-gray-100">
+              <h4 class="text-sm font-semibold text-gray-700 mb-2">Mensagem</h4>
+              <p class="text-gray-800 whitespace-pre-wrap">{{ message }}</p>
+            </div>
+
+            <div v-if="attachments.length" class="space-y-3">
+              <h4 class="text-sm font-semibold text-gray-700">Mídias ({{ attachments.length }})</h4>
+              <div
+                v-for="(attachment, index) in attachments"
+                :key="attachment.id || index"
+                class="bg-white border border-gray-200 rounded-lg p-4 flex items-start space-x-4"
+              >
+                <div v-if="getAttachmentPreview(attachment)" class="flex-shrink-0">
+                  <img :src="getAttachmentPreview(attachment)" alt="Preview" class="w-20 h-20 object-cover rounded-lg">
+                </div>
+                <div v-else class="flex-shrink-0 w-20 h-20 bg-gray-100 rounded-lg flex items-center justify-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+                    <path :d="getAttachmentIcon(attachment.type)" />
+                  </svg>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <p class="font-medium text-gray-800 break-all">{{ attachment.name }}</p>
+                  <p class="text-sm text-gray-500 mt-1">{{ formatFileSize(attachment.size) }}</p>
+                  <p
+                    v-if="attachment.caption"
+                    class="text-gray-700 mt-2 text-sm break-all"
+                  >
+                    "{{ truncateCaption(attachment.caption, 80) }}"
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div v-else class="text-sm text-gray-500">
+            Nenhum conteúdo disponível para pré-visualizar.
+          </div>
+        </div>
+
+        <div class="flex justify-end space-x-3">
+          <button
+            @click="closeSendConfirmationModal"
+            class="px-6 py-2 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            @click="confirmSendFromModal"
+            class="px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Confirmar disparo
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- Modal Spintax -->
     <div v-if="isSpintaxModalOpen" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" @click.self="closeSpintaxModal">
       <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
@@ -487,7 +624,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
 type DashboardAttachment = {
   id: string
@@ -524,6 +661,14 @@ const selectedFile = ref(null)
 const caption = ref('')
 const fileInputRef = ref(null)
 const isClearConfirmOpen = ref(false)
+const isSendConfirmationOpen = ref(false)
+const isCheckingSendReadiness = ref(false)
+const sendValidationErrors = ref<string[]>([])
+const lastWhatsappState = ref<string>('unknown')
+const contactsSummary = ref({
+  total: 0,
+  validTotal: 0
+})
 const MAX_ATTACHMENTS = 3
 const MAX_FILE_BYTES = 50 * 1024 * 1024
 const attachmentModalError = ref('')
@@ -533,6 +678,17 @@ const formError = ref('')
 const formSuccess = ref('')
 const isLoadingInitial = ref(true)
 const loadError = ref('')
+const isVariableMenuOpen = ref(false)
+const variableMenuRef = ref<HTMLElement | null>(null)
+const variableButtonRef = ref<HTMLElement | null>(null)
+
+type VariableKey = 'var1' | 'var2' | 'var3'
+
+const variableOptions: Array<{ key: VariableKey; label: string }> = [
+  { key: 'var1', label: 'Variável 1 ({var1})' },
+  { key: 'var2', label: 'Variável 2 ({var2})' },
+  { key: 'var3', label: 'Variável 3 ({var3})' }
+]
 
 const resetFeedback = () => {
   formError.value = ''
@@ -859,6 +1015,10 @@ const canClearMessage = computed(() => {
   return message.value.trim().length > 0 || attachments.value.length > 0
 })
 
+const hasSendableContent = computed(() => canClearMessage.value)
+const isWhatsappReady = computed(() => lastWhatsappState.value === 'open')
+const hasContactsConfigured = computed(() => contactsSummary.value.total > 0)
+
 const openClearConfirmModal = () => {
   if (!canClearMessage.value) return
   formError.value = ''
@@ -873,6 +1033,63 @@ const closeClearConfirmModal = () => {
 const confirmClearMessage = async () => {
   isClearConfirmOpen.value = false
   await clearMessage()
+}
+
+const openSendConfirmationModal = () => {
+  isSendConfirmationOpen.value = true
+}
+
+const closeSendConfirmationModal = () => {
+  isSendConfirmationOpen.value = false
+}
+
+const confirmSendFromModal = () => {
+  console.info('[dashboard/messages] confirmação de disparo solicitada')
+  closeSendConfirmationModal()
+}
+
+const validateSendReadiness = async () => {
+  const errors: string[] = []
+  isCheckingSendReadiness.value = true
+  sendValidationErrors.value = []
+
+  try {
+    const data = await $fetch<{ instance?: { state: string } }>('/api/dashboard/whatsapp/state')
+    const state = data?.instance?.state ?? 'unknown'
+    lastWhatsappState.value = state
+    if (state !== 'open') {
+      errors.push('Conecte o WhatsApp para realizar o disparo.')
+    }
+  } catch (error) {
+    console.error('[dashboard/messages] validação estado whatsapp', error)
+    lastWhatsappState.value = 'unknown'
+    errors.push('Não foi possível confirmar a conexão do WhatsApp.')
+  }
+
+  try {
+    const contactsData = await $fetch<{ meta?: { total?: number; validTotal?: number } }>('/api/dashboard/contacts', {
+      query: { limit: 1, page: 1 }
+    })
+    const total = contactsData?.meta?.total ?? 0
+    const validTotal = contactsData?.meta?.validTotal ?? 0
+    contactsSummary.value = { total, validTotal }
+    if (total <= 0) {
+      errors.push('Cadastre pelo menos um contato para iniciar o disparo.')
+    }
+  } catch (error) {
+    console.error('[dashboard/messages] validação contatos', error)
+    contactsSummary.value = { total: 0, validTotal: 0 }
+    errors.push('Não foi possível validar os contatos cadastrados.')
+  }
+
+  if (!hasSendableContent.value) {
+    errors.push('Informe uma mensagem ou adicione mídias para enviar.')
+  }
+
+  sendValidationErrors.value = errors
+  isCheckingSendReadiness.value = false
+
+  return errors.length === 0
 }
 
 const clearMessage = async () => {
@@ -998,7 +1215,26 @@ const loadLastMessage = async (showLoader = true) => {
   }
 }
 
-onMounted(loadLastMessage)
+const handleVariableMenuClickOutside = (event: MouseEvent) => {
+  if (!isVariableMenuOpen.value) return
+  const target = event.target as Node
+  if (
+    variableMenuRef.value?.contains(target) ||
+    variableButtonRef.value?.contains(target)
+  ) {
+    return
+  }
+  isVariableMenuOpen.value = false
+}
+
+onMounted(() => {
+  loadLastMessage()
+  document.addEventListener('click', handleVariableMenuClickOutside)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('click', handleVariableMenuClickOutside)
+})
 
 const saveMessage = async (options: SaveMessageOptions = {}) => {
   const isAutoSave = options.auto ?? false
@@ -1069,8 +1305,18 @@ const saveMessage = async (options: SaveMessageOptions = {}) => {
   }
 }
 
-const sendMessage = () => {
-  console.log('Enviar mensagem:', message.value, attachments.value)
+const sendMessage = async () => {
+  formError.value = ''
+  formSuccess.value = ''
+
+  const isReady = await validateSendReadiness()
+
+  if (!isReady) {
+    formError.value = 'Revise os itens pendentes antes de enviar.'
+    return
+  }
+
+  openSendConfirmationModal()
 }
 
 // Spintax methods
@@ -1134,12 +1380,23 @@ const generateSpintax = () => {
   closeSpintaxModal()
 }
 
+const toggleVariableMenu = () => {
+  isVariableMenuOpen.value = !isVariableMenuOpen.value
+}
+
+const insertPlaceholder = (placeholder: string) => {
+  const trimmed = placeholder.trim()
+  if (!trimmed) return
+  const needsSpace = message.value && !message.value.endsWith(' ') && !message.value.endsWith('\n')
+  message.value += needsSpace ? ` ${trimmed}` : trimmed
+}
+
 const insertNome = () => {
-  // Add {nome} variable to message with proper spacing
-  if (message.value && !message.value.endsWith(' ') && !message.value.endsWith('\n')) {
-    message.value += ' {nome}'
-  } else {
-    message.value += '{nome}'
-  }
+  insertPlaceholder('{nome}')
+}
+
+const insertVariable = (key: VariableKey) => {
+  insertPlaceholder(`{${key}}`)
+  isVariableMenuOpen.value = false
 }
 </script>

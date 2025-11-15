@@ -141,6 +141,22 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 500, statusMessage: 'Erro ao criar usuário' })
   }
 
+  const { error: configError } = await supabase.from('configuracoes').insert({
+    user_id: data.id
+  })
+
+  if (configError) {
+    console.error('[admin/users] Erro ao criar configuração padrão do usuário', configError)
+    const { error: rollbackError } = await supabase.from('users').delete().eq('id', data.id)
+    if (rollbackError) {
+      console.error('[admin/users] Erro ao remover usuário após falha ao criar configuração', rollbackError)
+    }
+    throw createError({
+      statusCode: 500,
+      statusMessage: 'Erro ao criar configurações padrão do usuário'
+    })
+  }
+
   try {
     await $fetch('/instance/create', {
       baseURL: evolutionApiUrl,

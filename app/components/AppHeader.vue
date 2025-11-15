@@ -100,15 +100,20 @@
             <h2 class="text-xl font-semibold text-gray-800">Configuração de Disparos</h2>
           </div>
 
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+          <div v-if="configError" class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {{ configError }}
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <div class="bg-gray-50 rounded-lg p-5">
               <label class="block text-gray-800 font-medium mb-3">Intervalo entre mensagens</label>
               <div class="flex items-center space-x-3">
                 <input
-                  v-model="configForm.intervalo"
+                  v-model.number="configForm.intervalo"
                   type="number"
                   min="1"
                   class="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  :disabled="isConfigLoading"
                 />
                 <span class="text-gray-600">segundos</span>
               </div>
@@ -118,46 +123,27 @@
               <label class="block text-gray-800 font-medium mb-3">Limite diário de mensagens</label>
               <div class="flex items-center space-x-3">
                 <input
-                  v-model="configForm.limite"
+                  v-model.number="configForm.limite"
                   type="number"
                   min="1"
                   class="w-28 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  :disabled="isConfigLoading"
                 />
                 <span class="text-gray-600">mensagens</span>
               </div>
-            </div>
-
-            <div class="bg-gray-50 rounded-lg p-5">
-              <label class="block text-gray-800 font-medium mb-3">Velocidade de envio</label>
-              <select
-                v-model="configForm.velocidade"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="lenta">Lenta</option>
-                <option value="media">Média (Recomendado)</option>
-                <option value="rapida">Rápida</option>
-              </select>
-            </div>
-
-            <div class="bg-gray-50 rounded-lg p-5">
-              <label class="block text-gray-800 font-medium mb-3">Agendar envio</label>
-              <input
-                v-model="configForm.agendamento"
-                type="datetime-local"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
             </div>
           </div>
 
           <div class="flex justify-end">
             <button
               @click="saveConfigurations"
-              class="flex items-center space-x-2 px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+              :disabled="isConfigLoading"
+              class="flex items-center space-x-2 px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
               </svg>
-              <span>Salvar Configurações</span>
+              <span>{{ isConfigLoading ? 'Salvando...' : 'Salvar Configurações' }}</span>
             </button>
           </div>
         </section>
@@ -167,7 +153,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 
 const logout = useLogout()
 const authUser = useAuthUser()
@@ -175,11 +161,11 @@ const authUser = useAuthUser()
 const isDropdownOpen = ref(false)
 const isConfigOpen = ref(false)
 
+const isConfigLoading = ref(false)
+const configError = ref('')
 const configForm = ref({
   intervalo: 10,
-  limite: 1000,
-  velocidade: 'media',
-  agendamento: ''
+  limite: 1000
 })
 
 const menuItems = [
@@ -251,8 +237,53 @@ const toggleConfigPanel = () => {
   isConfigOpen.value = !isConfigOpen.value
 }
 
-const saveConfigurations = () => {
-  console.log('Configurações salvas:', configForm.value)
+const loadConfigurations = async () => {
+  configError.value = ''
+  isConfigLoading.value = true
+  try {
+    const { configuracoes } = await $fetch('/api/configuracoes')
+    configForm.value.intervalo = configuracoes.intervalo
+    configForm.value.limite = configuracoes.limite
+  } catch (error) {
+    configError.value = error?.statusMessage || 'Erro ao carregar configurações'
+  } finally {
+    isConfigLoading.value = false
+  }
+}
+
+watch(
+  () => isConfigOpen.value,
+  (open) => {
+    if (open) {
+      loadConfigurations()
+    }
+  }
+)
+
+onMounted(() => {
+  if (isConfigOpen.value) {
+    loadConfigurations()
+  }
+})
+
+const saveConfigurations = async () => {
+  configError.value = ''
+  isConfigLoading.value = true
+  try {
+    const { configuracoes } = await $fetch('/api/configuracoes', {
+      method: 'PUT',
+      body: {
+        intervalo: Number(configForm.value.intervalo),
+        limite: Number(configForm.value.limite)
+      }
+    })
+    configForm.value.intervalo = configuracoes.intervalo
+    configForm.value.limite = configuracoes.limite
+  } catch (error) {
+    configError.value = error?.statusMessage || 'Erro ao salvar configurações'
+  } finally {
+    isConfigLoading.value = false
+  }
 }
 
 const handleLogout = async () => {
