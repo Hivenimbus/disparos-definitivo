@@ -3,9 +3,15 @@
     <header class="bg-white shadow-sm border-b border-gray-200">
       <div class="px-8 py-4 flex items-center justify-between">
         <div class="flex items-center space-x-16">
-          <h1 class="text-3xl font-bold">
-            <span class="text-gray-900">Hive</span><span class="text-blue-600">Connect</span>
-          </h1>
+          <NuxtLink to="/" class="block h-12">
+            <img
+              src="/Logo.png"
+              alt="Logo HiveConnect"
+              class="h-full w-auto object-contain"
+              decoding="async"
+              loading="lazy"
+            />
+          </NuxtLink>
           
           <nav class="flex items-center space-x-8">
             <template v-for="item in availableMenuItems" :key="item.name">
