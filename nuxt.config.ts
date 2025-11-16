@@ -29,6 +29,8 @@ export default defineNuxtConfig({
     jwtSecret: '',
     evolutionApiUrl: '',
     evolutionApiKey: '',
+    workerServiceUrl: '',
+    workerToken: '',
     public: {
       appUrl: fallbackAppUrl
     }

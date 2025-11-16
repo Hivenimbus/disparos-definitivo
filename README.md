@@ -26,11 +26,34 @@ Aplicação Nuxt 4 para disparos e gerenciamento de campanhas no WhatsApp com ba
    NUXT_PUBLIC_APP_URL=https://seu-dominio.com
    NUXT_EVOLUTION_API_URL=https://api.evolution-api.com
    NUXT_EVOLUTION_API_KEY=sua-chave-do-evolution
+   NUXT_WORKER_SERVICE_URL=http://localhost:8080
+   NUXT_WORKER_TOKEN=troque-por-um-token-seguro
    ```
    
    - `NUXT_PUBLIC_APP_URL` deve apontar para o domínio público onde o Nuxt será servido (ex.: URL da Vercel). Mesmo em desenvolvimento/localhost, mantenha esse valor alinhado com o endereço que os usuários utilizarão.
+   - `NUXT_WORKER_SERVICE_URL` aponta para o worker Go (ver seção abaixo). `NUXT_WORKER_TOKEN` precisa coincidir com `WORKER_TOKEN` no serviço Go.
 
 3. Rode `npm run dev` para iniciar em `http://localhost:3000`.
+
+### Worker Go
+
+O loop de disparos foi migrado para um worker em Go localizado em `worker/`. Para executá-lo:
+
+1. Configure um arquivo `.env` (ou use variáveis de ambiente) com:
+
+   ```bash
+   WORKER_HTTP_ADDR=:8080
+   WORKER_TOKEN=troque-por-um-token-seguro
+   SUPABASE_URL=https://<PROJECT>.supabase.co
+   SUPABASE_SERVICE_ROLE=<service-role-key>
+   EVOLUTION_API_URL=https://api.evolution-api.com
+   EVOLUTION_API_KEY=sua-chave-do-evolution
+   DEFAULT_DELAY_SECONDS=10
+   ```
+
+2. Rode `npm start` para subir o worker e o servidor Nuxt simultaneamente (requer Go instalado e disponível no `PATH`). O script usa `go run ./worker/cmd/worker` e `node -r dotenv/config .output/server/index.mjs` em paralelo; use `Ctrl+C` para encerrar ambos.
+
+O contrato completo e as rotas HTTP expostas pelo worker estão documentados em `docs/go-worker-contract.md`.
 
 ## Banco de dados
 
@@ -100,6 +123,6 @@ No front-end, as páginas `app/pages/register.vue` e `app/pages/login.vue` conso
 ```bash
 npm run dev       # ambiente de desenvolvimento
 npm run build     # build de produção
-npm start         # carrega .env e executa `.output/server/index.mjs`
+npm start         # inicia worker Go + servidor Nuxt (requer Go instalado)
 npm run preview   # preview do build
 ```
