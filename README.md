@@ -100,5 +100,6 @@ No front-end, as páginas `app/pages/register.vue` e `app/pages/login.vue` conso
 ```bash
 npm run dev       # ambiente de desenvolvimento
 npm run build     # build de produção
+npm start         # carrega .env e executa `.output/server/index.mjs`
 npm run preview   # preview do build
 ```
