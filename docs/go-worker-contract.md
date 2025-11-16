@@ -123,6 +123,8 @@ Response:
 | `EVOLUTION_API_URL`      | Base URL da Evolution API (sem barra final).             |
 | `EVOLUTION_API_KEY`      | Chave API para chamadas `/message/send*`.                |
 | `DEFAULT_DELAY_SECONDS`  | Delay padrão entre contatos (fallback para config ausente). |
+| `REDIS_URL`              | URL RediSS do Upstash (ex.: `rediss://default:senha@endpoint:6379`). |
+| `REDIS_LOCK_TTL_SECONDS` | TTL do lock distribuído em segundos (padrão: `300`).     |
 
 No Nuxt, adicionar `WORKER_BASE_URL` e `WORKER_TOKEN` em `runtimeConfig` e utilizar esses valores nos handlers `/api/dashboard/send/*`.
 
@@ -136,6 +138,12 @@ No Nuxt, adicionar `WORKER_BASE_URL` e `WORKER_TOKEN` em `runtimeConfig` e utili
    - Respeita delay configurado e verifica `requested_stop`.
 4. Ao término ou erro: define status final, grava `finished_at`. Se status for `stopped`, limpa registros imediatamente (comportamento atual de `deleteJobData`).
 5. Nuxt usa `GET /jobs/status` para polling e `POST /jobs/stop`/`/jobs/finish` conforme ações do usuário.
+
+## Locks e instâncias múltiplas
+- Cada job adquire um lock Redis com a chave `sendjob:lock:<user_id>`.
+- O lock é obtido via `SETNX` com TTL (`REDIS_LOCK_TTL_SECONDS`). Se já estiver em uso, o worker retorna erro `409 (job already running)` sem tocar no banco.
+- Ao finalizar (ou em caso de erro), o worker executa um script atômico que libera o lock apenas se o token salvo ainda for o mesmo, evitando que duas instâncias apaguem o lock uma da outra.
+- Em cenários com múltiplos workers apontando para o mesmo Redis + Supabase, o lock garante que apenas um processo execute um job por usuário ao mesmo tempo. Em caso de crash, o TTL libera automaticamente a chave.
 
 
 

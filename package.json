@@ -8,6 +8,7 @@
     "start": "node scripts/start.js",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
+    "worker:build": "node scripts/build-worker.js",
     "postinstall": "nuxt prepare"
   },
   "dependencies": {

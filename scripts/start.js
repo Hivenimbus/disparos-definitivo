@@ -1,5 +1,6 @@
 /* eslint-disable no-console */
 import { spawn } from 'node:child_process'
+import fs from 'node:fs'
 import path from 'node:path'
 import dotenv from 'dotenv'
 
@@ -69,6 +70,17 @@ process.on('SIGTERM', () => {
 })
 
 const workerDir = path.join(process.cwd(), 'worker')
-spawnProcess('go-worker', 'go', ['run', './cmd/worker'], { cwd: workerDir })
+const workerBin = path.join(process.cwd(), 'dist', process.platform === 'win32' ? 'worker.exe' : 'worker')
+const workerCommand = fs.existsSync(workerBin) ? workerBin : null
+const workerInstances = Math.max(1, Number(process.env.WORKER_INSTANCES) || 1)
+
+for (let i = 1; i <= workerInstances; i += 1) {
+  const label = `go-worker#${i}`
+  if (workerCommand) {
+    spawnProcess(label, workerCommand, [])
+  } else {
+    spawnProcess(label, 'go', ['run', './cmd/worker'], { cwd: workerDir })
+  }
+}
 spawnProcess('nuxt', 'node', ['-r', 'dotenv/config', path.join('.output', 'server', 'index.mjs')])
 

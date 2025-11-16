@@ -1,3 +1,4 @@
+dist/
 # Nuxt dev/build outputs
 .output
 .data

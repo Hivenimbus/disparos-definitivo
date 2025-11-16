@@ -28,6 +28,9 @@ Aplicação Nuxt 4 para disparos e gerenciamento de campanhas no WhatsApp com ba
    NUXT_EVOLUTION_API_KEY=sua-chave-do-evolution
    NUXT_WORKER_SERVICE_URL=http://localhost:8080
    NUXT_WORKER_TOKEN=troque-por-um-token-seguro
+   REDIS_URL=rediss://default:<senha>@<host>:6379
+   REDIS_LOCK_TTL_SECONDS=300
+   WORKER_INSTANCES=1
    ```
    
    - `NUXT_PUBLIC_APP_URL` deve apontar para o domínio público onde o Nuxt será servido (ex.: URL da Vercel). Mesmo em desenvolvimento/localhost, mantenha esse valor alinhado com o endereço que os usuários utilizarão.
@@ -51,7 +54,8 @@ O loop de disparos foi migrado para um worker em Go localizado em `worker/`. Par
    DEFAULT_DELAY_SECONDS=10
    ```
 
-2. Rode `npm start` para subir o worker e o servidor Nuxt simultaneamente (requer Go instalado e disponível no `PATH`). O script usa `go run ./worker/cmd/worker` e `node -r dotenv/config .output/server/index.mjs` em paralelo; use `Ctrl+C` para encerrar ambos.
+2. Rode `npm run worker:build` para gerar o binário em `dist/worker` (Windows cria `worker.exe`). O comando garante que o diretório exista e produz o executável de produção.
+3. Use `npm start` para subir o worker e o servidor Nuxt simultaneamente. O script procura o binário em `dist/` e, se não encontrar, cai para `go run ./worker/cmd/worker`. `WORKER_INSTANCES` define quantos processos do worker serão lançados (padrão 1). Use `Ctrl+C` para encerrar todos.
 
 O contrato completo e as rotas HTTP expostas pelo worker estão documentados em `docs/go-worker-contract.md`.
 
@@ -124,5 +128,6 @@ No front-end, as páginas `app/pages/register.vue` e `app/pages/login.vue` conso
 npm run dev       # ambiente de desenvolvimento
 npm run build     # build de produção
 npm start         # inicia worker Go + servidor Nuxt (requer Go instalado)
+npm run worker:build # gera o binário do worker em dist/
 npm run preview   # preview do build
 ```

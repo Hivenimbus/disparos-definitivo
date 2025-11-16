@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/jpcb2/disparos-definitivo/worker/internal/evolution"
+	"github.com/jpcb2/disparos-definitivo/worker/internal/locks"
 	"github.com/jpcb2/disparos-definitivo/worker/internal/supabase"
 )
 
@@ -20,39 +21,43 @@ var finishedStatuses = map[string]struct{}{
 }
 
 var (
-	ErrJobInProgress      = errors.New("job already running")
-	ErrNoActiveJob        = errors.New("no active job")
-	ErrJobStillRunning    = errors.New("job still running")
-	ErrJobNotFinished     = errors.New("job not finished")
+	ErrJobInProgress       = errors.New("job already running")
+	ErrNoActiveJob         = errors.New("no active job")
+	ErrJobStillRunning     = errors.New("job still running")
+	ErrJobNotFinished      = errors.New("job not finished")
 	ErrNoMessageConfigured = errors.New("no message configured")
 	ErrNoContentConfigured = errors.New("no message or attachments configured")
-	ErrNoContacts         = errors.New("no contacts available")
+	ErrNoContacts          = errors.New("no contacts available")
 )
 
 type Manager struct {
-	supabase      *supabase.Client
-	evolution     *evolution.Client
-	defaultDelay  time.Duration
-	activeMu      sync.RWMutex
-	active        map[string]*ActiveJob
-	logger        *log.Logger
+	supabase     *supabase.Client
+	evolution    *evolution.Client
+	locks        locks.LockProvider
+	defaultDelay time.Duration
+	activeMu     sync.RWMutex
+	active       map[string]*ActiveJob
+	logger       *log.Logger
 }
 
 type ActiveJob struct {
-	mu           sync.RWMutex
-	runtime      *supabase.SendJobSummary
-	messageBody  string
-	attachments  []supabase.AttachmentRow
-	descriptors  []supabase.AttachmentDescriptor
-	contacts     []supabase.ContactRow
-	delay        time.Duration
-	userID       string
+	mu          sync.RWMutex
+	runtime     *supabase.SendJobSummary
+	messageBody string
+	attachments []supabase.AttachmentRow
+	descriptors []supabase.AttachmentDescriptor
+	contacts    []supabase.ContactRow
+	delay       time.Duration
+	userID      string
+	lockKey     string
+	lockToken   string
 }
 
-func NewManager(supabaseClient *supabase.Client, evolutionClient *evolution.Client, defaultDelaySeconds int, logger *log.Logger) *Manager {
+func NewManager(supabaseClient *supabase.Client, evolutionClient *evolution.Client, lockProvider locks.LockProvider, defaultDelaySeconds int, logger *log.Logger) *Manager {
 	return &Manager{
 		supabase:     supabaseClient,
 		evolution:    evolutionClient,
+		locks:        lockProvider,
 		defaultDelay: time.Duration(defaultDelaySeconds) * time.Second,
 		active:       make(map[string]*ActiveJob),
 		logger:       logger,
@@ -66,6 +71,18 @@ func (m *Manager) StartJob(ctx context.Context, userID string) (*supabase.SendJo
 	if m.hasActiveJob(userID) {
 		return nil, ErrJobInProgress
 	}
+
+	lockKey := m.buildLockKey(userID)
+	lockToken, err := m.acquireLock(ctx, lockKey)
+	if err != nil {
+		return nil, err
+	}
+	releaseLock := true
+	defer func() {
+		if releaseLock {
+			m.releaseLock(lockKey, lockToken)
+		}
+	}()
 
 	if err := m.cleanupFinishedJob(ctx, userID); err != nil {
 		return nil, err
@@ -111,6 +128,8 @@ func (m *Manager) StartJob(ctx context.Context, userID string) (*supabase.SendJo
 		contacts:    contacts,
 		delay:       delay,
 		userID:      userID,
+		lockKey:     lockKey,
+		lockToken:   lockToken,
 	}
 
 	m.activeMu.Lock()
@@ -119,6 +138,7 @@ func (m *Manager) StartJob(ctx context.Context, userID string) (*supabase.SendJo
 
 	go m.runJob(context.Background(), active)
 
+	releaseLock = false
 	return active.snapshot(), nil
 }
 
@@ -293,12 +313,12 @@ func (m *Manager) runJob(ctx context.Context, active *ActiveJob) {
 				runtime.LastError = &errMsg
 			})
 			if uErr := m.supabase.UpdateContactLog(ctx, jobID, contact, map[string]any{
-				"status":         "failed",
+				"status":          "failed",
 				"message_preview": messagePreviewOrNil(messagePreview),
-				"attachments":    active.descriptors,
-				"error":          errMsg,
-				"processed_at":   now,
-				"updated_at":     now,
+				"attachments":     active.descriptors,
+				"error":           errMsg,
+				"processed_at":    now,
+				"updated_at":      now,
 			}); uErr != nil {
 				m.logger.Printf("[worker] update contact log failed: %v", uErr)
 			}
@@ -307,12 +327,12 @@ func (m *Manager) runJob(ctx context.Context, active *ActiveJob) {
 				runtime.Success++
 			})
 			if uErr := m.supabase.UpdateContactLog(ctx, jobID, contact, map[string]any{
-				"status":         "success",
+				"status":          "success",
 				"message_preview": messagePreviewOrNil(messagePreview),
-				"attachments":    active.descriptors,
-				"error":          nil,
-				"processed_at":   now,
-				"updated_at":     now,
+				"attachments":     active.descriptors,
+				"error":           nil,
+				"processed_at":    now,
+				"updated_at":      now,
 			}); uErr != nil {
 				m.logger.Printf("[worker] update contact log failed: %v", uErr)
 			}
@@ -366,10 +386,10 @@ func (m *Manager) runJob(ctx context.Context, active *ActiveJob) {
 	current = active.snapshot()
 
 	if err := m.supabase.UpdateJob(ctx, jobID, patchWithTimestamp(map[string]any{
-		"status":          finalStatus,
-		"finished_at":     finishedAt,
-		"requested_stop":  current.RequestedStop,
-		"last_error":      current.LastError,
+		"status":            finalStatus,
+		"finished_at":       finishedAt,
+		"requested_stop":    current.RequestedStop,
+		"last_error":        current.LastError,
 		"last_contact_name": current.LastContactName,
 	})); err != nil {
 		m.logger.Printf("[worker] finalize job update error: %v", err)
@@ -384,6 +404,7 @@ func (m *Manager) runJob(ctx context.Context, active *ActiveJob) {
 	m.activeMu.Lock()
 	delete(m.active, userID)
 	m.activeMu.Unlock()
+	m.releaseActiveJobLock(active)
 }
 
 func (m *Manager) handleContactSend(ctx context.Context, active *ActiveJob, contact supabase.ContactRow) (string, error) {
@@ -608,6 +629,42 @@ func messagePreviewOrNil(value string) any {
 
 const httpStatusNotFound = 404
 
+func (m *Manager) buildLockKey(userID string) string {
+	return fmt.Sprintf("sendjob:lock:%s", userID)
+}
+
+func (m *Manager) acquireLock(ctx context.Context, key string) (string, error) {
+	if m.locks == nil {
+		return "", nil
+	}
+	token, err := m.locks.Acquire(ctx, key)
+	if err != nil {
+		if errors.Is(err, locks.ErrLockNotAcquired) {
+			return "", ErrJobInProgress
+		}
+		return "", err
+	}
+	return token, nil
+}
+
+func (m *Manager) releaseLock(key, token string) {
+	if m.locks == nil || key == "" || token == "" {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := m.locks.Release(ctx, key, token); err != nil {
+		m.logger.Printf("[worker] failed to release lock key=%s error=%v", key, err)
+	}
+}
+
+func (m *Manager) releaseActiveJobLock(active *ActiveJob) {
+	if active == nil {
+		return
+	}
+	m.releaseLock(active.lockKey, active.lockToken)
+}
+
 func patchWithTimestamp(patch map[string]any) map[string]any {
 	if patch == nil {
 		patch = make(map[string]any)
@@ -615,5 +672,3 @@ func patchWithTimestamp(patch map[string]any) map[string]any {
 	patch["updated_at"] = time.Now().UTC()
 	return patch
 }
-
-
