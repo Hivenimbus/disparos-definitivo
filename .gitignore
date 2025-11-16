@@ -1,4 +1,5 @@
 dist/
+.worker-ports.json
 # Nuxt dev/build outputs
 .output
 .data

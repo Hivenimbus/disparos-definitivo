@@ -8,16 +8,17 @@ import (
 )
 
 type Config struct {
-	WorkerAddr          string
-	WorkerToken         string
-	SupabaseURL         string
-	SupabaseRestURL     string
-	SupabaseServiceRole string
-	EvolutionAPIURL     string
-	EvolutionAPIKey     string
-	DefaultDelaySeconds int
-	RedisURL            string
-	RedisLockTTLSeconds int
+	WorkerAddr              string
+	WorkerToken             string
+	SupabaseURL             string
+	SupabaseRestURL         string
+	SupabaseServiceRole     string
+	EvolutionAPIURL         string
+	EvolutionAPIKey         string
+	DefaultDelaySeconds     int
+	RedisURL                string
+	RedisLockTTLSeconds     int
+	RedisLockRefreshSeconds int
 }
 
 func Load() (*Config, error) {
@@ -34,6 +35,11 @@ func Load() (*Config, error) {
 			cfg.RedisLockTTLSeconds = parsed
 		}
 	}
+	if v := os.Getenv("REDIS_LOCK_REFRESH_SECONDS"); v != "" {
+		if parsed, err := strconv.Atoi(v); err == nil {
+			cfg.RedisLockRefreshSeconds = parsed
+		}
+	}
 	if v := os.Getenv("DEFAULT_DELAY_SECONDS"); v != "" {
 		if parsed, err := strconv.Atoi(v); err == nil {
 			cfg.DefaultDelaySeconds = parsed
@@ -44,6 +50,9 @@ func Load() (*Config, error) {
 	}
 	if cfg.RedisLockTTLSeconds <= 0 {
 		cfg.RedisLockTTLSeconds = 300
+	}
+	if cfg.RedisLockRefreshSeconds <= 0 {
+		cfg.RedisLockRefreshSeconds = 60
 	}
 
 	if cfg.SupabaseURL != "" {

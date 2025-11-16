@@ -35,6 +35,7 @@ type Manager struct {
 	evolution    *evolution.Client
 	locks        locks.LockProvider
 	defaultDelay time.Duration
+	lockRefresh  time.Duration
 	activeMu     sync.RWMutex
 	active       map[string]*ActiveJob
 	logger       *log.Logger
@@ -51,14 +52,27 @@ type ActiveJob struct {
 	userID      string
 	lockKey     string
 	lockToken   string
+	cancelKeep  context.CancelFunc
 }
 
-func NewManager(supabaseClient *supabase.Client, evolutionClient *evolution.Client, lockProvider locks.LockProvider, defaultDelaySeconds int, logger *log.Logger) *Manager {
+func NewManager(
+	supabaseClient *supabase.Client,
+	evolutionClient *evolution.Client,
+	lockProvider locks.LockProvider,
+	defaultDelaySeconds int,
+	lockRefreshSeconds int,
+	logger *log.Logger,
+) *Manager {
+	refresh := time.Duration(lockRefreshSeconds) * time.Second
+	if refresh <= 0 {
+		refresh = 60 * time.Second
+	}
 	return &Manager{
 		supabase:     supabaseClient,
 		evolution:    evolutionClient,
 		locks:        lockProvider,
 		defaultDelay: time.Duration(defaultDelaySeconds) * time.Second,
+		lockRefresh:  refresh,
 		active:       make(map[string]*ActiveJob),
 		logger:       logger,
 	}
@@ -136,6 +150,9 @@ func (m *Manager) StartJob(ctx context.Context, userID string) (*supabase.SendJo
 	m.active[userID] = active
 	m.activeMu.Unlock()
 
+	ctxKeep, cancel := context.WithCancel(context.Background())
+	active.cancelKeep = cancel
+	go m.keepLockAlive(ctxKeep, lockKey, lockToken)
 	go m.runJob(context.Background(), active)
 
 	releaseLock = false
@@ -662,7 +679,36 @@ func (m *Manager) releaseActiveJobLock(active *ActiveJob) {
 	if active == nil {
 		return
 	}
+	if active.cancelKeep != nil {
+		active.cancelKeep()
+	}
 	m.releaseLock(active.lockKey, active.lockToken)
+}
+
+func (m *Manager) keepLockAlive(ctx context.Context, key, token string) {
+	if m.locks == nil || key == "" || token == "" {
+		return
+	}
+	interval := m.lockRefresh
+	if interval <= 0 {
+		interval = 60 * time.Second
+	}
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			refreshCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			err := m.locks.Refresh(refreshCtx, key, token, interval*2)
+			cancel()
+			if err != nil {
+				m.logger.Printf("[worker] failed to refresh lock key=%s err=%v", key, err)
+			}
+		}
+	}
 }
 
 func patchWithTimestamp(patch map[string]any) map[string]any {

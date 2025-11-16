@@ -30,6 +30,7 @@ Aplicação Nuxt 4 para disparos e gerenciamento de campanhas no WhatsApp com ba
    NUXT_WORKER_TOKEN=troque-por-um-token-seguro
    REDIS_URL=rediss://default:<senha>@<host>:6379
    REDIS_LOCK_TTL_SECONDS=300
+   REDIS_LOCK_REFRESH_SECONDS=60
    WORKER_INSTANCES=1
    ```
    
@@ -52,10 +53,11 @@ O loop de disparos foi migrado para um worker em Go localizado em `worker/`. Par
    EVOLUTION_API_URL=https://api.evolution-api.com
    EVOLUTION_API_KEY=sua-chave-do-evolution
    DEFAULT_DELAY_SECONDS=10
+   REDIS_LOCK_REFRESH_SECONDS=60
    ```
 
 2. Rode `npm run worker:build` para gerar o binário em `dist/worker` (Windows cria `worker.exe`). O comando garante que o diretório exista e produz o executável de produção.
-3. Use `npm start` para subir o worker e o servidor Nuxt simultaneamente. O script procura o binário em `dist/` e, se não encontrar, cai para `go run ./worker/cmd/worker`. `WORKER_INSTANCES` define quantos processos do worker serão lançados (padrão 1). Use `Ctrl+C` para encerrar todos.
+3. Use `npm start` para subir o worker e o servidor Nuxt simultaneamente. O script procura o binário em `dist/` e, se não encontrar, cai para `go run ./worker/cmd/worker`. `WORKER_INSTANCES` define quantos processos do worker serão lançados (padrão 1). Cada instância recebe uma porta sequencial (ex.: `:8080`, `:8081`, ...), registrada em `.worker-ports.json`, e o Nuxt roteia requisições do mesmo usuário sempre para a mesma instância (hash por `user_id`). Os locks no Redis têm TTL (`REDIS_LOCK_TTL_SECONDS`) e são renovados automaticamente a cada `REDIS_LOCK_REFRESH_SECONDS` enquanto o job está ativo. Use `Ctrl+C` para encerrar todos.
 
 O contrato completo e as rotas HTTP expostas pelo worker estão documentados em `docs/go-worker-contract.md`.
 
@@ -131,3 +133,74 @@ npm start         # inicia worker Go + servidor Nuxt (requer Go instalado)
 npm run worker:build # gera o binário do worker em dist/
 npm run preview   # preview do build
 ```
+
+
+  - Requer autenticação e espera `multipart/form-data` com:
+
+    - `body` (texto da mensagem) e `caption` (opcional).
+
+    - `attachments_meta`: JSON com `{ id, caption, mimeType, fileName }` para cada arquivo.
+
+    - Arquivos enviados nos campos `file-<id>` correspondentes.
+
+  - Salva registros nas tabelas `dashboard_messages` / `dashboard_message_attachments`, faz upload para o bucket público e retorna a mensagem criada.
+
+
+
+## Autenticação personalizada
+
+
+
+- **Registro**: `POST /api/auth/register`
+
+  - Campos obrigatórios: `nome`, `email`, `password`
+
+  - Campos opcionais: `empresa`, `numero`, `vencimento`
+
+  - Senhas são criptografadas com `bcryptjs`.
+
+
+
+- **Login**: `POST /api/auth/login`
+
+  - Retorna dados básicos do usuário e define um cookie HTTP-only `auth_token` (JWT assinado com `NUXT_JWT_SECRET`).
+
+
+
+No front-end, as páginas `app/pages/register.vue` e `app/pages/login.vue` consomem esses endpoints usando `$fetch`.
+
+
+
+## Fluxo sugerido de testes
+
+
+
+1. `npm run dev`
+
+2. Registrar um novo usuário na tela `/register`
+
+3. Validar que ele foi criado no Supabase (`SELECT * FROM users`)
+
+4. Realizar login em `/login`
+
+5. Verificar cookie `auth_token` e o redirecionamento para `/admin`
+
+
+
+## Scripts úteis
+
+
+
+```bash
+
+npm run dev       # ambiente de desenvolvimento
+
+npm run build     # build de produção
+
+npm start         # inicia worker Go + servidor Nuxt (requer Go instalado)
+npm run worker:build # gera o binário do worker em dist/
+npm run preview   # preview do build
+
+```
+
+

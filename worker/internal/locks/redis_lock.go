@@ -18,6 +18,7 @@ var (
 type LockProvider interface {
 	Acquire(ctx context.Context, key string) (string, error)
 	Release(ctx context.Context, key, token string) error
+	Refresh(ctx context.Context, key, token string, ttl time.Duration) error
 }
 
 type RedisLock struct {
@@ -77,6 +78,29 @@ func (r *RedisLock) Release(ctx context.Context, key, token string) error {
 	return err
 }
 
+var refreshScript = redis.NewScript(`
+if redis.call("get", KEYS[1]) == ARGV[1] then
+  return redis.call("pexpire", KEYS[1], ARGV[2])
+else
+  return 0
+end
+`)
+
+func (r *RedisLock) Refresh(ctx context.Context, key, token string, ttl time.Duration) error {
+	if key == "" || token == "" {
+		return fmt.Errorf("invalid refresh parameters")
+	}
+	ms := ttl.Milliseconds()
+	if ms <= 0 {
+		ms = r.ttl.Milliseconds()
+	}
+	_, err := refreshScript.Run(ctx, r.client, []string{key}, token, ms).Result()
+	if err == redis.Nil {
+		return nil
+	}
+	return err
+}
+
 func randomToken() (string, error) {
 	bytes := make([]byte, 16)
 	if _, err := rand.Read(bytes); err != nil {
@@ -84,5 +108,3 @@ func randomToken() (string, error) {
 	}
 	return hex.EncodeToString(bytes), nil
 }
-
-

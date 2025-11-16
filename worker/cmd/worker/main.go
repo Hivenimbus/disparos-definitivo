@@ -26,7 +26,14 @@ func main() {
 	if err != nil {
 		logger.Fatalf("redis lock error: %v", err)
 	}
-	manager := jobs.NewManager(supabaseClient, evolutionClient, lockClient, cfg.DefaultDelaySeconds, logger)
+	manager := jobs.NewManager(
+		supabaseClient,
+		evolutionClient,
+		lockClient,
+		cfg.DefaultDelaySeconds,
+		cfg.RedisLockRefreshSeconds,
+		logger,
+	)
 	httpServer := server.New(manager, cfg.WorkerToken, logger)
 
 	if err := httpServer.ListenAndServe(cfg.WorkerAddr); err != nil {
