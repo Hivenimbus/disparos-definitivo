@@ -101,4 +101,7 @@ No front-end, as páginas `app/pages/register.vue` e `app/pages/login.vue` conso
 npm run dev       # ambiente de desenvolvimento
 npm run build     # build de produção
 npm run preview   # preview do build
+npm start         # inicia o servidor Nuxt em produção (requer build prévio)
 ```
+
+> Antes de rodar `npm start`, execute `npm run build` para gerar os artefatos que o `nuxt start` serve em modo produção.
