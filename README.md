@@ -23,9 +23,12 @@ Aplicação Nuxt 4 para disparos e gerenciamento de campanhas no WhatsApp com ba
    NUXT_SUPABASE_ANON_KEY=your-anon-key
    NUXT_SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
    NUXT_JWT_SECRET=uma-chave-segura-com-32caracteres
+   NUXT_PUBLIC_APP_URL=https://seu-dominio.com
    NUXT_EVOLUTION_API_URL=https://api.evolution-api.com
    NUXT_EVOLUTION_API_KEY=sua-chave-do-evolution
    ```
+   
+   - `NUXT_PUBLIC_APP_URL` deve apontar para o domínio público onde o Nuxt será servido (ex.: URL da Vercel). Mesmo em desenvolvimento/localhost, mantenha esse valor alinhado com o endereço que os usuários utilizarão.
 
 3. Rode `npm run dev` para iniciar em `http://localhost:3000`.
 
