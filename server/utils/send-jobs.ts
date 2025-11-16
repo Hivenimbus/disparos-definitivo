@@ -511,6 +511,8 @@ export const startSendJob = async (user: AuthenticatedUser) => {
     throw createError({ statusCode: 409, statusMessage: 'Já existe um disparo em andamento' })
   }
 
+  await cleanupFinishedJob(user.id)
+
   const [messageRow, contacts, config] = await Promise.all([
     loadMessageData(user.id),
     loadContacts(user.id),
@@ -617,6 +619,20 @@ const deleteJobData = async (jobId: string) => {
     console.error('[send-jobs] delete job error', jobError)
     throw createError({ statusCode: 500, statusMessage: 'Não foi possível finalizar o disparo' })
   }
+}
+
+const cleanupFinishedJob = async (userId: string) => {
+  const lastJob = await fetchLatestJob(userId)
+
+  if (!lastJob) {
+    return
+  }
+
+  if (!FINISHED_STATUSES.includes(lastJob.status)) {
+    return
+  }
+
+  await deleteJobData(lastJob.id)
 }
 
 export const finalizeSendJob = async (userId: string) => {
