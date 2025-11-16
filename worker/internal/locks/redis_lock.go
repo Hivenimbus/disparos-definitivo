@@ -19,6 +19,7 @@ type LockProvider interface {
 	Acquire(ctx context.Context, key string) (string, error)
 	Release(ctx context.Context, key, token string) error
 	Refresh(ctx context.Context, key, token string, ttl time.Duration) error
+	ForceRelease(ctx context.Context, key string) error
 }
 
 type RedisLock struct {
@@ -99,6 +100,13 @@ func (r *RedisLock) Refresh(ctx context.Context, key, token string, ttl time.Dur
 		return nil
 	}
 	return err
+}
+
+func (r *RedisLock) ForceRelease(ctx context.Context, key string) error {
+	if key == "" {
+		return nil
+	}
+	return r.client.Del(ctx, key).Err()
 }
 
 func randomToken() (string, error) {

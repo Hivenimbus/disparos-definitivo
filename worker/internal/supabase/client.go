@@ -30,9 +30,9 @@ func NewClient(baseURL, apiKey string) *Client {
 
 func (c *Client) CreateQueuedJob(ctx context.Context, userID string, totalContacts int) (*JobRow, error) {
 	payload := map[string]any{
-		"user_id":          userID,
-		"status":           "queued",
-		"total_contacts":   totalContacts,
+		"user_id":            userID,
+		"status":             "queued",
+		"total_contacts":     totalContacts,
 		"processed_contacts": 0,
 		"success_contacts":   0,
 		"failed_contacts":    0,
@@ -69,6 +69,17 @@ func (c *Client) FetchLatestJob(ctx context.Context, userID string) (*JobRow, er
 	return &rows[0], nil
 }
 
+func (c *Client) ListActiveJobs(ctx context.Context) ([]JobRow, error) {
+	q := url.Values{}
+	q.Set("status", "in.(queued,processing)")
+	q.Set("order", "created_at.asc")
+	var rows []JobRow
+	if err := c.do(ctx, http.MethodGet, "/dashboard_send_jobs", q, nil, &rows, ""); err != nil {
+		return nil, err
+	}
+	return rows, nil
+}
+
 func (c *Client) InsertContactLogs(ctx context.Context, jobID string, contacts []ContactRow, attachments []AttachmentDescriptor) error {
 	if len(contacts) == 0 {
 		return nil
@@ -77,14 +88,14 @@ func (c *Client) InsertContactLogs(ctx context.Context, jobID string, contacts [
 	rows := make([]map[string]any, 0, len(contacts))
 	for _, contact := range contacts {
 		rows = append(rows, map[string]any{
-			"job_id":        jobID,
-			"contact_id":    contact.ID,
-			"contact_name":  contact.Name,
-			"whatsapp":      contact.Whatsapp,
-			"status":        "pending",
-			"attachments":   attachments,
-			"created_at":    now,
-			"updated_at":    now,
+			"job_id":       jobID,
+			"contact_id":   contact.ID,
+			"contact_name": contact.Name,
+			"whatsapp":     contact.Whatsapp,
+			"status":       "pending",
+			"attachments":  attachments,
+			"created_at":   now,
+			"updated_at":   now,
 		})
 	}
 	return c.do(ctx, http.MethodPost, "/dashboard_send_job_logs", nil, rows, nil, "")
@@ -211,8 +222,3 @@ func (c *Client) do(ctx context.Context, method, path string, query url.Values, 
 	}
 	return nil
 }
-
-
-
-
-

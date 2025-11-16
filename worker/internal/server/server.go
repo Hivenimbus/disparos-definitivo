@@ -60,6 +60,11 @@ type userRequest struct {
 	UserID string `json:"user_id"`
 }
 
+type finishRequest struct {
+	UserID string `json:"user_id"`
+	Force  bool   `json:"force"`
+}
+
 func (s *Server) handleStart(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeError(w, http.StatusMethodNotAllowed, "método não suportado")
@@ -129,7 +134,7 @@ func (s *Server) handleFinish(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusMethodNotAllowed, "método não suportado")
 		return
 	}
-	var payload userRequest
+	var payload finishRequest
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		writeError(w, http.StatusBadRequest, "payload inválido")
 		return
@@ -139,7 +144,7 @@ func (s *Server) handleFinish(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "user_id obrigatório")
 		return
 	}
-	if err := s.manager.Finalize(r.Context(), payload.UserID); err != nil {
+	if err := s.manager.Finalize(r.Context(), payload.UserID, payload.Force); err != nil {
 		s.handleJobError(w, err)
 		return
 	}
@@ -178,4 +183,3 @@ func writeError(w http.ResponseWriter, status int, message string) {
 		"error": message,
 	})
 }
-

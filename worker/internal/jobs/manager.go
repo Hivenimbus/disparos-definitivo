@@ -78,6 +78,23 @@ func NewManager(
 	}
 }
 
+func (m *Manager) RecoverActiveJobs(ctx context.Context) {
+	rows, err := m.supabase.ListActiveJobs(ctx)
+	if err != nil {
+		m.logger.Printf("[worker] failed to list active jobs for recovery: %v", err)
+		return
+	}
+	for i := range rows {
+		row := rows[i]
+		msg := "disparo interrompido devido a reinício do worker"
+		if err := m.forceCloseJob(ctx, &row, "failed", msg); err != nil {
+			m.logger.Printf("[worker] failed to mark orphan job job_id=%s user_id=%s: %v", row.ID, row.UserID, err)
+			continue
+		}
+		m.logger.Printf("[worker] marked orphan job as failed job_id=%s user_id=%s", row.ID, row.UserID)
+	}
+}
+
 func (m *Manager) StartJob(ctx context.Context, userID string) (*supabase.SendJobSummary, error) {
 	if userID == "" {
 		return nil, fmt.Errorf("user_id obrigatório")
@@ -183,15 +200,11 @@ func (m *Manager) RequestStop(ctx context.Context, userID string) (*supabase.Sen
 	if _, ok := finishedStatuses[row.Status]; ok {
 		return nil, ErrNoActiveJob
 	}
-	if !row.RequestedStop {
-		if err := m.supabase.UpdateJob(ctx, row.ID, patchWithTimestamp(map[string]any{
-			"requested_stop": true,
-		})); err != nil {
-			return nil, err
-		}
-		row.RequestedStop = true
+	summary, err := m.stopOrphanJob(ctx, row)
+	if err != nil {
+		return nil, err
 	}
-	return supabase.NormalizeSummary(row), nil
+	return summary, nil
 }
 
 func (m *Manager) GetStatus(ctx context.Context, userID string) (*supabase.SendJobSummary, error) {
@@ -208,7 +221,7 @@ func (m *Manager) GetStatus(ctx context.Context, userID string) (*supabase.SendJ
 	return supabase.NormalizeSummary(row), nil
 }
 
-func (m *Manager) Finalize(ctx context.Context, userID string) error {
+func (m *Manager) Finalize(ctx context.Context, userID string, force bool) error {
 	if m.hasActiveJob(userID) {
 		return ErrJobStillRunning
 	}
@@ -219,8 +232,22 @@ func (m *Manager) Finalize(ctx context.Context, userID string) error {
 	if row == nil {
 		return nil
 	}
-	if _, ok := finishedStatuses[row.Status]; !ok {
+	if _, ok := finishedStatuses[row.Status]; ok {
+		return m.supabase.DeleteJobData(ctx, row.ID)
+	}
+	if !force {
 		return ErrJobNotFinished
+	}
+
+	targetStatus := "failed"
+	reason := "limpeza forçada de disparo"
+	if row.RequestedStop {
+		targetStatus = "stopped"
+		reason = "limpeza forçada após solicitação de parada"
+	}
+
+	if err := m.forceCloseJob(ctx, row, targetStatus, reason); err != nil {
+		return err
 	}
 	return m.supabase.DeleteJobData(ctx, row.ID)
 }
@@ -675,6 +702,16 @@ func (m *Manager) releaseLock(key, token string) {
 	}
 }
 
+func (m *Manager) forceReleaseLock(userID string) error {
+	if m.locks == nil || strings.TrimSpace(userID) == "" {
+		return nil
+	}
+	key := m.buildLockKey(userID)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	return m.locks.ForceRelease(ctx, key)
+}
+
 func (m *Manager) releaseActiveJobLock(active *ActiveJob) {
 	if active == nil {
 		return
@@ -717,4 +754,39 @@ func patchWithTimestamp(patch map[string]any) map[string]any {
 	}
 	patch["updated_at"] = time.Now().UTC()
 	return patch
+}
+
+func (m *Manager) stopOrphanJob(ctx context.Context, row *supabase.JobRow) (*supabase.SendJobSummary, error) {
+	if err := m.forceCloseJob(ctx, row, "stopped", ""); err != nil {
+		return nil, err
+	}
+	return supabase.NormalizeSummary(row), nil
+}
+
+func (m *Manager) forceCloseJob(ctx context.Context, row *supabase.JobRow, status, reason string) error {
+	now := time.Now().UTC()
+	patch := patchWithTimestamp(map[string]any{
+		"status":         status,
+		"requested_stop": true,
+		"finished_at":    now,
+	})
+	if strings.TrimSpace(reason) != "" {
+		patch["last_error"] = reason
+	}
+	if err := m.supabase.UpdateJob(ctx, row.ID, patch); err != nil {
+		return err
+	}
+	row.Status = status
+	row.RequestedStop = true
+	row.UpdatedAt = now
+	finishedAt := now
+	row.FinishedAt = &finishedAt
+	if strings.TrimSpace(reason) != "" {
+		reasonCopy := reason
+		row.LastError = &reasonCopy
+	}
+	if err := m.forceReleaseLock(row.UserID); err != nil {
+		return err
+	}
+	return nil
 }

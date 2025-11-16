@@ -53,12 +53,17 @@ export const getSendJobStatus = async (userId: string): Promise<SendJobSummary |
   return response?.job ?? null
 }
 
-export const finalizeSendJob = async (userId: string) => {
+type FinalizeOptions = {
+  force?: boolean
+}
+
+export const finalizeSendJob = async (userId: string, options: FinalizeOptions = {}) => {
+  const force = options.force ?? true
   const response = await callWorker<WorkerResponse<SendJobSummary>>(
     '/jobs/finish',
     {
       method: 'POST',
-      body: { user_id: userId }
+      body: { user_id: userId, force }
     },
     userId
   )

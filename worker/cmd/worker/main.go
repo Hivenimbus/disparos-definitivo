@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"os"
 
@@ -34,6 +35,7 @@ func main() {
 		cfg.RedisLockRefreshSeconds,
 		logger,
 	)
+	manager.RecoverActiveJobs(context.Background())
 	httpServer := server.New(manager, cfg.WorkerToken, logger)
 
 	if err := httpServer.ListenAndServe(cfg.WorkerAddr); err != nil {

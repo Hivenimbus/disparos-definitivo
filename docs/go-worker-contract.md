@@ -77,7 +77,7 @@ Erros relevantes:
 - `500` para falhas ao acessar Supabase/Evolution.
 
 ### POST `/jobs/stop`
-Sinaliza `requested_stop=true`. Se existir job em memória, a flag é aplicada imediatamente; caso contrário, o worker atualiza o registro mais recente do usuário no banco.
+Sinaliza `requested_stop=true`. Se existir job em memória, a flag é aplicada imediatamente; caso contrário, o worker marca o job mais recente como `stopped`, grava `finished_at` e deixa o histórico pronto para limpeza.
 
 Request:
 ```json
@@ -101,11 +101,11 @@ Response:
 `job` pode ser `null` quando o usuário nunca iniciou um disparo.
 
 ### POST `/jobs/finish`
-Limpa registros do último job finalizado (qualquer status em `FINISHED_STATUSES`). Falha com `409` se ainda houver job ativo.
+Limpa registros do último job finalizado (qualquer status em `FINISHED_STATUSES`). Falha com `409` se ainda houver job ativo. É possível enviar `"force": true` para concluir jobs órfãos em `processing/queued`.
 
 Request:
 ```json
-{ "user_id": "uuid" }
+{ "user_id": "uuid", "force": true }
 ```
 
 Response:
@@ -138,6 +138,7 @@ No Nuxt, adicionar `WORKER_BASE_URL` e `WORKER_TOKEN` em `runtimeConfig` e utili
    - Respeita delay configurado e verifica `requested_stop`.
 4. Ao término ou erro: define status final, grava `finished_at`. Se status for `stopped`, limpa registros imediatamente (comportamento atual de `deleteJobData`).
 5. Nuxt usa `GET /jobs/status` para polling e `POST /jobs/stop`/`/jobs/finish` conforme ações do usuário.
+6. Ao reiniciar, o worker verifica jobs em `queued`/`processing`. Jobs órfãos são marcados como `failed` com `last_error="disparo interrompido devido a reinício do worker"`, permitindo nova tentativa logo após a volta do serviço.
 
 ## Locks e instâncias múltiplas
 - Cada job adquire um lock Redis com a chave `sendjob:lock:<user_id>`.
