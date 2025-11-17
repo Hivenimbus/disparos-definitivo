@@ -22,7 +22,8 @@ export default defineEventHandler(async (event) => {
     .from('dashboard_contacts')
     .select('id, name, whatsapp, var1, var2, var3, created_at, updated_at')
     .eq('user_id', user.id)
-    .order('created_at', { ascending: false })
+    .order('created_at', { ascending: false, nullsFirst: false })
+    .order('id', { ascending: false })
     .range(from, to)
 
   if (error) {

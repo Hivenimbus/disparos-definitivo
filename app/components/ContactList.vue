@@ -44,6 +44,16 @@
               </svg>
               <span>Importar arquivo</span>
             </button>
+            <button
+              @click="handleWhatsAppImportClick"
+              :disabled="isImportingWhatsApp"
+              class="w-full flex items-center space-x-2 px-4 py-2 text-left text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5h12M9 3v2m6 9h6m-3-3v6m-9 5a9 9 0 110-18 9 9 0 010 18z" />
+              </svg>
+              <span>{{ isImportingWhatsApp ? 'Importando...' : 'Importar do WhatsApp' }}</span>
+            </button>
           </div>
         </div>
         <button
@@ -468,6 +478,7 @@ const isFileImportModalOpen = ref(false)
 const selectedFile = ref(null)
 const isImportDropdownOpen = ref(false)
 const importDropdownRef = ref(null)
+const isImportingWhatsApp = ref(false)
 const isCountryCodeModalOpen = ref(false)
 const countryCodeInput = ref('')
 const editForm = ref({
@@ -650,10 +661,27 @@ const fetchContacts = async (page = 1) => {
     const { contacts: apiContacts, meta } = await $fetch('/api/dashboard/contacts', {
       query: { page, limit }
     })
-    contacts.value = (apiContacts ?? []).map((contact) => ({
+
+    const mappedContacts = (apiContacts ?? []).map((contact) => ({
       ...contact,
       status: validateWhatsApp(contact.whatsapp) ? 'valid' : 'invalid'
     }))
+
+    const deduplicatedContacts = []
+    const seenContactIds = new Set()
+
+    mappedContacts.forEach((contact) => {
+      const contactIdentifier = contact.id ?? contact.whatsapp ?? Symbol('contact')
+      if (contact.id || contact.whatsapp) {
+        if (seenContactIds.has(contactIdentifier)) {
+          return
+        }
+        seenContactIds.add(contactIdentifier)
+      }
+      deduplicatedContacts.push(contact)
+    })
+
+    contacts.value = deduplicatedContacts
     currentPage.value = meta?.page || page
     totalContacts.value = meta?.total ?? contacts.value.length
     totalValidContacts.value = meta?.validTotal ?? totalValidContacts.value
@@ -842,6 +870,37 @@ const handleManualImportClick = () => {
 const handleFileImportClick = () => {
   closeImportDropdown()
   openFileImportModal()
+}
+
+const importContactsFromWhatsApp = async () => {
+  if (isImportingWhatsApp.value) return
+
+  isImportingWhatsApp.value = true
+
+  try {
+    const response = await $fetch('/api/dashboard/contacts/import-whatsapp', {
+      method: 'POST'
+    })
+
+    const imported = response?.imported ?? 0
+
+    if (imported === 0) {
+      toast.warning('Nenhum contato válido encontrado no WhatsApp')
+    } else {
+      toast.success(`Importados ${imported} contato${imported === 1 ? '' : 's'} do WhatsApp`)
+      await fetchContacts(currentPage.value)
+    }
+  } catch (error) {
+    console.error('[dashboard/contacts] import whatsapp error', error)
+    toast.error(error?.data?.statusMessage || 'Erro ao importar contatos do WhatsApp')
+  } finally {
+    isImportingWhatsApp.value = false
+  }
+}
+
+const handleWhatsAppImportClick = async () => {
+  closeImportDropdown()
+  await importContactsFromWhatsApp()
 }
 
 const closeFileImportModal = () => {
