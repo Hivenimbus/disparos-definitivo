@@ -53,6 +53,7 @@ type ActiveJob struct {
 	lockKey     string
 	lockToken   string
 	cancelKeep  context.CancelFunc
+	resumed     bool
 }
 
 func NewManager(
@@ -86,13 +87,131 @@ func (m *Manager) RecoverActiveJobs(ctx context.Context) {
 	}
 	for i := range rows {
 		row := rows[i]
-		msg := "disparo interrompido devido a reinício do worker"
-		if err := m.forceCloseJob(ctx, &row, "failed", msg); err != nil {
-			m.logger.Printf("[worker] failed to mark orphan job job_id=%s user_id=%s: %v", row.ID, row.UserID, err)
-			continue
+		if err := m.resumeJob(ctx, &row); err != nil {
+			m.logger.Printf("[worker] failed to resume job job_id=%s user_id=%s: %v", row.ID, row.UserID, err)
+			msg := "disparo interrompido devido a falha na retomada do worker"
+			if closeErr := m.forceCloseJob(ctx, &row, "failed", msg); closeErr != nil {
+				m.logger.Printf("[worker] failed to close orphan job job_id=%s user_id=%s: %v", row.ID, row.UserID, closeErr)
+			}
 		}
-		m.logger.Printf("[worker] marked orphan job as failed job_id=%s user_id=%s", row.ID, row.UserID)
 	}
+}
+
+func (m *Manager) resumeJob(ctx context.Context, row *supabase.JobRow) error {
+	lockKey := m.buildLockKey(row.UserID)
+	lockToken, err := m.acquireLock(ctx, lockKey)
+	if err != nil {
+		if errors.Is(err, ErrJobInProgress) {
+			m.logger.Printf("[worker] stale lock detected for user_id=%s, forcing release", row.UserID)
+			if relErr := m.forceReleaseLock(row.UserID); relErr != nil {
+				m.logger.Printf("[worker] failed to force release lock for user_id=%s: %v", row.UserID, relErr)
+				return nil
+			}
+			lockToken, err = m.acquireLock(ctx, lockKey)
+			if err != nil {
+				if errors.Is(err, ErrJobInProgress) {
+					return nil
+				}
+				return err
+			}
+		} else {
+			return err
+		}
+	}
+	releaseLock := true
+	defer func() {
+		if releaseLock {
+			m.releaseLock(lockKey, lockToken)
+		}
+	}()
+
+	logs, err := m.supabase.LoadJobLogs(ctx, row.ID)
+	if err != nil {
+		return err
+	}
+
+	pendingContacts := make([]supabase.ContactRow, 0)
+	successCount := 0
+	failedCount := 0
+	var lastContactName *string
+	lastError := row.LastError
+
+	for _, logRow := range logs {
+		switch logRow.Status {
+		case "success":
+			successCount++
+			name := firstNonEmpty(ptrValue(logRow.ContactPayload.Name), logRow.ContactPayload.Whatsapp)
+			if strings.TrimSpace(name) != "" {
+				nameCopy := name
+				lastContactName = &nameCopy
+			}
+		case "failed":
+			failedCount++
+			name := firstNonEmpty(ptrValue(logRow.ContactPayload.Name), logRow.ContactPayload.Whatsapp)
+			if strings.TrimSpace(name) != "" {
+				nameCopy := name
+				lastContactName = &nameCopy
+			}
+			if logRow.Error != nil {
+				lastError = logRow.Error
+			}
+		case "pending":
+			pendingContacts = append(pendingContacts, logRow.ContactPayload)
+		}
+	}
+
+	if len(pendingContacts) == 0 {
+		finalStatus := "completed"
+		if row.RequestedStop {
+			finalStatus = "stopped"
+		}
+		if failedCount > 0 && successCount == 0 {
+			finalStatus = "failed"
+		}
+		if err := m.forceCloseJob(ctx, row, finalStatus, "job finalizado durante recuperação"); err != nil {
+			return err
+		}
+		return nil
+	}
+
+	delay := time.Duration(row.DelaySeconds) * time.Second
+	if delay <= 0 {
+		delay = m.defaultDelay
+	}
+
+	runtime := supabase.NormalizeSummary(row)
+	runtime.Status = "processing"
+	runtime.Processed = successCount + failedCount
+	runtime.Success = successCount
+	runtime.Failed = failedCount
+	runtime.LastContactName = lastContactName
+	runtime.LastError = lastError
+
+	active := &ActiveJob{
+		runtime:     runtime,
+		messageBody: strings.TrimSpace(row.MessageTemplate),
+		attachments: filterAttachments(row.AttachmentsSnapshot),
+		descriptors: row.AttachmentDescriptors,
+		contacts:    pendingContacts,
+		delay:       delay,
+		userID:      row.UserID,
+		lockKey:     lockKey,
+		lockToken:   lockToken,
+		resumed:     true,
+	}
+
+	m.activeMu.Lock()
+	m.active[row.UserID] = active
+	m.activeMu.Unlock()
+
+	ctxKeep, cancel := context.WithCancel(context.Background())
+	active.cancelKeep = cancel
+	go m.keepLockAlive(ctxKeep, lockKey, lockToken)
+	go m.runJob(context.Background(), active)
+
+	releaseLock = false
+	m.logger.Printf("[worker] resumed job user_id=%s job_id=%s processed=%d remaining=%d", row.UserID, row.ID, runtime.Processed, len(pendingContacts))
+	return nil
 }
 
 func (m *Manager) StartJob(ctx context.Context, userID string) (*supabase.SendJobSummary, error) {
@@ -141,12 +260,20 @@ func (m *Manager) StartJob(ctx context.Context, userID string) (*supabase.SendJo
 		delay = time.Duration(*cfg.IntervaloSegundos) * time.Second
 	}
 
-	jobRow, err := m.supabase.CreateQueuedJob(ctx, userID, len(contacts))
+	descriptors := buildAttachmentDescriptors(attachments)
+	jobRow, err := m.supabase.CreateQueuedJob(ctx, supabase.CreateJobInput{
+		UserID:                userID,
+		TotalContacts:         len(contacts),
+		MessageTemplate:       messageBody,
+		AttachmentDescriptors: descriptors,
+		AttachmentsSnapshot:   attachments,
+		DelaySeconds:          int(delay / time.Second),
+		ConfigSnapshot:        buildConfigSnapshot(cfg),
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	descriptors := buildAttachmentDescriptors(attachments)
 	if err := m.supabase.InsertContactLogs(ctx, jobRow.ID, contacts, descriptors); err != nil {
 		return nil, err
 	}
@@ -318,25 +445,40 @@ func (m *Manager) runJob(ctx context.Context, active *ActiveJob) {
 	startSnapshot := active.snapshot()
 	jobID := startSnapshot.ID
 	userID := active.userID
-	startedAt := time.Now().UTC()
-	active.update(func(runtime *supabase.SendJobSummary) {
-		runtime.Status = "processing"
-		runtime.StartedAt = &startedAt
-		runtime.Processed = 0
-		runtime.Success = 0
-		runtime.Failed = 0
-	})
-	if err := m.supabase.UpdateJob(ctx, jobID, patchWithTimestamp(map[string]any{
-		"status":             "processing",
-		"started_at":         startedAt,
-		"processed_contacts": 0,
-		"success_contacts":   0,
-		"failed_contacts":    0,
-	})); err != nil {
-		m.logger.Printf("[worker] failed to update job start: %v", err)
-	}
+	if !active.resumed {
+		startedAt := time.Now().UTC()
+		active.update(func(runtime *supabase.SendJobSummary) {
+			runtime.Status = "processing"
+			runtime.StartedAt = &startedAt
+			runtime.Processed = 0
+			runtime.Success = 0
+			runtime.Failed = 0
+		})
+		if err := m.supabase.UpdateJob(ctx, jobID, patchWithTimestamp(map[string]any{
+			"status":             "processing",
+			"started_at":         startedAt,
+			"processed_contacts": 0,
+			"success_contacts":   0,
+			"failed_contacts":    0,
+		})); err != nil {
+			m.logger.Printf("[worker] failed to update job start: %v", err)
+		}
 
-	m.logger.Printf("[worker] job started user_id=%s job_id=%s total=%d", userID, jobID, startSnapshot.TotalContacts)
+		m.logger.Printf("[worker] job started user_id=%s job_id=%s total=%d", userID, jobID, startSnapshot.TotalContacts)
+	} else {
+		if err := m.supabase.UpdateJob(ctx, jobID, patchWithTimestamp(map[string]any{
+			"status":             "processing",
+			"processed_contacts": startSnapshot.Processed,
+			"success_contacts":   startSnapshot.Success,
+			"failed_contacts":    startSnapshot.Failed,
+			"requested_stop":     startSnapshot.RequestedStop,
+			"last_error":         startSnapshot.LastError,
+			"last_contact_name":  startSnapshot.LastContactName,
+		})); err != nil {
+			m.logger.Printf("[worker] failed to update resumed job state: %v", err)
+		}
+		m.logger.Printf("[worker] job resumed user_id=%s job_id=%s processed=%d remaining=%d", userID, jobID, startSnapshot.Processed, len(active.contacts))
+	}
 
 	for _, contact := range active.contacts {
 		if active.requestedStop() {
@@ -509,6 +651,17 @@ func (m *Manager) handleContactSend(ctx context.Context, active *ActiveJob, cont
 	}
 
 	return messagePreview, nil
+}
+
+func buildConfigSnapshot(cfg *supabase.ConfigRow) map[string]any {
+	if cfg == nil {
+		return nil
+	}
+	snapshot := make(map[string]any)
+	if cfg.IntervaloSegundos != nil {
+		snapshot["intervalo_segundos"] = *cfg.IntervaloSegundos
+	}
+	return snapshot
 }
 
 func filterAttachments(rows []supabase.AttachmentRow) []supabase.AttachmentRow {

@@ -18,6 +18,16 @@ type Client struct {
 	http    *http.Client
 }
 
+type CreateJobInput struct {
+	UserID                string
+	TotalContacts         int
+	MessageTemplate       string
+	AttachmentDescriptors []AttachmentDescriptor
+	AttachmentsSnapshot   []AttachmentRow
+	DelaySeconds          int
+	ConfigSnapshot        map[string]any
+}
+
 func NewClient(baseURL, apiKey string) *Client {
 	return &Client{
 		baseURL: strings.TrimSuffix(baseURL, "/"),
@@ -28,14 +38,22 @@ func NewClient(baseURL, apiKey string) *Client {
 	}
 }
 
-func (c *Client) CreateQueuedJob(ctx context.Context, userID string, totalContacts int) (*JobRow, error) {
+func (c *Client) CreateQueuedJob(ctx context.Context, input CreateJobInput) (*JobRow, error) {
+	if input.ConfigSnapshot == nil {
+		input.ConfigSnapshot = map[string]any{}
+	}
 	payload := map[string]any{
-		"user_id":            userID,
-		"status":             "queued",
-		"total_contacts":     totalContacts,
-		"processed_contacts": 0,
-		"success_contacts":   0,
-		"failed_contacts":    0,
+		"user_id":                input.UserID,
+		"status":                 "queued",
+		"total_contacts":         input.TotalContacts,
+		"processed_contacts":     0,
+		"success_contacts":       0,
+		"failed_contacts":        0,
+		"message_template":       input.MessageTemplate,
+		"attachment_descriptors": input.AttachmentDescriptors,
+		"attachments_snapshot":   input.AttachmentsSnapshot,
+		"delay_seconds":          input.DelaySeconds,
+		"config_snapshot":        input.ConfigSnapshot,
 	}
 	var rows []JobRow
 	if err := c.do(ctx, http.MethodPost, "/dashboard_send_jobs", nil, payload, &rows, "return=representation"); err != nil {
@@ -86,7 +104,7 @@ func (c *Client) InsertContactLogs(ctx context.Context, jobID string, contacts [
 	}
 	now := time.Now().UTC().Format(time.RFC3339Nano)
 	rows := make([]map[string]any, 0, len(contacts))
-	for _, contact := range contacts {
+	for idx, contact := range contacts {
 		rows = append(rows, map[string]any{
 			"job_id":       jobID,
 			"contact_id":   contact.ID,
@@ -94,11 +112,31 @@ func (c *Client) InsertContactLogs(ctx context.Context, jobID string, contacts [
 			"whatsapp":     contact.Whatsapp,
 			"status":       "pending",
 			"attachments":  attachments,
-			"created_at":   now,
-			"updated_at":   now,
+			"sequence":     idx + 1,
+			"contact_payload": map[string]any{
+				"id":       contact.ID,
+				"name":     contact.Name,
+				"whatsapp": contact.Whatsapp,
+				"var1":     contact.Var1,
+				"var2":     contact.Var2,
+				"var3":     contact.Var3,
+			},
+			"created_at": now,
+			"updated_at": now,
 		})
 	}
 	return c.do(ctx, http.MethodPost, "/dashboard_send_job_logs", nil, rows, nil, "")
+}
+
+func (c *Client) LoadJobLogs(ctx context.Context, jobID string) ([]JobLogRow, error) {
+	q := url.Values{}
+	q.Set("job_id", "eq."+jobID)
+	q.Set("order", "sequence.asc")
+	var rows []JobLogRow
+	if err := c.do(ctx, http.MethodGet, "/dashboard_send_job_logs", q, nil, &rows, ""); err != nil {
+		return nil, err
+	}
+	return rows, nil
 }
 
 func (c *Client) UpdateContactLog(ctx context.Context, jobID string, contact ContactRow, patch map[string]any) error {

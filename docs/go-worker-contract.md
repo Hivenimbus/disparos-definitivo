@@ -22,6 +22,11 @@
 | `last_contact_name` | text    | Nome/whatsapp do último contato tocado.      |
 | `started_at`        | timestamptz | Preenchido ao iniciar o loop.           |
 | `finished_at`       | timestamptz | Preenchido no encerramento.             |
+| `message_template`  | text    | Snapshot do texto usado naquele disparo.     |
+| `attachment_descriptors` | jsonb | Metadados resumidos dos anexos para o dashboard. |
+| `attachments_snapshot` | jsonb | Payload completo dos anexos (url, mimetype). |
+| `delay_seconds`     | int     | Delay aplicado naquele job.                  |
+| `config_snapshot`   | jsonb   | Configurações relevantes (ex.: intervalo).   |
 | `created_at`/`updated_at` | timestamptz | Audit trail.                     |
 
 ### `dashboard_send_job_logs`
@@ -36,6 +41,8 @@
 | `attachments`    | jsonb      | Array de `{type,name,caption}` usado pela Evolution.|
 | `error`          | text       | Mensagem da exceção no envio.                       |
 | `processed_at`   | timestamptz| Momento da conclusão do contato.                    |
+| `sequence`       | int        | Ordem determinística do contato dentro do job.      |
+| `contact_payload`| jsonb      | Snapshot completo do contato (nome, variáveis, etc).|
 | `created_at`/`updated_at` | timestamptz | Audit trail.                               |
 
 ## Estados do Job
@@ -138,7 +145,7 @@ No Nuxt, adicionar `WORKER_BASE_URL` e `WORKER_TOKEN` em `runtimeConfig` e utili
    - Respeita delay configurado e verifica `requested_stop`.
 4. Ao término ou erro: define status final, grava `finished_at`. Se status for `stopped`, limpa registros imediatamente (comportamento atual de `deleteJobData`).
 5. Nuxt usa `GET /jobs/status` para polling e `POST /jobs/stop`/`/jobs/finish` conforme ações do usuário.
-6. Ao reiniciar, o worker verifica jobs em `queued`/`processing`. Jobs órfãos são marcados como `failed` com `last_error="disparo interrompido devido a reinício do worker"`, permitindo nova tentativa logo após a volta do serviço.
+6. Ao reiniciar, o worker consulta `dashboard_send_jobs` e `dashboard_send_job_logs`, reidrata o snapshot (mensagem, anexos, delay, payload dos contatos) e continua o disparo a partir do primeiro log `pending`. Caso todos os contatos já estejam processados, ele finaliza automaticamente com o status adequado.
 
 ## Locks e instâncias múltiplas
 - Cada job adquire um lock Redis com a chave `sendjob:lock:<user_id>`.
