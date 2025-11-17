@@ -26,6 +26,7 @@ type CreateJobInput struct {
 	AttachmentsSnapshot   []AttachmentRow
 	DelaySeconds          int
 	ConfigSnapshot        map[string]any
+	PauseRequested        bool
 }
 
 func NewClient(baseURL, apiKey string) *Client {
@@ -54,6 +55,8 @@ func (c *Client) CreateQueuedJob(ctx context.Context, input CreateJobInput) (*Jo
 		"attachments_snapshot":   input.AttachmentsSnapshot,
 		"delay_seconds":          input.DelaySeconds,
 		"config_snapshot":        input.ConfigSnapshot,
+		"pause_requested":        input.PauseRequested,
+		"paused_at":              nil,
 	}
 	var rows []JobRow
 	if err := c.do(ctx, http.MethodPost, "/dashboard_send_jobs", nil, payload, &rows, "return=representation"); err != nil {

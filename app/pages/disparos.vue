@@ -12,22 +12,34 @@
           <span :class="['px-3 py-1 rounded-full text-xs font-semibold', jobStatusBadgeClass]">
             {{ jobStatusLabel }}
           </span>
-          <button
-            v-if="showStopButton"
-            @click="handleStopJob"
-            :disabled="isStoppingJob || isStopRequested"
-            class="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors disabled:opacity-50"
-          >
-            {{ stopButtonLabel }}
-          </button>
-          <button
-            v-else-if="!isJobActive"
-            @click="handleFinishJob"
-            :disabled="isFinishingJob"
-            class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
-          >
-            {{ isFinishingJob ? 'Finalizando...' : 'Finalizar disparo' }}
-          </button>
+          <template v-if="jobStatus">
+            <div v-if="isJobActive || isStopRequested || isPaused" class="flex space-x-2">
+              <button
+                v-if="showPauseButton"
+                @click="handlePauseResumeJob"
+                :disabled="isPausingJob || isResumingJob || isStopRequested"
+                class="px-4 py-2 bg-yellow-500 text-white rounded-lg text-sm font-medium hover:bg-yellow-600 transition-colors disabled:opacity-50"
+              >
+                {{ pauseButtonLabel }}
+              </button>
+              <button
+                v-if="showStopButton"
+                @click="handleStopJob"
+                :disabled="isStoppingJob || isStopRequested"
+                class="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors disabled:opacity-50"
+              >
+                {{ stopButtonLabel }}
+              </button>
+            </div>
+            <button
+              v-else
+              @click="handleFinishJob"
+              :disabled="isFinishingJob"
+              class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
+            >
+              {{ isFinishingJob ? 'Finalizando...' : 'Finalizar disparo' }}
+            </button>
+          </template>
           <p v-if="stopErrorMessage" class="text-xs text-red-600 md:ml-3">{{ stopErrorMessage }}</p>
         </div>
       </div>
@@ -275,11 +287,15 @@ const {
   jobStatus,
   isJobActive,
   isStoppingJob,
+  isPausingJob,
+  isResumingJob,
   isFinishingJob,
   startPolling,
   stopPolling,
   fetchStatus,
   stopJob,
+  pauseJob,
+  resumeJob,
   finishJob: finalizeSendJob
 } = useSendJob()
 
@@ -294,14 +310,27 @@ const stopErrorMessage = ref<string | null>(null)
 
 const hasJob = computed(() => !!jobStatus.value)
 const isStopRequested = computed(() => jobStatus.value?.requestedStop ?? false)
+const isPaused = computed(() => jobStatus.value?.pauseRequested ?? false)
 const showStopButton = computed(() => {
   if (!jobStatus.value) return false
-  return isJobActive.value || isStopRequested.value
+  return isJobActive.value || isStopRequested.value || isPaused.value
+})
+const showPauseButton = computed(() => {
+  if (!jobStatus.value) return false
+  if (isStopRequested.value) return false
+  return jobStatus.value.status === 'processing'
 })
 const stopButtonLabel = computed(() => {
   if (isStoppingJob.value) return 'Parando...'
   if (isStopRequested.value) return 'Cancelamento solicitado'
+  if (isPaused.value) return 'Pausado'
   return 'Parar disparos'
+})
+
+const pauseButtonLabel = computed(() => {
+  if (isPausingJob.value) return 'Pausando...'
+  if (isResumingJob.value) return 'Retomando...'
+  return isPaused.value ? 'Retomar' : 'Pausar'
 })
 
 const jobStatusLabel = computed(() => {
@@ -545,6 +574,22 @@ const handleStopJob = async () => {
     const message = error?.data?.statusMessage || 'Erro ao interromper disparo'
     stopErrorMessage.value = message
     toast.error(message)
+  }
+}
+
+const handlePauseResumeJob = async () => {
+  if (!jobStatus.value || isStoppingJob.value) {
+    return
+  }
+  try {
+    if (isPaused.value) {
+      await resumeJob()
+    } else {
+      await pauseJob()
+    }
+  } catch (error: any) {
+    console.error('[disparos] pause/resume job error', error)
+    toast.error(error?.data?.statusMessage || 'Erro ao pausar/retomar disparo')
   }
 }
 

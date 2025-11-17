@@ -25,6 +25,8 @@ var (
 	ErrNoActiveJob         = errors.New("no active job")
 	ErrJobStillRunning     = errors.New("job still running")
 	ErrJobNotFinished      = errors.New("job not finished")
+	ErrJobAlreadyPaused    = errors.New("job already paused")
+	ErrJobNotPaused        = errors.New("job is not paused")
 	ErrNoMessageConfigured = errors.New("no message configured")
 	ErrNoContentConfigured = errors.New("no message or attachments configured")
 	ErrNoContacts          = errors.New("no contacts available")
@@ -54,6 +56,7 @@ type ActiveJob struct {
 	lockToken   string
 	cancelKeep  context.CancelFunc
 	resumed     bool
+	paused      bool
 }
 
 func NewManager(
@@ -194,6 +197,7 @@ func (m *Manager) resumeJob(ctx context.Context, row *supabase.JobRow) error {
 	runtime.LastContactName = lastContactName
 	runtime.LastError = lastError
 	runtime.RequestedStop = row.RequestedStop
+	runtime.PauseRequested = row.PauseRequested
 
 	active := &ActiveJob{
 		runtime:     runtime,
@@ -206,6 +210,7 @@ func (m *Manager) resumeJob(ctx context.Context, row *supabase.JobRow) error {
 		lockKey:     lockKey,
 		lockToken:   lockToken,
 		resumed:     true,
+		paused:      row.PauseRequested,
 	}
 
 	m.activeMu.Lock()
@@ -277,6 +282,7 @@ func (m *Manager) StartJob(ctx context.Context, userID string) (*supabase.SendJo
 		AttachmentsSnapshot:   attachments,
 		DelaySeconds:          int(delay / time.Second),
 		ConfigSnapshot:        buildConfigSnapshot(cfg),
+		PauseRequested:        false,
 	})
 	if err != nil {
 		return nil, err
@@ -316,9 +322,13 @@ func (m *Manager) RequestStop(ctx context.Context, userID string) (*supabase.Sen
 		summary := job.snapshot()
 		job.update(func(runtime *supabase.SendJobSummary) {
 			runtime.RequestedStop = true
+			runtime.PauseRequested = false
+			job.paused = false
 		})
 		if err := m.supabase.UpdateJob(ctx, summary.ID, patchWithTimestamp(map[string]any{
-			"requested_stop": true,
+			"requested_stop":  true,
+			"pause_requested": false,
+			"paused_at":       nil,
 		})); err != nil {
 			return nil, err
 		}
@@ -340,6 +350,89 @@ func (m *Manager) RequestStop(ctx context.Context, userID string) (*supabase.Sen
 		return nil, err
 	}
 	return summary, nil
+}
+
+func (m *Manager) RequestPause(ctx context.Context, userID string) (*supabase.SendJobSummary, error) {
+	if job := m.getActiveJob(userID); job != nil {
+		if job.pausedState() {
+			return job.snapshot(), ErrJobAlreadyPaused
+		}
+		job.update(func(runtime *supabase.SendJobSummary) {
+			runtime.PauseRequested = true
+		})
+		job.paused = true
+		if err := m.supabase.UpdateJob(ctx, job.runtime.ID, patchWithTimestamp(map[string]any{
+			"pause_requested": true,
+			"paused_at":       time.Now().UTC(),
+		})); err != nil {
+			return nil, err
+		}
+		return job.snapshot(), nil
+	}
+
+	row, err := m.supabase.FetchLatestJob(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if row == nil {
+		return nil, ErrNoActiveJob
+	}
+	if _, ok := finishedStatuses[row.Status]; ok {
+		return nil, ErrNoActiveJob
+	}
+	if row.PauseRequested {
+		return supabase.NormalizeSummary(row), ErrJobAlreadyPaused
+	}
+	if err := m.supabase.UpdateJob(ctx, row.ID, patchWithTimestamp(map[string]any{
+		"pause_requested": true,
+		"paused_at":       time.Now().UTC(),
+	})); err != nil {
+		return nil, err
+	}
+	row.PauseRequested = true
+	now := time.Now().UTC()
+	row.PausedAt = &now
+	return supabase.NormalizeSummary(row), nil
+}
+
+func (m *Manager) ResumeJob(ctx context.Context, userID string) (*supabase.SendJobSummary, error) {
+	if job := m.getActiveJob(userID); job != nil {
+		if !job.pausedState() {
+			return job.snapshot(), ErrJobNotPaused
+		}
+		job.update(func(runtime *supabase.SendJobSummary) {
+			runtime.PauseRequested = false
+		})
+		job.paused = false
+		if err := m.supabase.UpdateJob(ctx, job.runtime.ID, patchWithTimestamp(map[string]any{
+			"pause_requested": false,
+			"paused_at":       nil,
+		})); err != nil {
+			return nil, err
+		}
+		return job.snapshot(), nil
+	}
+
+	row, err := m.supabase.FetchLatestJob(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if row == nil || !row.PauseRequested {
+		return nil, ErrJobNotPaused
+	}
+	if _, ok := finishedStatuses[row.Status]; ok {
+		return nil, ErrJobNotPaused
+	}
+	if err := m.supabase.UpdateJob(ctx, row.ID, patchWithTimestamp(map[string]any{
+		"pause_requested": false,
+		"paused_at":       nil,
+	})); err != nil {
+		return nil, err
+	}
+	row.PauseRequested = false
+	row.PausedAt = nil
+	// Recovery loop observará que existe job ativo sem runtime e chamará resumeJob.
+	return supabase.NormalizeSummary(row), nil
 }
 
 func (m *Manager) GetStatus(ctx context.Context, userID string) (*supabase.SendJobSummary, error) {
@@ -419,6 +512,12 @@ func (a *ActiveJob) requestedStop() bool {
 	return a.runtime.RequestedStop
 }
 
+func (a *ActiveJob) pausedState() bool {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	return a.paused || a.runtime.PauseRequested
+}
+
 func (m *Manager) cleanupFinishedJob(ctx context.Context, userID string) error {
 	row, err := m.supabase.FetchLatestJob(ctx, userID)
 	if err != nil {
@@ -489,6 +588,15 @@ func (m *Manager) runJob(ctx context.Context, active *ActiveJob) {
 	}
 
 	for _, contact := range active.contacts {
+		if active.requestedStop() {
+			break
+		}
+		for active.pausedState() {
+			time.Sleep(500 * time.Millisecond)
+			if active.requestedStop() {
+				break
+			}
+		}
 		if active.requestedStop() {
 			break
 		}
@@ -927,9 +1035,11 @@ func (m *Manager) stopOrphanJob(ctx context.Context, row *supabase.JobRow) (*sup
 func (m *Manager) forceCloseJob(ctx context.Context, row *supabase.JobRow, status, reason string) error {
 	now := time.Now().UTC()
 	patch := patchWithTimestamp(map[string]any{
-		"status":         status,
-		"requested_stop": true,
-		"finished_at":    now,
+		"status":          status,
+		"requested_stop":  true,
+		"pause_requested": false,
+		"paused_at":       nil,
+		"finished_at":     now,
 	})
 	if strings.TrimSpace(reason) != "" {
 		patch["last_error"] = reason

@@ -41,6 +41,36 @@ export const requestStopSendJob = async (userId: string): Promise<SendJobSummary
   return response.job
 }
 
+export const pauseSendJob = async (userId: string): Promise<SendJobSummary> => {
+  const response = await callWorker<WorkerResponse<SendJobSummary>>(
+    '/jobs/pause',
+    {
+      method: 'POST',
+      body: { user_id: userId }
+    },
+    userId
+  )
+  if (!response?.job) {
+    throw createError({ statusCode: 500, statusMessage: 'Resposta inválida do worker ao pausar disparo' })
+  }
+  return response.job
+}
+
+export const resumeSendJob = async (userId: string): Promise<SendJobSummary> => {
+  const response = await callWorker<WorkerResponse<SendJobSummary>>(
+    '/jobs/resume',
+    {
+      method: 'POST',
+      body: { user_id: userId }
+    },
+    userId
+  )
+  if (!response?.job) {
+    throw createError({ statusCode: 500, statusMessage: 'Resposta inválida do worker ao retomar disparo' })
+  }
+  return response.job
+}
+
 export const getSendJobStatus = async (userId: string): Promise<SendJobSummary | null> => {
   const response = await callWorker<WorkerResponse<SendJobSummary | null>>(
     '/jobs/status',

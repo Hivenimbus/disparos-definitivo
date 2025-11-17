@@ -44,6 +44,8 @@ type JobRow struct {
 	Success               int                    `json:"success_contacts"`
 	Failed                int                    `json:"failed_contacts"`
 	RequestedStop         bool                   `json:"requested_stop"`
+	PauseRequested        bool                   `json:"pause_requested"`
+	PausedAt              *time.Time             `json:"paused_at"`
 	LastError             *string                `json:"last_error"`
 	LastContactName       *string                `json:"last_contact_name"`
 	StartedAt             *time.Time             `json:"started_at"`
@@ -65,6 +67,7 @@ type SendJobSummary struct {
 	Success         int        `json:"successContacts"`
 	Failed          int        `json:"failedContacts"`
 	RequestedStop   bool       `json:"requestedStop"`
+	PauseRequested  bool       `json:"pauseRequested"`
 	LastError       *string    `json:"lastError"`
 	LastContactName *string    `json:"lastContactName"`
 	StartedAt       *time.Time `json:"startedAt"`
@@ -102,6 +105,7 @@ func NormalizeSummary(row *JobRow) *SendJobSummary {
 		Success:         row.Success,
 		Failed:          row.Failed,
 		RequestedStop:   row.RequestedStop,
+		PauseRequested:  row.PauseRequested,
 		LastError:       row.LastError,
 		LastContactName: row.LastContactName,
 		StartedAt:       row.StartedAt,

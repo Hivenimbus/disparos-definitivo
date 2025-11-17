@@ -32,6 +32,8 @@ func New(manager *jobs.Manager, token string, logger *log.Logger) *Server {
 func (s *Server) routes() {
 	s.mux.Handle("/jobs/start", s.withAuth(http.HandlerFunc(s.handleStart)))
 	s.mux.Handle("/jobs/stop", s.withAuth(http.HandlerFunc(s.handleStop)))
+	s.mux.Handle("/jobs/pause", s.withAuth(http.HandlerFunc(s.handlePause)))
+	s.mux.Handle("/jobs/resume", s.withAuth(http.HandlerFunc(s.handleResume)))
 	s.mux.Handle("/jobs/status", s.withAuth(http.HandlerFunc(s.handleStatus)))
 	s.mux.Handle("/jobs/finish", s.withAuth(http.HandlerFunc(s.handleFinish)))
 }
@@ -111,6 +113,52 @@ func (s *Server) handleStop(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]*supabase.SendJobSummary{"job": job})
 }
 
+func (s *Server) handlePause(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "método não suportado")
+		return
+	}
+	var payload userRequest
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		writeError(w, http.StatusBadRequest, "payload inválido")
+		return
+	}
+	payload.UserID = strings.TrimSpace(payload.UserID)
+	if payload.UserID == "" {
+		writeError(w, http.StatusBadRequest, "user_id obrigatório")
+		return
+	}
+	job, err := s.manager.RequestPause(r.Context(), payload.UserID)
+	if err != nil {
+		s.handleJobError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]*supabase.SendJobSummary{"job": job})
+}
+
+func (s *Server) handleResume(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "método não suportado")
+		return
+	}
+	var payload userRequest
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		writeError(w, http.StatusBadRequest, "payload inválido")
+		return
+	}
+	payload.UserID = strings.TrimSpace(payload.UserID)
+	if payload.UserID == "" {
+		writeError(w, http.StatusBadRequest, "user_id obrigatório")
+		return
+	}
+	job, err := s.manager.ResumeJob(r.Context(), payload.UserID)
+	if err != nil {
+		s.handleJobError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]*supabase.SendJobSummary{"job": job})
+}
+
 func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		writeError(w, http.StatusMethodNotAllowed, "método não suportado")
@@ -161,6 +209,10 @@ func (s *Server) handleJobError(w http.ResponseWriter, err error) {
 		writeError(w, http.StatusConflict, "o disparo ainda está em andamento")
 	case errors.Is(err, jobs.ErrJobNotFinished):
 		writeError(w, http.StatusBadRequest, "finalize o disparo antes de limpar o histórico")
+	case errors.Is(err, jobs.ErrJobAlreadyPaused):
+		writeError(w, http.StatusConflict, "o disparo já está pausado")
+	case errors.Is(err, jobs.ErrJobNotPaused):
+		writeError(w, http.StatusConflict, "o disparo não está pausado")
 	case errors.Is(err, jobs.ErrNoMessageConfigured):
 		writeError(w, http.StatusBadRequest, "nenhuma mensagem configurada para envio")
 	case errors.Is(err, jobs.ErrNoContentConfigured):

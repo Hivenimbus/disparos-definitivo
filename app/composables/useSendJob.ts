@@ -6,6 +6,8 @@ const ACTIVE_STATUSES: SendJobStatus[] = ['queued', 'processing']
 const useJobStatusState = () => useState<SendJobSummary | null>('send-job/status', () => null)
 const useIsStartingState = () => useState<boolean>('send-job/is-starting', () => false)
 const useIsStoppingState = () => useState<boolean>('send-job/is-stopping', () => false)
+const useIsPausingState = () => useState<boolean>('send-job/is-pausing', () => false)
+const useIsResumingState = () => useState<boolean>('send-job/is-resuming', () => false)
 const useIsFetchingState = () => useState<boolean>('send-job/is-fetching', () => false)
 const usePollingHandleState = () => useState<number | null>('send-job/polling-handle', () => null)
 const useIsFinishingState = () => useState<boolean>('send-job/is-finishing', () => false)
@@ -16,6 +18,8 @@ export const useSendJob = () => {
   const jobStatus = useJobStatusState()
   const isStartingJob = useIsStartingState()
   const isStoppingJob = useIsStoppingState()
+  const isPausingJob = useIsPausingState()
+  const isResumingJob = useIsResumingState()
   const isFetchingStatus = useIsFetchingState()
   const pollingHandle = usePollingHandleState()
   const isFinishingJob = useIsFinishingState()
@@ -103,6 +107,44 @@ export const useSendJob = () => {
     }
   }
 
+  const pauseJob = async () => {
+    if (isPausingJob.value) {
+      return jobStatus.value
+    }
+    isPausingJob.value = true
+    try {
+      const response = await $fetch<{ job: SendJobSummary }>('/api/dashboard/send/pause', { method: 'POST' })
+      jobStatus.value = response.job
+      toast.success('Disparo pausado')
+      return jobStatus.value
+    } catch (error: any) {
+      console.error('[sendJob] pause error', error)
+      toast.error(error?.data?.statusMessage || 'Erro ao pausar disparo')
+      throw error
+    } finally {
+      isPausingJob.value = false
+    }
+  }
+
+  const resumeJob = async () => {
+    if (isResumingJob.value) {
+      return jobStatus.value
+    }
+    isResumingJob.value = true
+    try {
+      const response = await $fetch<{ job: SendJobSummary }>('/api/dashboard/send/resume', { method: 'POST' })
+      jobStatus.value = response.job
+      toast.success('Disparo retomado')
+      return jobStatus.value
+    } catch (error: any) {
+      console.error('[sendJob] resume error', error)
+      toast.error(error?.data?.statusMessage || 'Erro ao retomar disparo')
+      throw error
+    } finally {
+      isResumingJob.value = false
+    }
+  }
+
   const finishJob = async () => {
     if (isFinishingJob.value) {
       return
@@ -153,11 +195,15 @@ export const useSendJob = () => {
     isJobActive,
     isStartingJob,
     isStoppingJob,
+    isPausingJob,
+    isResumingJob,
     isFinishingJob,
     isFetchingStatus,
     startJob,
     startJobAndRedirect,
     stopJob,
+    pauseJob,
+    resumeJob,
     finishJob,
     fetchStatus,
     startPolling,
