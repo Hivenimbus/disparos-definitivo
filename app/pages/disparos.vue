@@ -323,7 +323,6 @@ const showPauseButton = computed(() => {
 const stopButtonLabel = computed(() => {
   if (isStoppingJob.value) return 'Parando...'
   if (isStopRequested.value) return 'Cancelamento solicitado'
-  if (isPaused.value) return 'Pausado'
   return 'Parar disparos'
 })
 

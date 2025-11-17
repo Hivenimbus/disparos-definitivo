@@ -431,7 +431,11 @@ func (m *Manager) ResumeJob(ctx context.Context, userID string) (*supabase.SendJ
 	}
 	row.PauseRequested = false
 	row.PausedAt = nil
-	// Recovery loop observará que existe job ativo sem runtime e chamará resumeJob.
+
+	if err := m.resumeJob(ctx, row); err != nil {
+		return nil, err
+	}
+
 	return supabase.NormalizeSummary(row), nil
 }
 
