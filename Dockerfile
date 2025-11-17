@@ -35,6 +35,7 @@ ENV NODE_ENV=production \
 COPY --from=production-deps /app/node_modules ./node_modules
 COPY --from=build /app/.output ./.output
 COPY --from=go-builder /out/worker ./dist/worker
+COPY scripts ./scripts
 
 EXPOSE 3000
 CMD ["node", "-r", "dotenv/config", "scripts/start.js"]
