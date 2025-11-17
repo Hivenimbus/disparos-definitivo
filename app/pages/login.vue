@@ -53,7 +53,6 @@
         <span v-else>Entrando...</span>
       </button>
     </form>
-
   </div>
 </template>
 
