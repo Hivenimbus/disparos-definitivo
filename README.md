@@ -61,6 +61,30 @@ O loop de disparos foi migrado para um worker em Go localizado em `worker/`. Par
 
 O contrato completo e as rotas HTTP expostas pelo worker estão documentados em `docs/go-worker-contract.md`.
 
+### Build e execução com Docker
+
+O Dockerfile agora monta o Nuxt **e** o worker Go em uma única imagem multi-stage:
+
+```bash
+docker build -t disparos-app .
+```
+
+Execute informando as variáveis necessárias (mesmas do `.env`/worker):
+
+```bash
+docker run --rm -p 3000:3000 \
+  -e SUPABASE_URL=... \
+  -e SUPABASE_SERVICE_ROLE=... \
+  -e EVOLUTION_API_URL=... \
+  -e EVOLUTION_API_KEY=... \
+  -e REDIS_URL=... \
+  -e WORKER_TOKEN=... \
+  -e WORKER_HTTP_ADDR=":8080" \
+  disparos-app
+```
+
+O entrypoint interno executa `node scripts/start.js`, que inicia o Nuxt em `:3000` e usa o binário do worker em `dist/worker`. Ajuste as variáveis para apontar seu Redis/Supabase/Evolution.
+
 ## Banco de dados
 
 O banco Supabase possui a tabela `users` com os campos:

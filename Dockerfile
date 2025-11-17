@@ -17,6 +17,14 @@ FROM base AS production-deps
 COPY package*.json ./
 RUN npm ci --omit=dev
 
+FROM golang:1.22-alpine AS go-builder
+WORKDIR /worker
+RUN apk add --no-cache git
+COPY worker/go.* ./
+RUN go mod download
+COPY worker ./
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /out/worker ./cmd/worker
+
 FROM node:20-alpine AS runner
 WORKDIR /app
 
@@ -26,7 +34,8 @@ ENV NODE_ENV=production \
 
 COPY --from=production-deps /app/node_modules ./node_modules
 COPY --from=build /app/.output ./.output
+COPY --from=go-builder /out/worker ./dist/worker
 
 EXPOSE 3000
-CMD ["node", "-r", "dotenv/config", ".output/server/index.mjs"]
+CMD ["node", "-r", "dotenv/config", "scripts/start.js"]
 
