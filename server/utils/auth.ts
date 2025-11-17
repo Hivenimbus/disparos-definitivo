@@ -8,6 +8,7 @@ export type AuthenticatedUser = {
   email: string
   status: 'ativo' | 'desativado'
   role: 'admin' | 'manager' | 'user'
+  company_id: string | null
 }
 
 export const requireAuthUser = async (event: H3Event): Promise<AuthenticatedUser> => {
@@ -30,7 +31,7 @@ export const requireAuthUser = async (event: H3Event): Promise<AuthenticatedUser
 
   const { data: user, error } = await supabase
     .from('users')
-    .select('id, nome, email, status, role')
+    .select('id, nome, email, status, role, company_id')
     .eq('id', payload.sub)
     .single()
 

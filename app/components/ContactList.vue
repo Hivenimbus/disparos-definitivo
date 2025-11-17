@@ -9,18 +9,43 @@
       </div>
 
       <div class="flex items-center space-x-3">
-        <button @click="openImportModal" class="flex items-center space-x-2 px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-          </svg>
-          <span>Importar Manualmente</span>
-        </button>
-        <button @click="openFileImportModal" class="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-          </svg>
-          <span>Importar Arquivo</span>
-        </button>
+        <div ref="importDropdownRef" class="relative">
+          <button
+            @click="toggleImportDropdown"
+            class="flex items-center space-x-2 px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            <span>Importação de contatos</span>
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          <div
+            v-if="isImportDropdownOpen"
+            class="absolute right-0 mt-2 w-60 bg-white border border-gray-200 rounded-lg shadow-lg py-2 z-10"
+          >
+            <button
+              @click="handleManualImportClick"
+              class="w-full flex items-center space-x-2 px-4 py-2 text-left text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <span>Importar manualmente</span>
+            </button>
+            <button
+              @click="handleFileImportClick"
+              class="w-full flex items-center space-x-2 px-4 py-2 text-left text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+              </svg>
+              <span>Importar arquivo</span>
+            </button>
+          </div>
+        </div>
         <button
           @click="openCountryCodeModal"
           class="flex items-center space-x-2 px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
@@ -426,7 +451,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import * as XLSX from 'xlsx'
 
 const contacts = ref([])
@@ -441,6 +466,8 @@ const contactListText = ref('')
 const isEditModalOpen = ref(false)
 const isFileImportModalOpen = ref(false)
 const selectedFile = ref(null)
+const isImportDropdownOpen = ref(false)
+const importDropdownRef = ref(null)
 const isCountryCodeModalOpen = ref(false)
 const countryCodeInput = ref('')
 const editForm = ref({
@@ -472,6 +499,14 @@ const totalColumns = computed(() => {
   count++ // Ações column
   return count
 })
+
+const toggleImportDropdown = () => {
+  isImportDropdownOpen.value = !isImportDropdownOpen.value
+}
+
+const closeImportDropdown = () => {
+  isImportDropdownOpen.value = false
+}
 
 const openImportModal = () => {
   isImportModalOpen.value = true
@@ -631,7 +666,14 @@ const fetchContacts = async (page = 1) => {
   }
 }
 
-onMounted(() => fetchContacts(currentPage.value))
+onMounted(() => {
+  fetchContacts(currentPage.value)
+  document.addEventListener('click', handleOutsideClick)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('click', handleOutsideClick)
+})
 
 const saveContactsToApi = async (newContacts) => {
   if (!newContacts.length) {
@@ -792,6 +834,16 @@ const openFileImportModal = () => {
   selectedFile.value = null
 }
 
+const handleManualImportClick = () => {
+  closeImportDropdown()
+  openImportModal()
+}
+
+const handleFileImportClick = () => {
+  closeImportDropdown()
+  openFileImportModal()
+}
+
 const closeFileImportModal = () => {
   isFileImportModalOpen.value = false
   selectedFile.value = null
@@ -811,6 +863,14 @@ const handleFileSelect = (event) => {
   const file = event.target.files[0]
   if (file) {
     selectedFile.value = file
+  }
+}
+
+const handleOutsideClick = (event) => {
+  const dropdownEl = importDropdownRef.value
+  if (!dropdownEl) return
+  if (!dropdownEl.contains(event.target)) {
+    isImportDropdownOpen.value = false
   }
 }
 

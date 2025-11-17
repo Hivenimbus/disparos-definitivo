@@ -205,12 +205,19 @@ const menuItems = [
     path: '/admin',
     icon: 'IconDashboard',
     requiresAdmin: true
+  },
+  {
+    name: 'Painel Gerente',
+    path: '/gerente',
+    icon: 'IconDashboard',
+    requiresManager: true
   }
 ]
 
 const dropdownOptions = [
   { name: 'Meu Perfil', path: '/perfil' },
-  { name: 'Painel Admin', path: '/admin', requiresAdmin: true }
+  { name: 'Painel Admin', path: '/admin', requiresAdmin: true },
+  { name: 'Painel Gerente', path: '/gerente', requiresManager: true }
 ]
 
 const displayName = computed(() => {
@@ -222,6 +229,9 @@ const availableMenuItems = computed(() => {
     if (item.requiresAdmin) {
       return authUser.value?.role === 'admin'
     }
+    if (item.requiresManager) {
+      return authUser.value?.role === 'manager'
+    }
     return true
   })
 })
@@ -230,6 +240,9 @@ const availableDropdownOptions = computed(() => {
   return dropdownOptions.filter((option) => {
     if (option.requiresAdmin) {
       return authUser.value?.role === 'admin'
+    }
+    if (option.requiresManager) {
+      return authUser.value?.role === 'manager'
     }
     return true
   })
