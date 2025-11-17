@@ -354,6 +354,56 @@
       </div>
     </div>
 
+    <div v-if="isAdminConfirmModalOpen" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" @click.self="closeAdminConfirmModal">
+      <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6 border border-red-100">
+        <div class="flex items-center justify-center mb-4">
+          <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+        </div>
+
+        <h3 class="text-xl font-semibold text-gray-800 text-center mb-2">Confirmar privilégios de administrador</h3>
+        <p class="text-gray-600 text-center mb-6">
+          Para atribuir a role <strong>admin</strong> ao usuário <strong>{{ userForm.nome || 'novo usuário' }}</strong>, confirme sua senha de administrador.
+        </p>
+        <p v-if="adminPasswordError" class="text-red-600 text-center mb-4">
+          {{ adminPasswordError }}
+        </p>
+
+        <div class="mb-6">
+          <label class="block text-gray-700 font-medium mb-2">Sua senha</label>
+          <input
+            v-model="adminPassword"
+            type="password"
+            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+            placeholder="Digite sua senha atual"
+            :disabled="adminPasswordLoading"
+            @keyup.enter="confirmAdminRoleAssignment"
+          >
+        </div>
+
+        <div class="flex justify-end space-x-3">
+          <button
+            @click="closeAdminConfirmModal"
+            :disabled="adminPasswordLoading"
+            class="px-6 py-2 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Cancelar
+          </button>
+          <button
+            @click="confirmAdminRoleAssignment"
+            :disabled="adminPasswordLoading"
+            class="px-6 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <span v-if="!adminPasswordLoading">Confirmar</span>
+            <span v-else>Validando...</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
     <div v-if="isDeleteModalOpen" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" @click.self="closeDeleteModal">
       <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
         <div class="flex items-center justify-center mb-4">
@@ -442,6 +492,7 @@ type AdminUserResponse = {
 }
 
 const searchQuery = ref('')
+const authUser = useAuthUser()
 const isModalOpen = ref(false)
 const isDeleteModalOpen = ref(false)
 const isEditMode = ref(false)
@@ -451,6 +502,7 @@ const deleteError = ref('')
 const isSaving = ref(false)
 const isDeleting = ref(false)
 const originalCompanyId = ref<string | null>(null)
+const originalRole = ref<UiRole | null>(null)
 const statusUpdating = ref<Record<string, boolean>>({})
 const statusErrors = ref<Record<string, string>>({})
 const roleLabels: Record<UiRole, string> = {
@@ -466,6 +518,11 @@ const roleBadgeClasses: Record<UiRole, string> = {
 const companySearch = ref('')
 const isCompanyDropdownOpen = ref(false)
 let companyDropdownCloseTimeout: ReturnType<typeof setTimeout> | null = null
+const isAdminConfirmModalOpen = ref(false)
+const adminPassword = ref('')
+const adminPasswordError = ref('')
+const adminPasswordLoading = ref(false)
+const adminPasswordConfirmed = ref(false)
 
 const defaultForm = (): UserFormState => ({
   id: null,
@@ -482,6 +539,15 @@ const defaultForm = (): UserFormState => ({
 
 const userForm = ref<UserFormState>(defaultForm())
 const roleRequiresCompany = computed(() => userForm.value.role === 'gerente')
+const requiresAdminRoleConfirmation = computed(() => {
+  if (userForm.value.role !== 'admin') {
+    return false
+  }
+  if (!isEditMode.value) {
+    return true
+  }
+  return originalRole.value !== 'admin'
+})
 
 const {
   data: usersData,
@@ -585,6 +651,13 @@ watch(
   }
 )
 
+watch(
+  () => userForm.value.role,
+  () => {
+    adminPasswordConfirmed.value = false
+  }
+)
+
 const openCompanyDropdown = () => {
   if (companyDropdownCloseTimeout) {
     clearTimeout(companyDropdownCloseTimeout)
@@ -609,6 +682,26 @@ const scheduleCloseCompanyDropdown = () => {
   companyDropdownCloseTimeout = setTimeout(() => {
     closeCompanyDropdown()
   }, 150)
+}
+
+const resetAdminConfirmationState = () => {
+  adminPassword.value = ''
+  adminPasswordError.value = ''
+  adminPasswordLoading.value = false
+  adminPasswordConfirmed.value = false
+  isAdminConfirmModalOpen.value = false
+}
+
+const openAdminConfirmModal = () => {
+  adminPassword.value = ''
+  adminPasswordError.value = ''
+  isAdminConfirmModalOpen.value = true
+}
+
+const closeAdminConfirmModal = () => {
+  isAdminConfirmModalOpen.value = false
+  adminPassword.value = ''
+  adminPasswordError.value = ''
 }
 
 const selectCompany = (company: CompanyItem | null) => {
@@ -641,9 +734,11 @@ const setStatusError = (id: string, message: string) => {
 const resetForm = () => {
   userForm.value = defaultForm()
   originalCompanyId.value = null
+  originalRole.value = null
   formError.value = ''
   companySearch.value = ''
   isCompanyDropdownOpen.value = false
+  resetAdminConfirmationState()
 }
 
 const canSelectCompany = (companyId: string) => {
@@ -725,6 +820,7 @@ const openEditModal = (user: AdminUserItem) => {
   isEditMode.value = true
   formError.value = ''
   originalCompanyId.value = user.empresaId || null
+  originalRole.value = user.role
   userForm.value = {
     id: user.id,
     nome: user.nome,
@@ -789,7 +885,7 @@ const buildPayload = (isEdit: boolean) => {
   return payload
 }
 
-const saveUser = async () => {
+const performSaveUser = async () => {
   if (!isFormValid.value) {
     return
   }
@@ -829,6 +925,58 @@ const saveUser = async () => {
     formError.value = message
   } finally {
     isSaving.value = false
+  }
+}
+
+const saveUser = async () => {
+  if (requiresAdminRoleConfirmation.value && !adminPasswordConfirmed.value) {
+    openAdminConfirmModal()
+    return
+  }
+
+  try {
+    await performSaveUser()
+  } finally {
+    adminPasswordConfirmed.value = false
+  }
+}
+
+const confirmAdminRoleAssignment = async () => {
+  if (adminPasswordLoading.value) {
+    return
+  }
+
+  if (!adminPassword.value.trim()) {
+    adminPasswordError.value = 'Informe sua senha para confirmar.'
+    return
+  }
+
+  if (!authUser.value?.email) {
+    adminPasswordError.value = 'Não foi possível validar o usuário autenticado.'
+    return
+  }
+
+  adminPasswordError.value = ''
+  adminPasswordLoading.value = true
+
+  try {
+    await $fetch('/api/auth/login', {
+      method: 'POST',
+      body: {
+        email: authUser.value.email,
+        password: adminPassword.value
+      }
+    })
+    adminPasswordConfirmed.value = true
+    closeAdminConfirmModal()
+    adminPassword.value = ''
+    await saveUser()
+  } catch (error) {
+    const statusMessage = (error as { statusMessage?: string })?.statusMessage
+    adminPasswordError.value = statusMessage || 'Senha inválida. Tente novamente.'
+  } finally {
+    adminPasswordLoading.value = false
+    adminPassword.value = ''
   }
 }
 
