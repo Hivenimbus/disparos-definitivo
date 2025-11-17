@@ -130,6 +130,13 @@ func (m *Manager) resumeJob(ctx context.Context, row *supabase.JobRow) error {
 		return err
 	}
 
+	if row.RequestedStop {
+		if err := m.forceCloseJob(ctx, row, "stopped", "disparo cancelado antes da retomada"); err != nil {
+			return err
+		}
+		return nil
+	}
+
 	pendingContacts := make([]supabase.ContactRow, 0)
 	successCount := 0
 	failedCount := 0
@@ -186,6 +193,7 @@ func (m *Manager) resumeJob(ctx context.Context, row *supabase.JobRow) error {
 	runtime.Failed = failedCount
 	runtime.LastContactName = lastContactName
 	runtime.LastError = lastError
+	runtime.RequestedStop = row.RequestedStop
 
 	active := &ActiveJob{
 		runtime:     runtime,
