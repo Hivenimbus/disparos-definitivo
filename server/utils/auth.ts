@@ -7,7 +7,7 @@ export type AuthenticatedUser = {
   nome: string
   email: string
   status: 'ativo' | 'desativado'
-  role: 'admin' | 'user'
+  role: 'admin' | 'manager' | 'user'
 }
 
 export const requireAuthUser = async (event: H3Event): Promise<AuthenticatedUser> => {

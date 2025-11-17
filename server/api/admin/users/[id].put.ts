@@ -15,7 +15,7 @@ type UpdateUserPayload = {
   nome?: string
   email?: string
   password?: string
-  role?: 'admin' | 'usuario'
+  role?: 'admin' | 'gerente' | 'usuario'
   status?: 'ativo' | 'desativado'
   companyId?: string | null
   dataVencimento?: string
@@ -98,11 +98,19 @@ export default defineEventHandler(async (event) => {
     updates.cpf = payload.cpf?.trim() || null
   }
 
-  if (payload.role !== undefined) {
-    updates.role = mapRoleToDb(payload.role)
+  const companyIdTarget = payload.companyId !== undefined ? payload.companyId : existing.company_id
+  const requestedRole = payload.role !== undefined ? mapRoleToDb(payload.role) : existing.role
+
+  if (requestedRole === 'manager' && !companyIdTarget) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'Gerentes devem estar vinculados a uma empresa.'
+    })
   }
 
-  const companyIdTarget = payload.companyId !== undefined ? payload.companyId : existing.company_id
+  if (payload.role !== undefined) {
+    updates.role = requestedRole
+  }
   let companyRecord: Awaited<ReturnType<typeof fetchCompanyById>> | null = null
 
   if (companyIdTarget) {

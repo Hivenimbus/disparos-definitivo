@@ -3,7 +3,7 @@ import jwt from 'jsonwebtoken'
 type AuthTokenPayload = {
   sub: string
   email: string
-  role: 'admin' | 'user'
+  role: 'admin' | 'manager' | 'user'
   status: 'ativo' | 'desativado'
 }
 

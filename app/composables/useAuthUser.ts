@@ -2,7 +2,7 @@ type AuthUser = {
   id: string
   nome: string
   email: string
-  role: 'admin' | 'user'
+  role: 'admin' | 'manager' | 'user'
   status: 'ativo' | 'desativado'
   empresa: string | null
   numero: string | null

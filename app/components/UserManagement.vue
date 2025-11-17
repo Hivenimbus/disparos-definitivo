@@ -110,12 +110,9 @@
               <td class="px-4 py-3">
                 <span
                   class="px-3 py-1 rounded-full text-xs font-medium"
-                  :class="{
-                    'bg-blue-100 text-blue-700': user.role === 'admin',
-                    'bg-gray-100 text-gray-700': user.role === 'usuario'
-                  }"
+                  :class="roleBadgeClasses[user.role]"
                 >
-                  {{ user.role === 'admin' ? 'Admin' : 'Usuário' }}
+                  {{ roleLabels[user.role] }}
                 </span>
               </td>
               <td class="px-4 py-3">
@@ -186,13 +183,18 @@
               >
                 <button
                   type="button"
-                  class="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center justify-between"
+                  class="w-full text-left px-4 py-2 text-sm flex items-center justify-between"
                   @mousedown.prevent
                   @click="selectCompany(null)"
+                  :disabled="roleRequiresCompany"
+                  :class="{
+                    'opacity-50 cursor-not-allowed text-gray-400': roleRequiresCompany,
+                    'hover:bg-gray-50': !roleRequiresCompany
+                  }"
                 >
                   <span>Sem empresa</span>
                   <svg
-                    v-if="!userForm.empresaId"
+                    v-if="!userForm.empresaId && !roleRequiresCompany"
                     xmlns="http://www.w3.org/2000/svg"
                     class="w-4 h-4 text-blue-600"
                     fill="none"
@@ -247,6 +249,13 @@
                 <p v-else class="px-4 py-3 text-sm text-gray-500">Nenhuma empresa encontrada</p>
               </div>
             </div>
+            <p
+              v-if="roleRequiresCompany"
+              class="text-xs mt-2"
+              :class="userForm.empresaId ? 'text-gray-500' : 'text-blue-600'"
+            >
+              Gerentes precisam estar vinculados a uma empresa.
+            </p>
           </div>
 
           <div>
@@ -309,6 +318,7 @@
               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value="usuario">Usuário</option>
+              <option value="gerente">Gerente</option>
               <option value="admin">Admin</option>
             </select>
           </div>
@@ -387,7 +397,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 
-type UiRole = 'admin' | 'usuario'
+type UiRole = 'admin' | 'gerente' | 'usuario'
 type UiStatus = 'ativo' | 'desativado'
 type StatusLabel = 'ativo' | 'desativado'
 
@@ -443,6 +453,16 @@ const isDeleting = ref(false)
 const originalCompanyId = ref<string | null>(null)
 const statusUpdating = ref<Record<string, boolean>>({})
 const statusErrors = ref<Record<string, string>>({})
+const roleLabels: Record<UiRole, string> = {
+  admin: 'Admin',
+  gerente: 'Gerente',
+  usuario: 'Usuário'
+}
+const roleBadgeClasses: Record<UiRole, string> = {
+  admin: 'bg-blue-100 text-blue-700',
+  gerente: 'bg-purple-100 text-purple-700',
+  usuario: 'bg-gray-100 text-gray-700'
+}
 const companySearch = ref('')
 const isCompanyDropdownOpen = ref(false)
 let companyDropdownCloseTimeout: ReturnType<typeof setTimeout> | null = null
@@ -461,6 +481,7 @@ const defaultForm = (): UserFormState => ({
 })
 
 const userForm = ref<UserFormState>(defaultForm())
+const roleRequiresCompany = computed(() => userForm.value.role === 'gerente')
 
 const {
   data: usersData,
@@ -519,6 +540,7 @@ const isFormValid = computed(() => {
   if (!userForm.value.nome.trim()) return false
   if (!userForm.value.email.trim()) return false
   if (!userForm.value.dataVencimento) return false
+  if (roleRequiresCompany.value && !userForm.value.empresaId) return false
   if (!isEditMode.value && userForm.value.senha.trim().length < 8) return false
   if (isEditMode.value && userForm.value.senha && userForm.value.senha.length < 8) return false
   return true
@@ -590,7 +612,15 @@ const scheduleCloseCompanyDropdown = () => {
 }
 
 const selectCompany = (company: CompanyItem | null) => {
+  if (!company && roleRequiresCompany.value) {
+    formError.value = 'Gerentes devem estar vinculados a uma empresa.'
+    return
+  }
+
   userForm.value.empresaId = company ? company.id : null
+  if (formError.value === 'Gerentes devem estar vinculados a uma empresa.' && userForm.value.empresaId) {
+    formError.value = ''
+  }
   updateCompanySearchFromSelection(company?.nome || '')
   closeCompanyDropdown()
 }
@@ -717,6 +747,11 @@ const closeModal = () => {
 }
 
 const ensureCapacity = () => {
+  if (roleRequiresCompany.value && !userForm.value.empresaId) {
+    formError.value = 'Gerentes devem estar vinculados a uma empresa.'
+    return false
+  }
+
   if (!userForm.value.empresaId) {
     return true
   }

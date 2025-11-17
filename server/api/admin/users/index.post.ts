@@ -16,7 +16,7 @@ type CreateUserPayload = {
   nome: string
   email: string
   password: string
-  role?: 'admin' | 'usuario'
+  role?: 'admin' | 'gerente' | 'usuario'
   status?: 'ativo' | 'desativado'
   companyId?: string | null
   dataVencimento?: string
@@ -100,6 +100,13 @@ export default defineEventHandler(async (event) => {
     statusDb = 'desativado'
   }
   const roleDb = mapRoleToDb(payload.role)
+
+  if (roleDb === 'manager' && !payload.companyId) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'Gerentes devem estar vinculados a uma empresa.'
+    })
+  }
 
   const { data, error } = await supabase
     .from('users')

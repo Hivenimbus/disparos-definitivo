@@ -1,8 +1,8 @@
 import { createError } from 'h3'
 import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js'
 
-type DbRole = 'admin' | 'user'
-type UiRole = 'admin' | 'usuario'
+type DbRole = 'admin' | 'manager' | 'user'
+type UiRole = 'admin' | 'gerente' | 'usuario'
 type DbStatus = 'ativo' | 'desativado'
 type UiStatus = 'ativo' | 'desativado'
 
@@ -53,9 +53,28 @@ export type AdminUserDTO = {
 
 export const normalizeEmail = (email: string) => email.trim().toLowerCase()
 
-export const mapRoleToUi = (role: DbRole): UiRole => (role === 'admin' ? 'admin' : 'usuario')
+export const mapRoleToUi = (role: DbRole): UiRole => {
+  switch (role) {
+    case 'admin':
+      return 'admin'
+    case 'manager':
+      return 'gerente'
+    default:
+      return 'usuario'
+  }
+}
 
-export const mapRoleToDb = (role: UiRole | string | undefined): DbRole => (role === 'admin' ? 'admin' : 'user')
+export const mapRoleToDb = (role: UiRole | string | undefined): DbRole => {
+  switch (role) {
+    case 'admin':
+      return 'admin'
+    case 'gerente':
+    case 'manager':
+      return 'manager'
+    default:
+      return 'user'
+  }
+}
 
 export const mapStatusToUi = (status: DbStatus): UiStatus => (status === 'desativado' ? 'desativado' : 'ativo')
 
