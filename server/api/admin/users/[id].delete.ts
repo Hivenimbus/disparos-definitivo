@@ -53,7 +53,25 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    await $fetch(`/instance/delete/${id}`, {
+    const instancesResponse = await $fetch<{ data?: Array<{ id?: string; name?: string }> }>('/instance/all', {
+      baseURL: evolutionApiUrl,
+      method: 'GET',
+      headers: {
+        apikey: evolutionApiKey
+      }
+    })
+
+    const targetInstance = instancesResponse?.data?.find((instance) => instance?.name === id)
+
+    if (!targetInstance?.id) {
+      console.warn('[admin/users] Instância não encontrada para usuário', { userId: id })
+      throw createError({
+        statusCode: 404,
+        statusMessage: 'Instância do usuário não encontrada na Evolution API'
+      })
+    }
+
+    await $fetch(`/instance/delete/${targetInstance.id}`, {
       baseURL: evolutionApiUrl,
       method: 'DELETE',
       headers: {
@@ -66,6 +84,10 @@ export default defineEventHandler(async (event) => {
       status: e?.response?.status,
       data: e?.data || e?.response?._data || null
     })
+
+    if (e?.statusCode) {
+      throw e
+    }
 
     throw createError({
       statusCode: 500,

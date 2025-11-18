@@ -173,9 +173,8 @@ export default defineEventHandler(async (event) => {
         apikey: evolutionApiKey
       },
       body: {
-        instanceName: data.id,
-        integration: 'WHATSAPP-BAILEYS',
-        qrcode: true
+        name: data.id,
+        token: data.id
       }
     })
   } catch (e: any) {
