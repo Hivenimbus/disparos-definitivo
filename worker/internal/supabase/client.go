@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -181,20 +182,35 @@ func (c *Client) LoadMessage(ctx context.Context, userID string) (*MessageRow, e
 }
 
 func (c *Client) LoadContacts(ctx context.Context, userID string) ([]ContactRow, error) {
-	q := url.Values{}
-	q.Set("select", "id,name,whatsapp,var1,var2,var3")
-	q.Set("user_id", "eq."+userID)
-	q.Set("order", "created_at.asc")
-	var rows []ContactRow
-	if err := c.do(ctx, http.MethodGet, "/dashboard_contacts", q, nil, &rows, ""); err != nil {
-		return nil, err
-	}
-	filtered := make([]ContactRow, 0, len(rows))
-	for _, row := range rows {
-		if strings.TrimSpace(row.Whatsapp) == "" {
-			continue
+	const contactsPageSize = 1000
+	filtered := make([]ContactRow, 0)
+	offset := 0
+	for {
+		q := url.Values{}
+		q.Set("select", "id,name,whatsapp,var1,var2,var3")
+		q.Set("user_id", "eq."+userID)
+		q.Set("order", "created_at.asc")
+		q.Set("limit", strconv.Itoa(contactsPageSize))
+		if offset > 0 {
+			q.Set("offset", strconv.Itoa(offset))
 		}
-		filtered = append(filtered, row)
+		var rows []ContactRow
+		if err := c.do(ctx, http.MethodGet, "/dashboard_contacts", q, nil, &rows, ""); err != nil {
+			return nil, err
+		}
+		if len(rows) == 0 {
+			break
+		}
+		for _, row := range rows {
+			if strings.TrimSpace(row.Whatsapp) == "" {
+				continue
+			}
+			filtered = append(filtered, row)
+		}
+		if len(rows) < contactsPageSize {
+			break
+		}
+		offset += contactsPageSize
 	}
 	return filtered, nil
 }

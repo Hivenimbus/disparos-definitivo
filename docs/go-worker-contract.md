@@ -137,7 +137,7 @@ No Nuxt, adicionar `WORKER_BASE_URL` e `WORKER_TOKEN` em `runtimeConfig` e utili
 
 ## Fluxo resumido
 1. Nuxt chama `POST /jobs/start` com `user_id`.
-2. Worker carrega (`dashboard_messages`, `dashboard_contacts`, `configuracoes`), valida dados, cria registro `queued`, preenche logs `pending` e inicia goroutine (`processing`).
+2. Worker carrega (`dashboard_messages`, `dashboard_contacts`, `configuracoes`) em lotes paginados (para contatos, blocos de 1000 registros por requisição) para evitar o limite padrão do PostgREST, valida dados, cria registro `queued`, preenche logs `pending` e inicia goroutine (`processing`).
 3. Loop processa cada contato:
    - Renderiza mensagem (`resolveSpintax`, placeholders) e envia texto/mídias via Evolution.
    - Atualiza log (`status`, `message_preview`, `error`, `processed_at`).
