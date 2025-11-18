@@ -12,6 +12,13 @@ import {
   normalizeEmail
 } from '../../../utils/users'
 
+type ParsedProxyConfig = {
+  host: string
+  port: string
+  username: string
+  password: string
+}
+
 type CreateUserPayload = {
   nome: string
   email: string
@@ -39,6 +46,29 @@ const validateCreatePayload = (payload: CreateUserPayload, requireVencimento: bo
 
   if (requireVencimento && !payload?.dataVencimento) {
     throw createError({ statusCode: 400, statusMessage: 'Data de vencimento é obrigatória' })
+  }
+}
+
+const parseProxyString = (proxyString: string): ParsedProxyConfig => {
+  try {
+    const trimmed = proxyString.trim()
+    const parsedUrl = new URL(trimmed)
+
+    if (!parsedUrl.hostname || !parsedUrl.port || !parsedUrl.username || !parsedUrl.password) {
+      throw new Error('Missing proxy components')
+    }
+
+    return {
+      host: parsedUrl.hostname,
+      port: parsedUrl.port,
+      username: decodeURIComponent(parsedUrl.username),
+      password: decodeURIComponent(parsedUrl.password)
+    }
+  } catch (error) {
+    throw createError({
+      statusCode: 500,
+      statusMessage: 'Formato de proxy inválido.'
+    })
   }
 }
 
@@ -164,7 +194,68 @@ export default defineEventHandler(async (event) => {
     })
   }
 
+  let proxyString: string | null = null
+  let proxyPayload: ParsedProxyConfig | null = null
+
+  const restoreProxy = async () => {
+    if (!proxyString) {
+      return
+    }
+    try {
+      await supabase.from('Proxys').insert({ Proxy: proxyString })
+    } catch (restoreError) {
+      console.error('[admin/users] Erro ao devolver proxy para pool', restoreError)
+    } finally {
+      proxyString = null
+    }
+  }
+
   try {
+    const { data: proxyRecord, error: proxySelectError } = await supabase
+      .from('Proxys')
+      .select('id, "Proxy"')
+      .order('id', { ascending: true })
+      .limit(1)
+      .maybeSingle()
+
+    if (proxySelectError || !proxyRecord?.Proxy || !proxyRecord.id) {
+      throw proxySelectError || new Error('Proxy não disponível')
+    }
+
+    const { data: deletedProxy, error: proxyDeleteError } = await supabase
+      .from('Proxys')
+      .delete()
+      .eq('id', proxyRecord.id)
+      .select('id')
+      .maybeSingle()
+
+    if (proxyDeleteError || !deletedProxy?.id) {
+      throw proxyDeleteError || new Error('Não foi possível reservar a proxy')
+    }
+
+    proxyString = proxyRecord.Proxy.trim()
+    proxyPayload = parseProxyString(proxyString)
+  } catch (proxyError: any) {
+    console.error('[admin/users] Falha ao reservar proxy', proxyError)
+    await restoreProxy()
+    const { error: rollbackError } = await supabase.from('users').delete().eq('id', data.id)
+    if (rollbackError) {
+      console.error('[admin/users] Erro ao remover usuário após falha ao reservar proxy', rollbackError)
+    }
+    throw createError({
+      statusCode: 503,
+      statusMessage: 'Não há proxies disponíveis no momento. Tente novamente mais tarde.'
+    })
+  }
+
+  try {
+    if (!proxyPayload) {
+      throw createError({
+        statusCode: 500,
+        statusMessage: 'Configuração de proxy não encontrada.'
+      })
+    }
+
     await $fetch('/instance/create', {
       baseURL: evolutionApiUrl,
       method: 'POST',
@@ -174,10 +265,25 @@ export default defineEventHandler(async (event) => {
       },
       body: {
         name: data.id,
-        token: data.id
+        token: data.id,
+        proxy: proxyPayload
       }
     })
+
+    if (proxyString) {
+      const { error: proxyUpdateError } = await supabase
+        .from('users')
+        .update({ Proxy: proxyString })
+        .eq('id', data.id)
+
+      if (proxyUpdateError) {
+        console.error('[admin/users] Erro ao salvar proxy do usuário', proxyUpdateError)
+      }
+
+      proxyString = null
+    }
   } catch (e: any) {
+    await restoreProxy()
     console.error('[admin/users] Erro ao criar instância no Evolution', {
       message: e?.message,
       status: e?.response?.status,
