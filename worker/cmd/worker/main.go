@@ -22,7 +22,7 @@ func main() {
 	}
 
 	supabaseClient := supabase.NewClient(cfg.SupabaseRestURL, cfg.SupabaseServiceRole)
-	evolutionClient := evolution.NewClient(cfg.EvolutionAPIURL, cfg.EvolutionAPIKey)
+	evolutionClient := evolution.NewClient(cfg.EvolutionAPIURL)
 	lockClient, err := locks.NewRedisLock(cfg.RedisURL, cfg.RedisLockTTLSeconds)
 	if err != nil {
 		logger.Fatalf("redis lock error: %v", err)

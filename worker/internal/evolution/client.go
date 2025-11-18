@@ -13,8 +13,7 @@ import (
 
 type Client struct {
 	baseURL string
-	apiKey  string
-	http    *http.Client
+	client  *http.Client
 }
 
 type APIError struct {
@@ -26,46 +25,35 @@ func (e *APIError) Error() string {
 	return fmt.Sprintf("evolution API error %d: %s", e.StatusCode, e.Message)
 }
 
-func NewClient(baseURL, apiKey string) *Client {
+func NewClient(baseURL string) *Client {
 	return &Client{
 		baseURL: strings.TrimSuffix(baseURL, "/"),
-		apiKey:  apiKey,
-		http: &http.Client{
+		client: &http.Client{
 			Timeout: 30 * time.Second,
 		},
 	}
 }
 
-func (c *Client) SendText(ctx context.Context, instanceID, number, text string) error {
-	payload := map[string]string{
+func (c *Client) SendText(ctx context.Context, userAPIKey, number, text string) error {
+	payload := map[string]any{
 		"number": number,
 		"text":   text,
 	}
-	return c.post(ctx, fmt.Sprintf("/message/sendText/%s", instanceID), payload)
+	return c.post(ctx, userAPIKey, "/send/text", payload)
 }
 
 type MediaPayload struct {
-	Number    string `json:"number"`
-	MediaType string `json:"mediatype"`
-	MimeType  string `json:"mimetype"`
-	Caption   string `json:"caption"`
-	Media     string `json:"media"`
-	FileName  string `json:"fileName"`
+	Number  string  `json:"number"`
+	Type    string  `json:"type"`
+	URL     string  `json:"url"`
+	Caption *string `json:"caption,omitempty"`
 }
 
-func (c *Client) SendMedia(ctx context.Context, instanceID string, payload MediaPayload) error {
-	return c.post(ctx, fmt.Sprintf("/message/sendMedia/%s", instanceID), payload)
+func (c *Client) SendMedia(ctx context.Context, userAPIKey string, payload MediaPayload) error {
+	return c.post(ctx, userAPIKey, "/send/media", payload)
 }
 
-func (c *Client) SendAudio(ctx context.Context, instanceID, number string, mediaURL string) error {
-	payload := map[string]any{
-		"number": number,
-		"audio":  mediaURL,
-	}
-	return c.post(ctx, fmt.Sprintf("/message/sendWhatsAppAudio/%s", instanceID), payload)
-}
-
-func (c *Client) post(ctx context.Context, path string, payload any) error {
+func (c *Client) post(ctx context.Context, userAPIKey, path string, payload any) error {
 	data, err := json.Marshal(payload)
 	if err != nil {
 		return err
@@ -74,10 +62,10 @@ func (c *Client) post(ctx context.Context, path string, payload any) error {
 	if err != nil {
 		return err
 	}
-	req.Header.Set("apikey", c.apiKey)
+	req.Header.Set("apikey", userAPIKey)
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := c.http.Do(req)
+	resp, err := c.client.Do(req)
 	if err != nil {
 		return err
 	}

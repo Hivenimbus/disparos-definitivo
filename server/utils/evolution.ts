@@ -15,6 +15,15 @@ export const getEvolutionConfig = () => {
   return { evolutionApiUrl, evolutionApiKey }
 }
 
+export const buildEvolutionHeaders = (overrideApiKey?: string | null) => {
+  const apiKey = overrideApiKey?.trim()
+  if (apiKey) {
+    return { apikey: apiKey }
+  }
+  const { evolutionApiKey } = getEvolutionConfig()
+  return { apikey: evolutionApiKey }
+}
+
 export const sanitizePhoneNumber = (value?: string | null) => {
   if (!value) return undefined
   const digitsOnly = value.replace(/\D/g, '')

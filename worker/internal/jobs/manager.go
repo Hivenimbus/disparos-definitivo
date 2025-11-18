@@ -718,13 +718,13 @@ func (m *Manager) handleContactSend(ctx context.Context, active *ActiveJob, cont
 	if number == "" {
 		return "", fmt.Errorf("número de WhatsApp inválido")
 	}
-	instanceID := active.userID
+	userAPIKey := active.userID
 	messagePreview := ""
 
 	if strings.TrimSpace(active.messageBody) != "" {
 		messagePreview = renderMessage(active.messageBody, contact)
 		if messagePreview != "" {
-			if err := m.evolution.SendText(ctx, instanceID, number, messagePreview); err != nil {
+			if err := m.evolution.SendText(ctx, userAPIKey, number, messagePreview); err != nil {
 				return messagePreview, err
 			}
 		}
@@ -735,37 +735,18 @@ func (m *Manager) handleContactSend(ctx context.Context, active *ActiveJob, cont
 			continue
 		}
 		mediaType := deriveMediaType(attachment.MimeType)
-		if strings.HasPrefix(attachment.MimeType, "audio/") {
-			err := m.evolution.SendAudio(ctx, instanceID, number, attachment.PublicURL)
-			if err != nil {
-				var apiErr *evolution.APIError
-				if errors.As(err, &apiErr) && apiErr.StatusCode == httpStatusNotFound {
-					payload := evolution.MediaPayload{
-						Number:    number,
-						MediaType: "audio",
-						MimeType:  attachment.MimeType,
-						Caption:   valueOrEmpty(attachment.Caption),
-						Media:     attachment.PublicURL,
-						FileName:  attachment.FileName,
-					}
-					if fbErr := m.evolution.SendMedia(ctx, instanceID, payload); fbErr != nil {
-						return messagePreview, fbErr
-					}
-					continue
-				}
-				return messagePreview, err
-			}
-			continue
-		}
 		payload := evolution.MediaPayload{
-			Number:    number,
-			MediaType: mediaType,
-			MimeType:  attachment.MimeType,
-			Caption:   valueOrEmpty(attachment.Caption),
-			Media:     attachment.PublicURL,
-			FileName:  attachment.FileName,
+			Number: number,
+			Type:   mediaType,
+			URL:    attachment.PublicURL,
 		}
-		if err := m.evolution.SendMedia(ctx, instanceID, payload); err != nil {
+		if mediaType != "audio" {
+			caption := valueOrEmpty(attachment.Caption)
+			if strings.TrimSpace(caption) != "" {
+				payload.Caption = &caption
+			}
+		}
+		if err := m.evolution.SendMedia(ctx, userAPIKey, payload); err != nil {
 			return messagePreview, err
 		}
 	}
@@ -813,6 +794,9 @@ func deriveMediaType(mime string) string {
 	}
 	if strings.HasPrefix(mime, "video/") {
 		return "video"
+	}
+	if strings.HasPrefix(mime, "audio/") {
+		return "audio"
 	}
 	return "document"
 }
@@ -943,8 +927,6 @@ func messagePreviewOrNil(value string) any {
 	}
 	return value
 }
-
-const httpStatusNotFound = 404
 
 func (m *Manager) buildLockKey(userID string) string {
 	return fmt.Sprintf("sendjob:lock:%s", userID)
