@@ -113,7 +113,7 @@
             :key="contact.id"
             class="border-b border-gray-200 hover:bg-gray-50 transition-colors"
           >
-            <td class="px-4 py-3 text-gray-800">{{ contact.name }}</td>
+            <td class="px-4 py-3 text-gray-800">{{ (contact.name || '').trim() }}</td>
             <td class="px-4 py-3 text-gray-600">{{ contact.whatsapp }}</td>
             <td v-if="hasVar1" class="px-4 py-3 text-gray-600">{{ contact.var1 || '-' }}</td>
             <td v-if="hasVar2" class="px-4 py-3 text-gray-600">{{ contact.var2 || '-' }}</td>
@@ -585,6 +585,12 @@ const saveEdit = async () => {
   }
 }
 
+const looksLikeWhatsApp = (value) => {
+  if (!value) return false
+  const digits = value.replace(/\D/g, '')
+  return digits.length >= 10 && digits.length <= 15
+}
+
 const parseContactLine = (line) => {
   line = line.trim()
   if (!line) return null
@@ -633,19 +639,24 @@ const parseContactLine = (line) => {
   if (fields.length === 1) {
     // Only WhatsApp number
     result.whatsapp = fields[0].replace(/\D/g, '')
-    result.name = `Contato ${result.whatsapp.slice(-4)}`
-  } else if (fields.length === 2) {
-    // Name and WhatsApp
-    result.name = fields[0]
-    result.whatsapp = fields[1].replace(/\D/g, '')
   } else {
-    // Name, WhatsApp, and variables
-    result.name = fields[0]
-    result.whatsapp = fields[1].replace(/\D/g, '')
-    if (fields[2]) result.var1 = fields[2]
-    if (fields[3]) result.var2 = fields[3]
-    if (fields[4]) result.var3 = fields[4]
+    const firstIsWhatsApp = looksLikeWhatsApp(fields[0])
+    if (firstIsWhatsApp) {
+      result.whatsapp = fields[0].replace(/\D/g, '')
+      result.var1 = fields[1] || ''
+      result.var2 = fields[2] || ''
+      result.var3 = fields[3] || ''
+    } else {
+      // Name, WhatsApp, and optional variables
+      result.name = fields[0]
+      result.whatsapp = fields[1].replace(/\D/g, '')
+      if (fields[2]) result.var1 = fields[2]
+      if (fields[3]) result.var2 = fields[3]
+      if (fields[4]) result.var3 = fields[4]
+    }
   }
+
+  result.name = result.name?.trim?.() || ''
 
   return result.whatsapp ? result : null
 }
@@ -978,21 +989,31 @@ const processFile = async () => {
         let var3 = ''
 
         if (row.length === 1) {
-          whatsapp = String(row[0]).trim()
-          name = `Contato ${whatsapp.slice(-4)}`
+          whatsapp = String(row[0] ?? '').trim()
         } else {
-          name = String(row[0] || '').trim()
-          whatsapp = String(row[1] || '').trim()
-          if (row[2]) var1 = String(row[2]).trim()
-          if (row[3]) var2 = String(row[3]).trim()
-          if (row[4]) var3 = String(row[4]).trim()
+          const firstCell = String(row[0] ?? '').trim()
+          const secondCell = String(row[1] ?? '').trim()
+          const firstIsWhatsApp = looksLikeWhatsApp(firstCell)
+
+          if (firstIsWhatsApp) {
+            whatsapp = firstCell
+            var1 = secondCell
+            if (row[2]) var2 = String(row[2]).trim()
+            if (row[3]) var3 = String(row[3]).trim()
+          } else {
+            name = firstCell
+            whatsapp = secondCell
+            if (row[2]) var1 = String(row[2]).trim()
+            if (row[3]) var2 = String(row[3]).trim()
+            if (row[4]) var3 = String(row[4]).trim()
+          }
         }
 
         if (whatsapp) {
           const isValid = validateWhatsApp(whatsapp)
           newContacts.push({
             id: Date.now() + index,
-            name: name || `Contato ${whatsapp.slice(-4)}`,
+            name,
             whatsapp: whatsapp,
             var1: var1,
             var2: var2,

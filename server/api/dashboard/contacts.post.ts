@@ -11,13 +11,13 @@ type ContactPayload = {
 }
 
 const normalizeContact = (contact: ContactPayload, userId: string) => {
-  if (!contact?.name?.trim() || !contact?.whatsapp?.trim()) {
-    throw createError({ statusCode: 400, statusMessage: 'Nome e WhatsApp são obrigatórios' })
+  if (!contact?.whatsapp?.trim()) {
+    throw createError({ statusCode: 400, statusMessage: 'WhatsApp é obrigatório' })
   }
 
   return {
     user_id: userId,
-    name: contact.name.trim(),
+    name: contact.name?.trim() || '',
     whatsapp: contact.whatsapp.trim(),
     var1: contact.var1?.trim() || null,
     var2: contact.var2?.trim() || null,
