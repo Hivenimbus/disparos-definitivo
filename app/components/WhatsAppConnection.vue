@@ -122,11 +122,17 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
-type ConnectionState = string
+type InstanceStatus = {
+  connected: boolean
+  loggedIn: boolean
+  name?: string | null
+  myJid?: string | null
+}
 
 const qrCodeData = ref<string | null>(null)
 const pairingCode = ref<string | null>(null)
-const lastInstanceState = ref<ConnectionState>('unknown')
+const lastInstanceStatus = ref<InstanceStatus | null>(null)
+const hasRequestedConnection = ref(false)
 const errorMessage = ref<string | null>(null)
 const isConnecting = ref(false)
 const isDisconnecting = ref(false)
@@ -134,10 +140,24 @@ const isFetchingState = ref(false)
 const pollingHandle = ref<ReturnType<typeof setInterval> | null>(null)
 const qrRefreshHandle = ref<ReturnType<typeof setInterval> | null>(null)
 
-const isConnected = computed(() => lastInstanceState.value === 'open')
+const isConnected = computed(
+  () => Boolean(lastInstanceStatus.value?.connected && lastInstanceStatus.value?.loggedIn)
+)
+const isAwaitingQrScan = computed(() =>
+  Boolean(
+    hasRequestedConnection.value &&
+      lastInstanceStatus.value?.connected &&
+      !lastInstanceStatus.value?.loggedIn
+  )
+)
+const isReconnecting = computed(
+  () => Boolean(!lastInstanceStatus.value?.connected && lastInstanceStatus.value?.loggedIn)
+)
 
 const statusLabel = computed(() => {
   if (isConnected.value) return 'Conectado'
+  if (isAwaitingQrScan.value) return 'Aguardando leitura do QR'
+  if (isReconnecting.value) return 'Reconectando...'
   if (isConnecting.value || isFetchingState.value) return 'Conectando...'
   if (errorMessage.value) return 'Erro'
   return 'Desconectado'
@@ -164,7 +184,9 @@ const statusWrapperClass = computed(() => {
 const statusDotClass = computed(() => {
   if (isConnected.value) return 'bg-green-500 ring-4 ring-green-100'
   if (errorMessage.value) return 'bg-red-500 ring-4 ring-red-100'
-  if (isConnecting.value || isFetchingState.value) return 'bg-yellow-400 ring-4 ring-yellow-100 animate-pulse'
+  if (isAwaitingQrScan.value || isReconnecting.value || isConnecting.value || isFetchingState.value) {
+    return 'bg-yellow-400 ring-4 ring-yellow-100 animate-pulse'
+  }
   return 'bg-gray-400 ring-4 ring-gray-100'
 })
 
@@ -230,14 +252,21 @@ const ensureQrRefresh = () => {
   }, 30000)
 }
 
-const applyState = (state: string | undefined | null) => {
+const applyState = (state: InstanceStatus | undefined | null) => {
   if (!state) return
-  const normalized = state as ConnectionState
-  lastInstanceState.value = normalized
-  if (normalized === 'open') {
+  const normalized: InstanceStatus = {
+    connected: Boolean(state.connected),
+    loggedIn: Boolean(state.loggedIn),
+    name: state.name ?? null,
+    myJid: state.myJid ?? null
+  }
+
+  lastInstanceStatus.value = normalized
+  if (normalized.connected && normalized.loggedIn) {
     errorMessage.value = null
     qrCodeData.value = null
     pairingCode.value = null
+    hasRequestedConnection.value = false
     stopPolling()
     stopQrRefresh()
   } else {
@@ -251,12 +280,12 @@ const fetchConnectionState = async ({ silent = false }: { silent?: boolean } = {
   }
 
   try {
-    const data = await $fetch<{ instance: { instanceName: string; state: string } }>('/api/dashboard/whatsapp/state')
-    applyState(data.instance.state)
+    const data = await $fetch<InstanceStatus>('/api/dashboard/whatsapp/state')
+    applyState(data)
     errorMessage.value = null
   } catch (error: any) {
     if (error?.statusCode === 404) {
-      lastInstanceState.value = 'unknown'
+      lastInstanceStatus.value = null
     }
     errorMessage.value = error?.data?.statusMessage || 'Não foi possível consultar o estado da conexão.'
   } finally {
@@ -268,9 +297,12 @@ const fetchConnectionState = async ({ silent = false }: { silent?: boolean } = {
 
 const fetchQrCode = async ({ silent = false }: { silent?: boolean } = {}) => {
   try {
-    const data = await $fetch<{ base64?: string; pairingCode?: string; code?: string; count?: number }>('/api/dashboard/whatsapp/connect')
+    const data = await $fetch<{ base64?: string; qrcode?: string | null }>('/api/dashboard/whatsapp/connect')
     qrCodeData.value = data.base64 ?? null
-    pairingCode.value = data.pairingCode ?? null
+    pairingCode.value = null
+    if (qrCodeData.value) {
+      hasRequestedConnection.value = true
+    }
     if (!silent) {
       errorMessage.value = null
     }
@@ -317,7 +349,8 @@ const disconnectInstance = async () => {
       method: 'DELETE'
     })
 
-    lastInstanceState.value = 'unknown'
+    lastInstanceStatus.value = null
+    hasRequestedConnection.value = false
     qrCodeData.value = null
     pairingCode.value = null
     await fetchConnectionState()

@@ -3,34 +3,55 @@ import { $fetch } from 'ofetch'
 import { requireAuthUser } from '../../../utils/auth'
 import { getEvolutionConfig } from '../../../utils/evolution'
 
-type EvolutionConnectResponse = {
-  base64?: string
-  pairingCode?: string
-  code?: string
-  count?: number
+type EvolutionQrResponse = {
+  message?: string
+  data?: {
+    Qrcode?: string
+    qrcode?: string
+    Code?: string
+    code?: string
+  }
+}
+
+type DashboardQrResponse = {
+  base64: string
+  qrcode?: string | null
 }
 
 export default defineEventHandler(async (event) => {
   const user = await requireAuthUser(event)
-  const { evolutionApiUrl, evolutionApiKey } = getEvolutionConfig()
+  const { evolutionApiUrl } = getEvolutionConfig()
 
   try {
-    const data = await $fetch<EvolutionConnectResponse>(`/instance/connect/${user.id}`, {
+    const response = await $fetch<EvolutionQrResponse>('/instance/qr', {
       baseURL: evolutionApiUrl,
       method: 'GET',
       headers: {
-        apikey: evolutionApiKey
+        apikey: user.id
       }
     })
 
-    if (!data?.base64 && !data?.pairingCode && !data?.code) {
+    const base64 =
+      response?.data?.Qrcode ??
+      response?.data?.qrcode
+    const qrcode =
+      response?.data?.Code ??
+      response?.data?.code ??
+      null
+
+    if (!base64) {
       throw createError({
         statusCode: 502,
         statusMessage: 'Resposta inesperada da Evolution API'
       })
     }
 
-    return data
+    const payload: DashboardQrResponse = {
+      base64,
+      qrcode
+    }
+
+    return payload
   } catch (error: any) {
     const status = error?.response?.status
 
@@ -48,7 +69,7 @@ export default defineEventHandler(async (event) => {
 
     throw createError({
       statusCode: 502,
-      statusMessage: 'Não foi possível iniciar a conexão com a Evolution API'
+      statusMessage: 'Não foi possível gerar o QR Code na Evolution API'
     })
   }
 })

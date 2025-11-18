@@ -659,7 +659,11 @@ const fileInputRef = ref(null)
 const isClearConfirmOpen = ref(false)
 const isSendConfirmationOpen = ref(false)
 const isCheckingSendReadiness = ref(false)
-const lastWhatsappState = ref<string>('unknown')
+type WhatsappStatus = {
+  connected: boolean
+  loggedIn: boolean
+}
+const lastWhatsappStatus = ref<WhatsappStatus | null>(null)
 const contactsSummary = ref({
   total: 0,
   validTotal: 0
@@ -1012,7 +1016,9 @@ const canClearMessage = computed(() => {
 })
 
 const hasSendableContent = computed(() => canClearMessage.value)
-const isWhatsappReady = computed(() => lastWhatsappState.value === 'open')
+const isWhatsappReady = computed(
+  () => Boolean(lastWhatsappStatus.value?.connected && lastWhatsappStatus.value?.loggedIn)
+)
 const hasContactsConfigured = computed(() => contactsSummary.value.total > 0)
 
 const openClearConfirmModal = () => {
@@ -1054,15 +1060,18 @@ const validateSendReadiness = async () => {
   isCheckingSendReadiness.value = true
 
   try {
-    const data = await $fetch<{ instance?: { state: string } }>('/api/dashboard/whatsapp/state')
-    const state = data?.instance?.state ?? 'unknown'
-    lastWhatsappState.value = state
-    if (state !== 'open') {
+    const data = await $fetch<WhatsappStatus>('/api/dashboard/whatsapp/state')
+    const status: WhatsappStatus = {
+      connected: Boolean(data?.connected),
+      loggedIn: Boolean(data?.loggedIn)
+    }
+    lastWhatsappStatus.value = status
+    if (!status.connected || !status.loggedIn) {
       errors.push('Conecte o WhatsApp para realizar o disparo.')
     }
   } catch (error) {
     console.error('[dashboard/messages] validação estado whatsapp', error)
-    lastWhatsappState.value = 'unknown'
+    lastWhatsappStatus.value = null
     errors.push('Não foi possível confirmar a conexão do WhatsApp.')
   }
 

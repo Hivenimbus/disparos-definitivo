@@ -1,36 +1,63 @@
-import { createError } from 'h3'
+﻿import { createError } from 'h3'
 import { $fetch } from 'ofetch'
 import { requireAuthUser } from '../../../utils/auth'
 import { getEvolutionConfig } from '../../../utils/evolution'
 
-type EvolutionStateResponse = {
-  instance?: {
-    instanceName: string
-    state: string
+type EvolutionStatusResponse = {
+  message?: string
+  data?: {
+    Connected?: boolean
+    connected?: boolean
+    LoggedIn?: boolean
+    loggedIn?: boolean
+    Name?: string
+    name?: string
+    MyJid?: string
+    myJid?: string
   }
+}
+
+type DashboardInstanceStatus = {
+  connected: boolean
+  loggedIn: boolean
+  name: string | null
+  myJid: string | null
 }
 
 export default defineEventHandler(async (event) => {
   const user = await requireAuthUser(event)
-  const { evolutionApiUrl, evolutionApiKey } = getEvolutionConfig()
+  const { evolutionApiUrl } = getEvolutionConfig()
 
   try {
-    const data = await $fetch<EvolutionStateResponse>(`/instance/connectionState/${user.id}`, {
+    const response = await $fetch<EvolutionStatusResponse>('/instance/status', {
       baseURL: evolutionApiUrl,
       method: 'GET',
       headers: {
-        apikey: evolutionApiKey
+        apikey: user.id
       }
     })
 
-    if (!data?.instance?.state) {
+    if (!response?.data) {
       throw createError({
         statusCode: 502,
         statusMessage: 'Resposta inesperada da Evolution API'
       })
     }
 
-    return data
+    const normalized: DashboardInstanceStatus = {
+      connected: Boolean(
+        response.data.connected ??
+          response.data.Connected
+      ),
+      loggedIn: Boolean(
+        response.data.loggedIn ??
+          response.data.LoggedIn
+      ),
+      name: response.data.name ?? response.data.Name ?? null,
+      myJid: response.data.myJid ?? response.data.MyJid ?? null
+    }
+
+    return normalized
   } catch (error: any) {
     const status = error?.response?.status
 
@@ -52,17 +79,3 @@ export default defineEventHandler(async (event) => {
     })
   }
 })
-
-
-
-
-
-
-
-
-
-
-
-
-
-

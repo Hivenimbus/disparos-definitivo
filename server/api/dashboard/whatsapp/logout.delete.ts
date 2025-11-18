@@ -1,19 +1,20 @@
-import { createError } from 'h3'
+﻿import { createError } from 'h3'
 import { $fetch } from 'ofetch'
 import { requireAuthUser } from '../../../utils/auth'
 import { getEvolutionConfig } from '../../../utils/evolution'
 
 export default defineEventHandler(async (event) => {
   const user = await requireAuthUser(event)
-  const { evolutionApiUrl, evolutionApiKey } = getEvolutionConfig()
+  const { evolutionApiUrl } = getEvolutionConfig()
 
   try {
-    await $fetch(`/instance/logout/${user.id}`, {
+    await $fetch('/instance/logout', {
       baseURL: evolutionApiUrl,
       method: 'DELETE',
       headers: {
-        apikey: evolutionApiKey
-      }
+        apikey: user.id
+      },
+      body: {}
     })
 
     return { success: true }
@@ -38,17 +39,3 @@ export default defineEventHandler(async (event) => {
     })
   }
 })
-
-
-
-
-
-
-
-
-
-
-
-
-
-
