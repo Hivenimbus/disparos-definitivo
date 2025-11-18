@@ -265,8 +265,7 @@ export default defineEventHandler(async (event) => {
       },
       body: {
         name: data.id,
-        token: data.id,
-        proxy: proxyPayload
+        token: data.id
       }
     })
 
