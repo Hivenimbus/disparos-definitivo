@@ -39,7 +39,7 @@
       <input
         v-model="searchQuery"
         type="text"
-        placeholder="Buscar por nome ou email..."
+        placeholder="Buscar por nome, email ou empresa..."
         class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
       >
     </div>
@@ -594,9 +594,16 @@ const newUsersThisMonth = computed(() => {
 })
 
 const filteredUsers = computed(() => {
-  if (!searchQuery.value) return users.value
-  const query = searchQuery.value.toLowerCase()
-  return users.value.filter((u) => u.nome.toLowerCase().includes(query) || u.email.toLowerCase().includes(query))
+  const query = searchQuery.value.trim().toLowerCase()
+  if (!query) return users.value
+  return users.value.filter((u) => {
+    const companyName = getCompanyName(u)?.toLowerCase() ?? ''
+    return (
+      u.nome.toLowerCase().includes(query) ||
+      u.email.toLowerCase().includes(query) ||
+      companyName.includes(query)
+    )
+  })
 })
 
 const loadingTable = computed(() => usersPending.value || companiesPending.value)
