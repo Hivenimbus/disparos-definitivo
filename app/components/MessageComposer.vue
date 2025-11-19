@@ -180,12 +180,12 @@
 
       <button
         @click="sendMessage"
-        :disabled="isCheckingSendReadiness || isJobActive"
+        :disabled="isCheckingSendReadiness || isJobActive || isSavingBeforeSend"
         class="flex items-center space-x-2 px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
-          :class="['w-5 h-5', { 'animate-spin origin-center': isCheckingSendReadiness }]"
+          :class="['w-5 h-5', { 'animate-spin origin-center': isCheckingSendReadiness || isSavingBeforeSend }]"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -196,9 +196,11 @@
           {{
             isJobActive
               ? 'Disparo em andamento'
-              : isCheckingSendReadiness
-                ? 'Verificando...'
-                : 'Enviar Mensagem'
+              : isSavingBeforeSend
+                ? 'Salvando...'
+                : isCheckingSendReadiness
+                  ? 'Verificando...'
+                  : 'Enviar Mensagem'
           }}
         </span>
       </button>
@@ -642,6 +644,7 @@ const createDefaultSpintaxFields = (): SpintaxField[] => ([
 ])
 
 const message = ref('')
+const lastSavedMessageBody = ref('')
 const attachments = ref<DashboardAttachment[]>([])
 const deletingAttachmentIds = ref(new Set<string>())
 const uploadingAttachmentIds = ref(new Set<string>())
@@ -659,6 +662,7 @@ const fileInputRef = ref(null)
 const isClearConfirmOpen = ref(false)
 const isSendConfirmationOpen = ref(false)
 const isCheckingSendReadiness = ref(false)
+const isSavingBeforeSend = ref(false)
 type WhatsappStatus = {
   connected: boolean
   loggedIn: boolean
@@ -1016,6 +1020,12 @@ const canClearMessage = computed(() => {
 })
 
 const hasSendableContent = computed(() => canClearMessage.value)
+const hasPendingContentToSave = computed(() => {
+  const trimmedMessage = message.value.trim()
+  const messageChanged = trimmedMessage !== lastSavedMessageBody.value
+  const hasUnsavedAttachments = attachments.value.some((attachment) => !attachment.persisted)
+  return messageChanged || hasUnsavedAttachments
+})
 const isWhatsappReady = computed(
   () => Boolean(lastWhatsappStatus.value?.connected && lastWhatsappStatus.value?.loggedIn)
 )
@@ -1130,6 +1140,7 @@ const clearMessage = async () => {
   attachments.value = []
   message.value = ''
   currentMessageId.value = null
+  lastSavedMessageBody.value = ''
   toast.success('Mensagem limpa com sucesso')
 }
 
@@ -1207,12 +1218,15 @@ const loadLastMessage = async (showLoader = true) => {
     const lastMessage = response?.messages?.[0]
     if (lastMessage) {
       currentMessageId.value = lastMessage.id || null
-      message.value = lastMessage.body || ''
+      const loadedBody = lastMessage.body || ''
+      message.value = loadedBody
       attachments.value = normalizeApiAttachments(lastMessage.attachments ?? [])
+      lastSavedMessageBody.value = loadedBody.trim()
     } else {
       currentMessageId.value = null
       message.value = ''
       attachments.value = []
+      lastSavedMessageBody.value = ''
     }
   } catch (error) {
     console.error('[dashboard/messages] load error', error)
@@ -1298,7 +1312,9 @@ const saveMessage = async (options: SaveMessageOptions = {}) => {
     await loadLastMessage(false)
 
     const successMessage = options.successMessage || (isAutoSave ? 'Anexo salvo automaticamente!' : 'Mensagem salva com sucesso!')
-    toast.success(successMessage)
+    if (successMessage) {
+      toast.success(successMessage)
+    }
     return true
   } catch (error: any) {
     console.error('[dashboard/messages] send error', error)
@@ -1316,6 +1332,22 @@ const sendMessage = async () => {
     toast.info('Aguarde o disparo atual finalizar antes de iniciar outro.')
     return
   }
+
+  if (hasPendingContentToSave.value) {
+    isSavingBeforeSend.value = true
+    try {
+      const saveSuccess = await saveMessage({
+        auto: true,
+        successMessage: 'Mensagem salva automaticamente!'
+      })
+      if (!saveSuccess) {
+        return
+      }
+    } finally {
+      isSavingBeforeSend.value = false
+    }
+  }
+
   const isReady = await validateSendReadiness()
 
   if (!isReady) {
