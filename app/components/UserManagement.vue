@@ -322,12 +322,42 @@
 
           <div>
             <label class="block text-gray-700 font-medium mb-2">Senha{{ isEditMode ? ' (deixe vazio para manter)' : '' }}</label>
-            <input
-              v-model="userForm.senha"
-              type="password"
-              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              :placeholder="isEditMode ? 'Nova senha (opcional)' : 'Digite a senha'"
-            >
+            <div class="relative">
+              <input
+                v-model="userForm.senha"
+                :type="passwordFieldType"
+                class="w-full px-4 py-2 pr-12 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                :placeholder="isEditMode ? 'Nova senha (opcional)' : 'Digite a senha'"
+              >
+              <button
+                type="button"
+                class="absolute inset-y-0 right-0 px-3 flex items-center text-gray-500 hover:text-gray-700 focus:outline-none"
+                @click="togglePasswordVisibility"
+                :aria-label="passwordFieldType === 'password' ? 'Mostrar senha' : 'Ocultar senha'"
+              >
+                <svg
+                  v-if="passwordFieldType === 'password'"
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="w-5 h-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+                <svg
+                  v-else
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="w-5 h-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.477 0-8.268-2.943-9.542-7a10.05 10.05 0 012.223-3.592m3.172-2.385A9.956 9.956 0 0112 5c4.478 0 8.268 2.943 9.542 7a9.97 9.97 0 01-4.043 5.197M15 12a3 3 0 00-3-3m0 0a2.996 2.996 0 00-2.121.879M12 9v.01M3 3l18 18" />
+                </svg>
+              </button>
+            </div>
           </div>
 
           <div>
@@ -557,6 +587,8 @@ const adminPassword = ref('')
 const adminPasswordError = ref('')
 const adminPasswordLoading = ref(false)
 const adminPasswordConfirmed = ref(false)
+const isPasswordVisible = ref(false)
+const passwordFieldType = computed(() => (isPasswordVisible.value ? 'text' : 'password'))
 
 const defaultForm = (): UserFormState => ({
   id: null,
@@ -834,6 +866,7 @@ const resetForm = () => {
   companySearch.value = ''
   isCompanyDropdownOpen.value = false
   resetAdminConfirmationState()
+  isPasswordVisible.value = false
 }
 
 const canSelectCompany = (companyId: string) => {
@@ -1133,5 +1166,9 @@ const handleStatusChange = async (user: AdminUserItem, nextStatus: UiStatus) => 
   } finally {
     setStatusUpdating(user.id, false)
   }
+}
+
+const togglePasswordVisibility = () => {
+  isPasswordVisible.value = !isPasswordVisible.value
 }
 </script>

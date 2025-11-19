@@ -92,7 +92,7 @@ app/
 - **Purpose**: Advanced message creation with spintax and attachments
 - **Features**:
   - Spintax modal with 9-field progressive system
-  - Variable insertion (`{nome}`, `{var1}`, `{var2}`, `{var3}`)
+  - Variable insertion (`{nome}`, `{nome_completo}`, `{var1}`, `{var2}`, `{var3}`)
   - Multi-attachment support (images, videos, audio, documents)
   - Real-time preview functionality
 - **State Management**: Reactive refs for message, attachments, modal states
@@ -128,7 +128,8 @@ app/
 
 ### Message Variables
 The system supports dynamic variable insertion:
-- `{nome}` - Contact name
+- `{nome}` - Contact first name
+- `{nome_completo}` - Contact full name
 - `{var1}`, `{var2}`, `{var3}` - Custom contact variables
 - Spintax format: `{option1|option2|option3}`
 

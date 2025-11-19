@@ -59,28 +59,89 @@
         <div
           v-if="isVariableMenuOpen"
           ref="variableMenuRef"
-          class="absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded-lg shadow-lg z-10 py-2"
+          class="absolute right-0 mt-2 w-64 bg-white border border-gray-200 rounded-xl shadow-xl z-10 py-2"
         >
           <button
             v-for="variable in variableOptions"
             :key="variable.key"
             @click="insertVariable(variable.key)"
-            class="w-full px-4 py-2 text-left text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+            class="w-full px-4 py-3 text-left hover:bg-blue-50 transition-colors"
           >
-            {{ variable.label }}
+            <div class="flex items-start space-x-3">
+              <div
+                :class="[
+                  'flex h-9 w-9 items-center justify-center rounded-full',
+                  variable.bgClass,
+                  variable.textClass
+                ]"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m6-6H6" />
+                </svg>
+              </div>
+              <div>
+                <p class="text-sm font-semibold text-gray-800">{{ variable.title }}</p>
+                <p class="text-xs text-gray-500">{{ variable.description }}</p>
+              </div>
+            </div>
           </button>
         </div>
       </div>
 
-      <button
-        @click="insertNome"
-        class="flex items-center space-x-2 px-4 py-2 text-blue-600 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-        </svg>
-        <span>Nome</span>
-      </button>
+      <div class="relative">
+        <button
+          ref="nameButtonRef"
+          @click="toggleNameMenu"
+          class="flex items-center space-x-2 px-4 py-2 text-blue-600 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+          </svg>
+          <span>Nome</span>
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+
+        <div
+          v-if="isNameMenuOpen"
+          ref="nameMenuRef"
+          class="absolute right-0 mt-2 w-64 bg-white border border-gray-200 rounded-xl shadow-xl z-10 py-2"
+        >
+          <button
+            @click="insertNamePlaceholder('nome')"
+            class="w-full px-4 py-3 text-left hover:bg-blue-50 transition-colors"
+          >
+            <div class="flex items-start space-x-3">
+              <div class="flex h-9 w-9 items-center justify-center rounded-full bg-blue-50 text-blue-600">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.121 17.804A4 4 0 019 16h6a4 4 0 013.879 1.804M15 11a3 3 0 10-6 0 3 3 0 006 0z" />
+                </svg>
+              </div>
+              <div>
+                <p class="text-sm font-semibold text-gray-800">Primeiro nome</p>
+                <p class="text-xs text-gray-500">Insere apenas o primeiro nome do contato.</p>
+              </div>
+            </div>
+          </button>
+          <button
+            @click="insertNamePlaceholder('nome_completo')"
+            class="w-full px-4 py-3 text-left hover:bg-blue-50 transition-colors"
+          >
+            <div class="flex items-start space-x-3">
+              <div class="flex h-9 w-9 items-center justify-center rounded-full bg-purple-50 text-purple-600">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM5 21a7 7 0 0114 0" />
+                </svg>
+              </div>
+              <div>
+                <p class="text-sm font-semibold text-gray-800">Nome completo</p>
+                <p class="text-xs text-gray-500">Insere o nome completo do contato.</p>
+              </div>
+            </div>
+          </button>
+        </div>
+      </div>
     </div>
 
     <div class="mb-6">
@@ -683,6 +744,9 @@ const isLoadingInitial = ref(true)
 const isVariableMenuOpen = ref(false)
 const variableMenuRef = ref<HTMLElement | null>(null)
 const variableButtonRef = ref<HTMLElement | null>(null)
+const isNameMenuOpen = ref(false)
+const nameMenuRef = ref<HTMLElement | null>(null)
+const nameButtonRef = ref<HTMLElement | null>(null)
 const toast = useToast()
 
 const {
@@ -693,11 +757,36 @@ const {
 } = useSendJob()
 
 type VariableKey = 'var1' | 'var2' | 'var3'
+type VariableOption = {
+  key: VariableKey
+  title: string
+  description: string
+  bgClass: string
+  textClass: string
+}
 
-const variableOptions: Array<{ key: VariableKey; label: string }> = [
-  { key: 'var1', label: 'Variável 1 ({var1})' },
-  { key: 'var2', label: 'Variável 2 ({var2})' },
-  { key: 'var3', label: 'Variável 3 ({var3})' }
+const variableOptions: VariableOption[] = [
+  {
+    key: 'var1',
+    title: 'Variável 1',
+    description: 'Campo personalizado 1',
+    bgClass: 'bg-emerald-50',
+    textClass: 'text-emerald-600'
+  },
+  {
+    key: 'var2',
+    title: 'Variável 2',
+    description: 'Campo personalizado 2',
+    bgClass: 'bg-indigo-50',
+    textClass: 'text-indigo-600'
+  },
+  {
+    key: 'var3',
+    title: 'Variável 3',
+    description: 'Campo personalizado 3',
+    bgClass: 'bg-amber-50',
+    textClass: 'text-amber-600'
+  }
 ]
 
 const generateAttachmentId = () => {
@@ -1250,16 +1339,30 @@ const handleVariableMenuClickOutside = (event: MouseEvent) => {
   isVariableMenuOpen.value = false
 }
 
+const handleNameMenuClickOutside = (event: MouseEvent) => {
+  if (!isNameMenuOpen.value) return
+  const target = event.target as Node
+  if (
+    nameMenuRef.value?.contains(target) ||
+    nameButtonRef.value?.contains(target)
+  ) {
+    return
+  }
+  isNameMenuOpen.value = false
+}
+
 onMounted(() => {
   loadLastMessage()
   fetchSendStatus().catch(() => {
     // erros já tratados no composable
   })
   document.addEventListener('click', handleVariableMenuClickOutside)
+  document.addEventListener('click', handleNameMenuClickOutside)
 })
 
 onBeforeUnmount(() => {
   document.removeEventListener('click', handleVariableMenuClickOutside)
+  document.removeEventListener('click', handleNameMenuClickOutside)
 })
 
 const saveMessage = async (options: SaveMessageOptions = {}) => {
@@ -1421,12 +1524,17 @@ const insertPlaceholder = (placeholder: string) => {
   message.value += needsSpace ? ` ${trimmed}` : trimmed
 }
 
-const insertNome = () => {
-  insertPlaceholder('{nome}')
-}
-
 const insertVariable = (key: VariableKey) => {
   insertPlaceholder(`{${key}}`)
   isVariableMenuOpen.value = false
+}
+
+const toggleNameMenu = () => {
+  isNameMenuOpen.value = !isNameMenuOpen.value
+}
+
+const insertNamePlaceholder = (key: 'nome' | 'nome_completo') => {
+  insertPlaceholder(`{${key}}`)
+  isNameMenuOpen.value = false
 }
 </script>

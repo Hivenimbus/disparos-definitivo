@@ -831,7 +831,7 @@ func (sp spintaxPattern) replace(text string) string {
 	end += start
 	token := text[start+1 : end]
 	lower := strings.ToLower(token)
-	if lower == "nome" || lower == "var1" || lower == "var2" || lower == "var3" {
+	if lower == "nome" || lower == "nome_completo" || lower == "var1" || lower == "var2" || lower == "var3" {
 		return text[:start] + "{" + token + "}" + sp.replace(text[end+1:])
 	}
 	if !strings.Contains(token, "|") {
@@ -886,6 +886,8 @@ func placeholderPattern(text string, contact supabase.ContactRow) string {
 func resolvePlaceholder(key string, contact supabase.ContactRow) string {
 	switch strings.ToLower(key) {
 	case "nome":
+		return extractFirstName(ptrValue(contact.Name))
+	case "nome_completo":
 		return strings.TrimSpace(ptrValue(contact.Name))
 	case "var1":
 		return strings.TrimSpace(ptrValue(contact.Var1))
@@ -910,6 +912,18 @@ func ptrValue(value *string) string {
 		return ""
 	}
 	return *value
+}
+
+func extractFirstName(value string) string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return ""
+	}
+	parts := strings.Fields(trimmed)
+	if len(parts) == 0 {
+		return ""
+	}
+	return parts[0]
 }
 
 func firstNonEmpty(values ...string) string {
