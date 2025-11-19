@@ -75,7 +75,7 @@
           </tr>
           <template v-else>
             <tr
-              v-for="company in filteredCompanies"
+              v-for="company in paginatedCompanies"
               :key="company.id"
               class="border-b border-gray-200 hover:bg-gray-50 transition-colors"
             >
@@ -139,6 +139,36 @@
           </template>
         </tbody>
       </table>
+    </div>
+
+    <div
+      v-if="filteredCompanies.length"
+      class="flex flex-col sm:flex-row sm:items-center sm:justify-between mt-4 space-y-3 sm:space-y-0 text-sm text-gray-600"
+    >
+      <p>
+        Mostrando
+        <span class="font-semibold">{{ showingRangeLabel }}</span>
+        de
+        <span class="font-semibold">{{ filteredCompanies.length }}</span>
+        empresas
+      </p>
+      <div class="flex items-center space-x-3">
+        <button
+          @click="goToPreviousPage"
+          :disabled="currentPage === 1"
+          class="px-3 py-1 border rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Anterior
+        </button>
+        <span>Página {{ currentPage }} de {{ totalPages }}</span>
+        <button
+          @click="goToNextPage"
+          :disabled="currentPage === totalPages || filteredCompanies.length === 0"
+          class="px-3 py-1 border rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Próxima
+        </button>
+      </div>
     </div>
 
     <div v-if="isModalOpen" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" @click.self="closeModal">
@@ -276,9 +306,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 
 const searchQuery = ref('')
+const perPage = 20
+const currentPage = ref(1)
 const isModalOpen = ref(false)
 const isDeleteModalOpen = ref(false)
 const isEditMode = ref(false)
@@ -316,10 +348,63 @@ const totalAvailableSlots = computed(() => {
 })
 
 const filteredCompanies = computed(() => {
-  if (!searchQuery.value) return companies.value
-  const query = searchQuery.value.toLowerCase()
+  const query = searchQuery.value.trim().toLowerCase()
+  if (!query) return companies.value
   return companies.value.filter(c => c.nome.toLowerCase().includes(query))
 })
+
+const totalPages = computed(() => {
+  if (!filteredCompanies.value.length) return 1
+  return Math.max(1, Math.ceil(filteredCompanies.value.length / perPage))
+})
+
+const paginatedCompanies = computed(() => {
+  const startIndex = (currentPage.value - 1) * perPage
+  return filteredCompanies.value.slice(startIndex, startIndex + perPage)
+})
+
+const showingFrom = computed(() => {
+  if (!filteredCompanies.value.length) return 0
+  return (currentPage.value - 1) * perPage + 1
+})
+
+const showingTo = computed(() => {
+  if (!filteredCompanies.value.length) return 0
+  return Math.min(currentPage.value * perPage, filteredCompanies.value.length)
+})
+
+const showingRangeLabel = computed(() => {
+  if (!filteredCompanies.value.length) return '0'
+  const from = showingFrom.value
+  const to = showingTo.value
+  return from === to ? `${from}` : `${from}-${to}`
+})
+
+watch(searchQuery, () => {
+  currentPage.value = 1
+})
+
+watch(filteredCompanies, () => {
+  if (!filteredCompanies.value.length) {
+    currentPage.value = 1
+    return
+  }
+  if (currentPage.value > totalPages.value) {
+    currentPage.value = totalPages.value
+  }
+})
+
+const goToPreviousPage = () => {
+  if (currentPage.value > 1) {
+    currentPage.value -= 1
+  }
+}
+
+const goToNextPage = () => {
+  if (currentPage.value < totalPages.value) {
+    currentPage.value += 1
+  }
+}
 
 const isFormValid = computed(() => {
   return companyForm.value.nome.trim() &&

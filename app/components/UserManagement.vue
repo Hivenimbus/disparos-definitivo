@@ -76,7 +76,7 @@
           </tr>
           <template v-else>
             <tr
-              v-for="user in filteredUsers"
+              v-for="user in paginatedUsers"
               :key="user.id"
               class="border-b border-gray-200 hover:bg-gray-50 transition-colors"
             >
@@ -133,6 +133,38 @@
           </template>
         </tbody>
       </table>
+    </div>
+
+    <div
+      v-if="filteredUsers.length"
+      class="flex flex-col sm:flex-row sm:items-center sm:justify-between mt-4 space-y-3 sm:space-y-0 text-sm text-gray-600"
+    >
+      <p>
+        Mostrando
+        <span class="font-semibold">
+          {{ showingRangeLabel }}
+        </span>
+        de
+        <span class="font-semibold">{{ filteredUsers.length }}</span>
+        usuários
+      </p>
+      <div class="flex items-center space-x-3">
+        <button
+          @click="goToPreviousPage"
+          :disabled="currentPage === 1"
+          class="px-3 py-1 border rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Anterior
+        </button>
+        <span>Página {{ currentPage }} de {{ totalPages }}</span>
+        <button
+          @click="goToNextPage"
+          :disabled="currentPage === totalPages || filteredUsers.length === 0"
+          class="px-3 py-1 border rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Próxima
+        </button>
+      </div>
     </div>
 
     <div v-if="isModalOpen" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" @click.self="closeModal">
@@ -492,6 +524,8 @@ type AdminUserResponse = {
 }
 
 const searchQuery = ref('')
+const perPage = 20
+const currentPage = ref(1)
 const authUser = useAuthUser()
 const isModalOpen = ref(false)
 const isDeleteModalOpen = ref(false)
@@ -605,6 +639,60 @@ const filteredUsers = computed(() => {
     )
   })
 })
+
+const totalPages = computed(() => {
+  if (filteredUsers.value.length === 0) {
+    return 1
+  }
+  return Math.max(1, Math.ceil(filteredUsers.value.length / perPage))
+})
+
+const paginatedUsers = computed(() => {
+  const startIndex = (currentPage.value - 1) * perPage
+  return filteredUsers.value.slice(startIndex, startIndex + perPage)
+})
+
+const showingFrom = computed(() => {
+  if (!filteredUsers.value.length) return 0
+  return (currentPage.value - 1) * perPage + 1
+})
+
+const showingTo = computed(() => {
+  if (!filteredUsers.value.length) return 0
+  return Math.min(currentPage.value * perPage, filteredUsers.value.length)
+})
+
+const showingRangeLabel = computed(() => {
+  if (!filteredUsers.value.length) return '0'
+  const from = showingFrom.value
+  const to = showingTo.value
+  return from === to ? `${from}` : `${from}-${to}`
+})
+watch(searchQuery, () => {
+  currentPage.value = 1
+})
+
+watch(filteredUsers, () => {
+  if (!filteredUsers.value.length) {
+    currentPage.value = 1
+    return
+  }
+  if (currentPage.value > totalPages.value) {
+    currentPage.value = totalPages.value
+  }
+})
+
+const goToPreviousPage = () => {
+  if (currentPage.value > 1) {
+    currentPage.value -= 1
+  }
+}
+
+const goToNextPage = () => {
+  if (currentPage.value < totalPages.value) {
+    currentPage.value += 1
+  }
+}
 
 const loadingTable = computed(() => usersPending.value || companiesPending.value)
 const listError = computed(() => usersError.value || companiesError.value)
