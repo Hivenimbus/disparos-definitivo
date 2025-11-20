@@ -127,6 +127,8 @@ type InstanceStatus = {
   loggedIn: boolean
   name?: string | null
   myJid?: string | null
+  qrcode?: string | null
+  status?: 'disconnected' | 'connecting' | 'connected' | string | null
 }
 
 const qrCodeData = ref<string | null>(null)
@@ -258,7 +260,9 @@ const applyState = (state: InstanceStatus | undefined | null) => {
     connected: Boolean(state.connected),
     loggedIn: Boolean(state.loggedIn),
     name: state.name ?? null,
-    myJid: state.myJid ?? null
+    myJid: state.myJid ?? null,
+    qrcode: state.qrcode ?? null,
+    status: state.status ?? null
   }
 
   lastInstanceStatus.value = normalized
@@ -270,6 +274,11 @@ const applyState = (state: InstanceStatus | undefined | null) => {
     stopPolling()
     stopQrRefresh()
   } else {
+    if (normalized.qrcode) {
+      qrCodeData.value = normalized.qrcode
+    } else if (!normalized.connected) {
+      qrCodeData.value = null
+    }
     ensurePolling()
   }
 }
@@ -323,9 +332,13 @@ const startConnection = async () => {
   stopQrRefresh()
 
   try {
-    await fetchQrCode()
-
     await fetchConnectionState({ silent: true })
+
+    if (!qrCodeData.value) {
+      await fetchQrCode()
+      await fetchConnectionState({ silent: true })
+    }
+
     ensurePolling()
     ensureQrRefresh()
   } catch (error: any) {

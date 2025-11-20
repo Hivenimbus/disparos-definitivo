@@ -4,17 +4,16 @@ import { requireAuthUser } from '../../../utils/auth'
 import { getUazapiConfig } from '../../../utils/uazapi'
 
 type UazapiStatusResponse = {
-  message?: string
-  data?: {
-    Connected?: boolean
+  instance?: {
+    status?: 'disconnected' | 'connecting' | 'connected' | string
+    qrcode?: string | null
+    name?: string | null
+  } | null
+  status?: {
     connected?: boolean
-    LoggedIn?: boolean
     loggedIn?: boolean
-    Name?: string
-    name?: string
-    MyJid?: string
-    myJid?: string
-  }
+    jid?: string | null
+  } | null
 }
 
 type DashboardInstanceStatus = {
@@ -22,6 +21,8 @@ type DashboardInstanceStatus = {
   loggedIn: boolean
   name: string | null
   myJid: string | null
+  qrcode: string | null
+  status: 'disconnected' | 'connecting' | 'connected' | null
 }
 
 export default defineEventHandler(async (event) => {
@@ -33,11 +34,11 @@ export default defineEventHandler(async (event) => {
       baseURL: uazapiApiUrl,
       method: 'GET',
       headers: {
-        apikey: user.id
+        token: user.uazapi_token
       }
     })
 
-    if (!response?.data) {
+    if (!response?.status) {
       throw createError({
         statusCode: 502,
         statusMessage: 'Resposta inesperada da UAZAPI'
@@ -45,16 +46,12 @@ export default defineEventHandler(async (event) => {
     }
 
     const normalized: DashboardInstanceStatus = {
-      connected: Boolean(
-        response.data.connected ??
-          response.data.Connected
-      ),
-      loggedIn: Boolean(
-        response.data.loggedIn ??
-          response.data.LoggedIn
-      ),
-      name: response.data.name ?? response.data.Name ?? null,
-      myJid: response.data.myJid ?? response.data.MyJid ?? null
+      connected: Boolean(response.status?.connected),
+      loggedIn: Boolean(response.status?.loggedIn),
+      name: response.instance?.name ?? null,
+      myJid: response.status?.jid ?? null,
+      qrcode: response.instance?.qrcode ?? null,
+      status: (response.instance?.status as DashboardInstanceStatus['status']) ?? null
     }
 
     return normalized

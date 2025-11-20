@@ -8,13 +8,12 @@ export default defineEventHandler(async (event) => {
   const { uazapiApiUrl } = getUazapiConfig()
 
   try {
-    await $fetch('/instance/logout', {
+    await $fetch('/instance/disconnect', {
       baseURL: uazapiApiUrl,
-      method: 'DELETE',
+      method: 'POST',
       headers: {
-        apikey: user.id
-      },
-      body: {}
+        token: user.uazapi_token
+      }
     })
 
     return { success: true }
