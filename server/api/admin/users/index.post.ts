@@ -78,13 +78,13 @@ export default defineEventHandler(async (event) => {
   validateCreatePayload(payload, requireVencimento)
 
   const config = useRuntimeConfig()
-  const evolutionApiUrl = config.evolutionApiUrl?.replace(/\/$/, '')
-  const evolutionApiKey = config.evolutionApiKey
+  const uazapiApiUrl = config.uazapiApiUrl?.replace(/\/$/, '')
+  const uazapiApiKey = config.uazapiApiKey
 
-  if (!evolutionApiUrl || !evolutionApiKey) {
+  if (!uazapiApiUrl || !uazapiApiKey) {
     throw createError({
       statusCode: 500,
-      statusMessage: 'Configurações da Evolution API não encontradas'
+      statusMessage: 'Configurações da UAZAPI não encontradas'
     })
   }
 
@@ -257,11 +257,11 @@ export default defineEventHandler(async (event) => {
     }
 
     await $fetch('/instance/create', {
-      baseURL: evolutionApiUrl,
+      baseURL: uazapiApiUrl,
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        apikey: evolutionApiKey
+        apikey: uazapiApiKey
       },
       body: {
         name: data.id,
@@ -283,7 +283,7 @@ export default defineEventHandler(async (event) => {
     }
   } catch (e: any) {
     await restoreProxy()
-    console.error('[admin/users] Erro ao criar instância no Evolution', {
+    console.error('[admin/users] Erro ao criar instância na UAZAPI', {
       message: e?.message,
       status: e?.response?.status,
       data: e?.data || e?.response?._data || null
@@ -291,12 +291,12 @@ export default defineEventHandler(async (event) => {
 
     const { error: rollbackError } = await supabase.from('users').delete().eq('id', data.id)
     if (rollbackError) {
-      console.error('[admin/users] Erro ao remover usuário após falha no Evolution', rollbackError)
+      console.error('[admin/users] Erro ao remover usuário após falha na UAZAPI', rollbackError)
     }
 
     throw createError({
       statusCode: 500,
-      statusMessage: 'Erro ao criar instância no Evolution'
+      statusMessage: 'Erro ao criar instância na UAZAPI'
     })
   }
 

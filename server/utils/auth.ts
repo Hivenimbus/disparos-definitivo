@@ -9,19 +9,20 @@ export type AuthenticatedUser = {
   status: 'ativo' | 'desativado'
   role: 'admin' | 'manager' | 'user'
   company_id: string | null
+  uazapi_token: string
 }
 
 export const requireAuthUser = async (event: H3Event): Promise<AuthenticatedUser> => {
-  const token = getCookie(event, 'auth_token')
+  const sessionToken = getCookie(event, 'auth_token')
 
-  if (!token) {
+  if (!sessionToken) {
     throw createError({ statusCode: 401, statusMessage: 'Sessão não encontrada' })
   }
 
   let payload: ReturnType<typeof verifyAuthToken>
 
   try {
-    payload = verifyAuthToken(token)
+    payload = verifyAuthToken(sessionToken)
   } catch {
     deleteCookie(event, 'auth_token')
     throw createError({ statusCode: 401, statusMessage: 'Sessão inválida' })
@@ -31,7 +32,7 @@ export const requireAuthUser = async (event: H3Event): Promise<AuthenticatedUser
 
   const { data: user, error } = await supabase
     .from('users')
-    .select('id, nome, email, status, role, company_id')
+    .select('id, nome, email, status, role, company_id, uazapi_token')
     .eq('id', payload.sub)
     .single()
 
@@ -40,7 +41,20 @@ export const requireAuthUser = async (event: H3Event): Promise<AuthenticatedUser
     throw createError({ statusCode: 401, statusMessage: 'Usuário não autorizado' })
   }
 
-  return user as AuthenticatedUser
+  const uazapiToken = user.uazapi_token?.trim()
+
+  if (!uazapiToken) {
+    deleteCookie(event, 'auth_token')
+    throw createError({
+      statusCode: 412,
+      statusMessage: 'Token da UAZAPI não configurado para este usuário'
+    })
+  }
+
+  return {
+    ...user,
+    uazapi_token: uazapiToken
+  } as AuthenticatedUser
 }
 
 

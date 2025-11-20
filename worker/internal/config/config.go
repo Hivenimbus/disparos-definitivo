@@ -13,8 +13,8 @@ type Config struct {
 	SupabaseURL             string
 	SupabaseRestURL         string
 	SupabaseServiceRole     string
-	EvolutionAPIURL         string
-	EvolutionAPIKey         string
+	UazapiAPIURL            string
+	UazapiAPIKey            string
 	DefaultDelaySeconds     int
 	RedisURL                string
 	RedisLockTTLSeconds     int
@@ -27,8 +27,8 @@ func Load() (*Config, error) {
 	cfg.WorkerToken = os.Getenv("WORKER_TOKEN")
 	cfg.SupabaseURL = strings.TrimSuffix(os.Getenv("SUPABASE_URL"), "/")
 	cfg.SupabaseServiceRole = os.Getenv("SUPABASE_SERVICE_ROLE")
-	cfg.EvolutionAPIURL = strings.TrimSuffix(os.Getenv("EVOLUTION_API_URL"), "/")
-	cfg.EvolutionAPIKey = os.Getenv("EVOLUTION_API_KEY")
+	cfg.UazapiAPIURL = strings.TrimSuffix(os.Getenv("UAZAPI_API_URL"), "/")
+	cfg.UazapiAPIKey = os.Getenv("UAZAPI_API_KEY")
 	cfg.RedisURL = os.Getenv("REDIS_URL")
 	if v := os.Getenv("REDIS_LOCK_TTL_SECONDS"); v != "" {
 		if parsed, err := strconv.Atoi(v); err == nil {
@@ -76,11 +76,11 @@ func (c *Config) Validate() error {
 	if c.SupabaseServiceRole == "" {
 		missing = append(missing, "SUPABASE_SERVICE_ROLE")
 	}
-	if c.EvolutionAPIURL == "" {
-		missing = append(missing, "EVOLUTION_API_URL")
+	if c.UazapiAPIURL == "" {
+		missing = append(missing, "UAZAPI_API_URL")
 	}
-	if c.EvolutionAPIKey == "" {
-		missing = append(missing, "EVOLUTION_API_KEY")
+	if c.UazapiAPIKey == "" {
+		missing = append(missing, "UAZAPI_API_KEY")
 	}
 	if c.RedisURL == "" {
 		missing = append(missing, "REDIS_URL")

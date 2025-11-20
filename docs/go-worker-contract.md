@@ -11,7 +11,7 @@
 | Campo               | Tipo    | Origem                                       |
 | ------------------- | ------- | -------------------------------------------- |
 | `id`                | uuid    | Gerado pelo worker ao criar um job `queued`. |
-| `user_id`           | uuid    | ID do usuário/instância Evolution.           |
+| `user_id`           | uuid    | ID do usuário/instância UAZAPI.              |
 | `status`            | text    | `queued`, `processing`, `completed`, `failed`, `stopped`. |
 | `total_contacts`    | int     | Nº de contatos carregados de `dashboard_contacts`. |
 | `processed_contacts`| int     | Atualizado a cada contato processado.        |
@@ -38,7 +38,7 @@
 | `whatsapp`       | text       | Número sanitizado.                                  |
 | `status`         | text       | `pending`, `success`, `failed`.                     |
 | `message_preview`| text       | Conteúdo renderizado enviado para o contato.        |
-| `attachments`    | jsonb      | Array de `{type,name,caption}` usado pela Evolution.|
+| `attachments`    | jsonb      | Array de `{type,name,caption}` usado pela UAZAPI.|
 | `error`          | text       | Mensagem da exceção no envio.                       |
 | `processed_at`   | timestamptz| Momento da conclusão do contato.                    |
 | `sequence`       | int        | Ordem determinística do contato dentro do job.      |
@@ -81,7 +81,7 @@ Response `200`:
 Erros relevantes:
 - `409` se já existe job ativo ou `queued`.
 - `400` se não há mensagem, mídias ou contatos configurados.
-- `500` para falhas ao acessar Supabase/Evolution.
+- `500` para falhas ao acessar Supabase/UAZAPI.
 
 ### POST `/jobs/stop`
 Sinaliza `requested_stop=true`. Se existir job em memória, a flag é aplicada imediatamente; caso contrário, o worker marca o job mais recente como `stopped`, grava `finished_at` e deixa o histórico pronto para limpeza.
@@ -127,8 +127,8 @@ Response:
 | `WORKER_TOKEN`           | Token esperado no header `X-Worker-Token`.               |
 | `SUPABASE_URL`           | URL do projeto Supabase.                                 |
 | `SUPABASE_SERVICE_ROLE`  | Service Role Key usada para acessar as tabelas.          |
-| `EVOLUTION_API_URL`      | Base URL da Evolution API (sem barra final).             |
-| `EVOLUTION_API_KEY`      | Chave API para chamadas `/message/send*`.                |
+| `UAZAPI_API_URL`         | Base URL da UAZAPI (sem barra final).                    |
+| `UAZAPI_API_KEY`         | Chave API para chamadas `/message/send*`.                |
 | `DEFAULT_DELAY_SECONDS`  | Delay padrão entre contatos (fallback para config ausente). |
 | `REDIS_URL`              | URL RediSS do Upstash (ex.: `rediss://default:senha@endpoint:6379`). |
 | `REDIS_LOCK_TTL_SECONDS` | TTL do lock distribuído em segundos (padrão: `300`).     |
@@ -139,7 +139,7 @@ No Nuxt, adicionar `WORKER_BASE_URL` e `WORKER_TOKEN` em `runtimeConfig` e utili
 1. Nuxt chama `POST /jobs/start` com `user_id`.
 2. Worker carrega (`dashboard_messages`, `dashboard_contacts`, `configuracoes`) em lotes paginados (para contatos, blocos de 1000 registros por requisição) para evitar o limite padrão do PostgREST, valida dados, cria registro `queued`, preenche logs `pending` e inicia goroutine (`processing`).
 3. Loop processa cada contato:
-   - Renderiza mensagem (`resolveSpintax`, placeholders) e envia texto/mídias via Evolution.
+   - Renderiza mensagem (`resolveSpintax`, placeholders) e envia texto/mídias via UAZAPI.
    - Atualiza log (`status`, `message_preview`, `error`, `processed_at`).
    - Atualiza `dashboard_send_jobs` com contadores e erros.
    - Respeita delay configurado e verifica `requested_stop`.

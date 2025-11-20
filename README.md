@@ -24,8 +24,8 @@ Aplicação Nuxt 4 para disparos e gerenciamento de campanhas no WhatsApp com ba
    NUXT_SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
    NUXT_JWT_SECRET=uma-chave-segura-com-32caracteres
    NUXT_PUBLIC_APP_URL=https://seu-dominio.com
-   NUXT_EVOLUTION_API_URL=https://api.evolution-api.com
-   NUXT_EVOLUTION_API_KEY=sua-chave-do-evolution
+   UAZAPI_API_URL=https://api.uazapi.com
+   UAZAPI_API_KEY=sua-chave-do-uazapi
    NUXT_WORKER_SERVICE_URL=http://localhost:8080
    NUXT_WORKER_TOKEN=troque-por-um-token-seguro
    REDIS_URL=rediss://default:<senha>@<host>:6379
@@ -50,8 +50,8 @@ O loop de disparos foi migrado para um worker em Go localizado em `worker/`. Par
    WORKER_TOKEN=troque-por-um-token-seguro
    SUPABASE_URL=https://<PROJECT>.supabase.co
    SUPABASE_SERVICE_ROLE=<service-role-key>
-   EVOLUTION_API_URL=https://api.evolution-api.com
-   EVOLUTION_API_KEY=sua-chave-do-evolution
+   UAZAPI_API_URL=https://api.uazapi.com
+   UAZAPI_API_KEY=sua-chave-do-uazapi
    DEFAULT_DELAY_SECONDS=10
    REDIS_LOCK_REFRESH_SECONDS=60
    ```
@@ -75,15 +75,15 @@ Execute informando as variáveis necessárias (mesmas do `.env`/worker):
 docker run --rm -p 3000:3000 \
   -e SUPABASE_URL=... \
   -e SUPABASE_SERVICE_ROLE=... \
-  -e EVOLUTION_API_URL=... \
-  -e EVOLUTION_API_KEY=... \
+  -e UAZAPI_API_URL=... \
+  -e UAZAPI_API_KEY=... \
   -e REDIS_URL=... \
   -e WORKER_TOKEN=... \
   -e WORKER_HTTP_ADDR=":8080" \
   disparos-app
 ```
 
-O entrypoint interno executa `node scripts/start.js`, que inicia o Nuxt em `:3000` e usa o binário do worker em `dist/worker`. Ajuste as variáveis para apontar seu Redis/Supabase/Evolution.
+O entrypoint interno executa `node scripts/start.js`, que inicia o Nuxt em `:3000` e usa o binário do worker em `dist/worker`. Ajuste as variáveis para apontar seu Redis/Supabase/UAZAPI.
 
 ## Banco de dados
 

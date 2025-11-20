@@ -27,8 +27,8 @@ export default defineNuxtConfig({
     supabaseAnonKey: '',
     supabaseServiceRoleKey: '',
     jwtSecret: '',
-    evolutionApiUrl: '',
-    evolutionApiKey: '',
+    uazapiApiUrl: process.env.UAZAPI_API_URL || '',
+    uazapiApiKey: process.env.UAZAPI_API_KEY || '',
     workerServiceUrl: '',
     workerToken: '',
     public: {

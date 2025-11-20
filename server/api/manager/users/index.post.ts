@@ -68,13 +68,13 @@ export default defineEventHandler(async (event) => {
   const finalVencimento = companyRecord.data_vencimento
 
   const config = useRuntimeConfig()
-  const evolutionApiUrl = config.evolutionApiUrl?.replace(/\/$/, '')
-  const evolutionApiKey = config.evolutionApiKey
+  const uazapiApiUrl = config.uazapiApiUrl?.replace(/\/$/, '')
+  const uazapiApiKey = config.uazapiApiKey
 
-  if (!evolutionApiUrl || !evolutionApiKey) {
+  if (!uazapiApiUrl || !uazapiApiKey) {
     throw createError({
       statusCode: 500,
-      statusMessage: 'Configurações da Evolution API não encontradas'
+      statusMessage: 'Configurações da UAZAPI não encontradas'
     })
   }
 
@@ -143,11 +143,11 @@ export default defineEventHandler(async (event) => {
 
   try {
     await $fetch('/instance/create', {
-      baseURL: evolutionApiUrl,
+      baseURL: uazapiApiUrl,
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        apikey: evolutionApiKey
+        apikey: uazapiApiKey
       },
       body: {
         instanceName: data.id,
@@ -156,14 +156,14 @@ export default defineEventHandler(async (event) => {
       }
     })
   } catch (e: any) {
-    console.error('[manager/users] erro ao criar instância no Evolution', {
+    console.error('[manager/users] erro ao criar instância na UAZAPI', {
       message: e?.message,
       status: e?.response?.status,
       data: e?.data || e?.response?._data || null
     })
 
     await supabase.from('users').delete().eq('id', data.id)
-    throw createError({ statusCode: 500, statusMessage: 'Erro ao criar instância no Evolution' })
+    throw createError({ statusCode: 500, statusMessage: 'Erro ao criar instância na UAZAPI' })
   }
 
   const updatePayload = buildCompanyUpdatePayload(companyRecord, 1)

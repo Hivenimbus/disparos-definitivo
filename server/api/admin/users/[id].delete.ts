@@ -12,13 +12,13 @@ export default defineEventHandler(async (event) => {
 
   const supabase = getServiceSupabaseClient()
   const config = useRuntimeConfig()
-  const evolutionApiUrl = config.evolutionApiUrl?.replace(/\/$/, '')
-  const evolutionApiKey = config.evolutionApiKey
+  const uazapiApiUrl = config.uazapiApiUrl?.replace(/\/$/, '')
+  const uazapiApiKey = config.uazapiApiKey
 
-  if (!evolutionApiUrl || !evolutionApiKey) {
+  if (!uazapiApiUrl || !uazapiApiKey) {
     throw createError({
       statusCode: 500,
-      statusMessage: 'Configurações da Evolution API não encontradas'
+      statusMessage: 'Configurações da UAZAPI não encontradas'
     })
   }
 
@@ -54,10 +54,10 @@ export default defineEventHandler(async (event) => {
 
   try {
     const instancesResponse = await $fetch<{ data?: Array<{ id?: string; name?: string }> }>('/instance/all', {
-      baseURL: evolutionApiUrl,
+      baseURL: uazapiApiUrl,
       method: 'GET',
       headers: {
-        apikey: evolutionApiKey
+        apikey: uazapiApiKey
       }
     })
 
@@ -67,19 +67,19 @@ export default defineEventHandler(async (event) => {
       console.warn('[admin/users] Instância não encontrada para usuário', { userId: id })
       throw createError({
         statusCode: 404,
-        statusMessage: 'Instância do usuário não encontrada na Evolution API'
+        statusMessage: 'Instância do usuário não encontrada na UAZAPI'
       })
     }
 
     await $fetch(`/instance/delete/${targetInstance.id}`, {
-      baseURL: evolutionApiUrl,
+      baseURL: uazapiApiUrl,
       method: 'DELETE',
       headers: {
-        apikey: evolutionApiKey
+        apikey: uazapiApiKey
       }
     })
   } catch (e: any) {
-    console.error('[admin/users] Erro ao remover instância no Evolution', {
+    console.error('[admin/users] Erro ao remover instância na UAZAPI', {
       message: e?.message,
       status: e?.response?.status,
       data: e?.data || e?.response?._data || null
@@ -91,7 +91,7 @@ export default defineEventHandler(async (event) => {
 
     throw createError({
       statusCode: 500,
-      statusMessage: 'Erro ao remover instância no Evolution'
+      statusMessage: 'Erro ao remover instância na UAZAPI'
     })
   }
 

@@ -50,7 +50,7 @@ npm run lint
 - **Language**: TypeScript
 - **Styling**: Tailwind CSS with custom safelist for WhatsApp icons
 - **Database**: Supabase (PostgreSQL)
-- **External API**: Evolution API for WhatsApp integration
+- **External API**: UAZAPI for WhatsApp integration
 
 ### Project Structure
 ```
@@ -117,7 +117,7 @@ app/
 
 ## WhatsApp Integration
 
-### Evolution API
+### UAZAPI
 - **Current Status**: UI implemented, backend integration pending
 - **Configuration**: Accessible through AppHeader settings panel
 - **Features Prepared**:
@@ -183,7 +183,7 @@ const handleImport = async () => {
 ## Future Development Opportunities
 1. **Supabase Integration**: Replace hardcoded authentication
 2. **Database Schema**: Create tables for contacts, campaigns, companies
-3. **WhatsApp Backend**: Implement Evolution API integration
+3. **WhatsApp Backend**: Implement UAZAPI integration
 4. **Campaign Analytics**: Message tracking and statistics
 5. **File Upload**: Supabase Storage integration for media
 6. **User Roles**: Implement company-based access control

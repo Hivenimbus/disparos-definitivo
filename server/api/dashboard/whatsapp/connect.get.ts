@@ -1,15 +1,15 @@
 import { createError } from 'h3'
 import { $fetch } from 'ofetch'
 import { requireAuthUser } from '../../../utils/auth'
-import { getEvolutionConfig } from '../../../utils/evolution'
+import { getUazapiConfig } from '../../../utils/uazapi'
 
-type EvolutionQrResponse = {
+type UazapiConnectResponse = {
   message?: string
-  data?: {
-    Qrcode?: string
+  instance?: {
     qrcode?: string
-    Code?: string
-    code?: string
+    Qrcode?: string
+    code?: string | number
+    Code?: string | number
   }
 }
 
@@ -20,29 +20,34 @@ type DashboardQrResponse = {
 
 export default defineEventHandler(async (event) => {
   const user = await requireAuthUser(event)
-  const { evolutionApiUrl } = getEvolutionConfig()
+  const { uazapiApiUrl } = getUazapiConfig()
 
   try {
-    const response = await $fetch<EvolutionQrResponse>('/instance/qr', {
-      baseURL: evolutionApiUrl,
-      method: 'GET',
+    const response = await $fetch<UazapiConnectResponse>('/instance/connect', {
+      baseURL: uazapiApiUrl,
+      method: 'POST',
       headers: {
-        apikey: user.id
+        token: user.uazapi_token
+      },
+      body: {
+        phone: ''
       }
     })
 
     const base64 =
-      response?.data?.Qrcode ??
-      response?.data?.qrcode
-    const qrcode =
-      response?.data?.Code ??
-      response?.data?.code ??
+      response?.instance?.qrcode ??
+      response?.instance?.Qrcode ??
       null
+    const rawQrcode =
+      response?.instance?.code ??
+      response?.instance?.Code ??
+      null
+    const qrcode = rawQrcode == null ? null : String(rawQrcode)
 
     if (!base64) {
       throw createError({
         statusCode: 502,
-        statusMessage: 'Resposta inesperada da Evolution API'
+        statusMessage: 'Resposta inesperada da UAZAPI'
       })
     }
 
@@ -58,18 +63,18 @@ export default defineEventHandler(async (event) => {
     if (status === 404) {
       throw createError({
         statusCode: 404,
-        statusMessage: 'Instância não encontrada na Evolution API'
+        statusMessage: 'Instância não encontrada na UAZAPI'
       })
     }
 
-    console.error('[dashboard/whatsapp/connect] Evolution API error', {
+    console.error('[dashboard/whatsapp/connect] UAZAPI error', {
       status,
       data: error?.response?._data ?? error?.data ?? null
     })
 
     throw createError({
       statusCode: 502,
-      statusMessage: 'Não foi possível gerar o QR Code na Evolution API'
+      statusMessage: 'Não foi possível gerar o QR Code na UAZAPI'
     })
   }
 })

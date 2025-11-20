@@ -1,18 +1,18 @@
 import { createError } from 'h3'
 import { $fetch } from 'ofetch'
 import { requireAuthUser } from '../../../utils/auth'
-import { buildEvolutionHeaders, getEvolutionConfig, sanitizePhoneNumber } from '../../../utils/evolution'
+import { buildUazapiHeaders, getUazapiConfig, sanitizePhoneNumber } from '../../../utils/uazapi'
 import { getServiceSupabaseClient } from '../../../utils/supabase'
 
-type EvolutionApiContact = {
+type UazapiContact = {
   Jid?: string | null
   PushName?: string | null
   Found?: boolean
 }
 
-type EvolutionContactsResponse = {
+type UazapiContactsResponse = {
   message?: string
-  data?: EvolutionApiContact[]
+  data?: UazapiContact[]
 }
 
 const extractPhoneFromJid = (jid?: string | null) => {
@@ -23,13 +23,13 @@ const extractPhoneFromJid = (jid?: string | null) => {
 
 export default defineEventHandler(async (event) => {
   const user = await requireAuthUser(event)
-  const { evolutionApiUrl } = getEvolutionConfig()
+  const { uazapiApiUrl } = getUazapiConfig()
 
   try {
-    const response = await $fetch<EvolutionContactsResponse>('/user/contacts', {
-      baseURL: evolutionApiUrl,
+    const response = await $fetch<UazapiContactsResponse>('/user/contacts', {
+      baseURL: uazapiApiUrl,
       method: 'GET',
-      headers: buildEvolutionHeaders(user.id)
+      headers: buildUazapiHeaders(user.id)
     })
     const contacts = Array.isArray(response?.data) ? response.data : []
 
@@ -82,7 +82,7 @@ export default defineEventHandler(async (event) => {
       imported: data?.length ?? 0
     }
   } catch (error: any) {
-    console.error('[dashboard/contacts/import-whatsapp] Evolution API error', {
+    console.error('[dashboard/contacts/import-whatsapp] UAZAPI error', {
       status: error?.response?.status,
       data: error?.response?._data ?? error?.data ?? null
     })

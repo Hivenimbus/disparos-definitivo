@@ -1,9 +1,9 @@
 ﻿import { createError } from 'h3'
 import { $fetch } from 'ofetch'
 import { requireAuthUser } from '../../../utils/auth'
-import { getEvolutionConfig } from '../../../utils/evolution'
+import { getUazapiConfig } from '../../../utils/uazapi'
 
-type EvolutionStatusResponse = {
+type UazapiStatusResponse = {
   message?: string
   data?: {
     Connected?: boolean
@@ -26,11 +26,11 @@ type DashboardInstanceStatus = {
 
 export default defineEventHandler(async (event) => {
   const user = await requireAuthUser(event)
-  const { evolutionApiUrl } = getEvolutionConfig()
+  const { uazapiApiUrl } = getUazapiConfig()
 
   try {
-    const response = await $fetch<EvolutionStatusResponse>('/instance/status', {
-      baseURL: evolutionApiUrl,
+    const response = await $fetch<UazapiStatusResponse>('/instance/status', {
+      baseURL: uazapiApiUrl,
       method: 'GET',
       headers: {
         apikey: user.id
@@ -40,7 +40,7 @@ export default defineEventHandler(async (event) => {
     if (!response?.data) {
       throw createError({
         statusCode: 502,
-        statusMessage: 'Resposta inesperada da Evolution API'
+        statusMessage: 'Resposta inesperada da UAZAPI'
       })
     }
 
@@ -64,18 +64,18 @@ export default defineEventHandler(async (event) => {
     if (status === 404) {
       throw createError({
         statusCode: 404,
-        statusMessage: 'Instância não encontrada na Evolution API'
+        statusMessage: 'Instância não encontrada na UAZAPI'
       })
     }
 
-    console.error('[dashboard/whatsapp/state] Evolution API error', {
+    console.error('[dashboard/whatsapp/state] UAZAPI error', {
       status,
       data: error?.response?._data ?? error?.data ?? null
     })
 
     throw createError({
       statusCode: 502,
-      statusMessage: 'Não foi possível consultar o estado da conexão na Evolution API'
+      statusMessage: 'Não foi possível consultar o estado da conexão na UAZAPI'
     })
   }
 })
