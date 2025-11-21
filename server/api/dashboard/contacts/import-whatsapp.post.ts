@@ -1,19 +1,16 @@
 import { createError } from 'h3'
 import { $fetch } from 'ofetch'
 import { requireAuthUser } from '../../../utils/auth'
-import { buildUazapiHeaders, getUazapiConfig, sanitizePhoneNumber } from '../../../utils/uazapi'
+import { getUazapiConfig, sanitizePhoneNumber } from '../../../utils/uazapi'
 import { getServiceSupabaseClient } from '../../../utils/supabase'
 
 type UazapiContact = {
-  Jid?: string | null
-  PushName?: string | null
-  Found?: boolean
+  contact_FirstName?: string | null
+  contact_name?: string | null
+  jid?: string | null
 }
 
-type UazapiContactsResponse = {
-  message?: string
-  data?: UazapiContact[]
-}
+type UazapiContactsResponse = UazapiContact[]
 
 const extractPhoneFromJid = (jid?: string | null) => {
   if (!jid) return undefined
@@ -26,12 +23,14 @@ export default defineEventHandler(async (event) => {
   const { uazapiApiUrl } = getUazapiConfig()
 
   try {
-    const response = await $fetch<UazapiContactsResponse>('/user/contacts', {
+    const response = await $fetch<UazapiContactsResponse>('/contacts', {
       baseURL: uazapiApiUrl,
       method: 'GET',
-      headers: buildUazapiHeaders(user.id)
+      headers: {
+        token: user.uazapi_token
+      }
     })
-    const contacts = Array.isArray(response?.data) ? response.data : []
+    const contacts = Array.isArray(response) ? response : []
 
     if (!contacts.length) {
       return { imported: 0 }
@@ -39,12 +38,14 @@ export default defineEventHandler(async (event) => {
 
     const normalizedContacts = contacts
       .map((contact) => {
-        const whatsapp = extractPhoneFromJid(contact.Jid)
+        const whatsapp = extractPhoneFromJid(contact.jid)
         if (!whatsapp) return null
 
         return {
           user_id: user.id,
-          name: contact.PushName?.trim() || '',
+          name: contact.contact_name?.trim() ||
+            contact.contact_FirstName?.trim() ||
+            '',
           whatsapp
         }
       })
