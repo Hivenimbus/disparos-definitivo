@@ -6,6 +6,7 @@ import { fetchCompanyById, mapAdminUserRow } from '../../../utils/users'
 const mapCompanyToResponse = (company: Awaited<ReturnType<typeof fetchCompanyById>>) => ({
   id: company.id,
   nome: company.nome,
+  status: company.status,
   maxUsuarios: company.max_usuarios,
   usuariosAtuais: company.usuarios_atuais,
   dataVencimento: company.data_vencimento ?? null

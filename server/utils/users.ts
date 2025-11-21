@@ -6,15 +6,16 @@ type UiRole = 'admin' | 'gerente' | 'usuario'
 type DbStatus = 'ativo' | 'desativado'
 type UiStatus = 'ativo' | 'desativado'
 
-type CompanyRow = {
+export type CompanyRow = {
   id: string
   nome: string | null
+  status: DbStatus
   data_vencimento?: string | null
   max_usuarios: number
   usuarios_atuais: number
 }
 
-type UserRow = {
+export type UserRow = {
   id: string
   nome: string
   email: string
@@ -30,7 +31,7 @@ type UserRow = {
   must_change_password: boolean
 }
 
-type UserRowWithCompany = UserRow & {
+export type UserRowWithCompany = UserRow & {
   companies?: CompanyRow | null
 }
 
@@ -131,7 +132,7 @@ export const fetchCompanyById = async (
 ): Promise<CompanyRow> => {
   const { data, error } = await supabase
     .from('companies')
-    .select('id, nome, data_vencimento, max_usuarios, usuarios_atuais')
+    .select('id, nome, status, data_vencimento, max_usuarios, usuarios_atuais')
     .eq('id', companyId)
     .single()
 

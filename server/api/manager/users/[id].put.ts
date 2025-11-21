@@ -1,7 +1,8 @@
 import { readBody, createError } from 'h3'
 import { requireAuthUser } from '../../../utils/auth'
 import { getServiceSupabaseClient } from '../../../utils/supabase'
-import { mapAdminUserRow, mapStatusToDb, normalizeEmail } from '../../../utils/users'
+import { fetchCompanyById, mapAdminUserRow, mapStatusToDb, normalizeEmail } from '../../../utils/users'
+import type { UserRowWithCompany } from '../../../utils/users'
 import { hashPassword } from '../../../utils/password'
 
 type UpdateManagerUserPayload = {
@@ -33,7 +34,7 @@ export default defineEventHandler(async (event) => {
   const payload = (await readBody(event)) as UpdateManagerUserPayload
   const supabase = getServiceSupabaseClient()
 
-  const { data: existing, error: existingError } = await supabase
+  const { data, error: existingError } = await supabase
     .from('users')
     .select(
       [
@@ -55,9 +56,11 @@ export default defineEventHandler(async (event) => {
     .eq('id', id)
     .single()
 
-  if (existingError || !existing) {
+  if (existingError || !data) {
     throw createError({ statusCode: 404, statusMessage: 'Usuário não encontrado' })
   }
+
+  const existing = data as unknown as UserRowWithCompany
 
   if (existing.company_id !== authUser.company_id) {
     throw createError({ statusCode: 403, statusMessage: 'Você não pode editar usuários de outra empresa.' })
@@ -96,7 +99,16 @@ export default defineEventHandler(async (event) => {
     updates.cpf = payload.cpf?.trim() || null
   }
 
+  const companyRecord = await fetchCompanyById(supabase, authUser.company_id)
+
   if (payload.status !== undefined) {
+    if (companyRecord.status === 'desativado' && payload.status === 'ativo') {
+      throw createError({
+        statusCode: 400,
+        statusMessage: 'Não é possível ativar usuário vinculado a empresa desativada.'
+      })
+    }
+
     updates.status = mapStatusToDb(payload.status)
   }
 
@@ -116,7 +128,7 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  const { data, error } = await supabase
+  const { data: updatedUser, error } = await supabase
     .from('users')
     .update(updates)
     .eq('id', id)
@@ -140,13 +152,13 @@ export default defineEventHandler(async (event) => {
     )
     .single()
 
-  if (error || !data) {
+  if (error || !updatedUser) {
     console.error('[manager/users] PUT error', error)
     throw createError({ statusCode: 500, statusMessage: 'Erro ao atualizar usuário' })
   }
 
   return {
-    user: mapAdminUserRow(data)
+    user: mapAdminUserRow(updatedUser as unknown as UserRowWithCompany)
   }
 })
 
