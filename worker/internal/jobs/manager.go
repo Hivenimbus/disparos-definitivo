@@ -238,7 +238,35 @@ func (m *Manager) StartJob(ctx context.Context, userID string) (*supabase.SendJo
 	lockKey := m.buildLockKey(userID)
 	lockToken, err := m.acquireLock(ctx, lockKey)
 	if err != nil {
-		return nil, err
+		if errors.Is(err, ErrJobInProgress) {
+			// Auto-recovery: check if the lock is stale by verifying DB state
+			latest, fetchErr := m.supabase.FetchLatestJob(ctx, userID)
+			if fetchErr != nil {
+				return nil, fmt.Errorf("failed to verify job status during lock recovery: %w", fetchErr)
+			}
+
+			hasActiveJob := false
+			if latest != nil {
+				_, finished := finishedStatuses[latest.Status]
+				hasActiveJob = !finished
+			}
+
+			if !hasActiveJob {
+				m.logger.Printf("[worker] found stale lock for user_id=%s with no active job, forcing release", userID)
+				if relErr := m.forceReleaseLock(userID); relErr != nil {
+					return nil, fmt.Errorf("failed to release stale lock: %w", relErr)
+				}
+				// Retry acquire
+				lockToken, err = m.acquireLock(ctx, lockKey)
+				if err != nil {
+					return nil, err
+				}
+			} else {
+				return nil, err
+			}
+		} else {
+			return nil, err
+		}
 	}
 	releaseLock := true
 	defer func() {
