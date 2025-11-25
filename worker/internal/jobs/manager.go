@@ -219,7 +219,12 @@ func (m *Manager) resumeJob(ctx context.Context, row *supabase.JobRow) error {
 
 	ctxKeep, cancel := context.WithCancel(context.Background())
 	active.cancelKeep = cancel
-	go m.keepLockAlive(ctxKeep, lockKey, lockToken)
+	onLockLost := func() {
+		active.update(func(runtime *supabase.SendJobSummary) {
+			runtime.RequestedStop = true
+		})
+	}
+	go m.keepLockAlive(ctxKeep, lockKey, lockToken, onLockLost)
 	go m.runJob(context.Background(), active)
 
 	releaseLock = false
@@ -338,7 +343,12 @@ func (m *Manager) StartJob(ctx context.Context, userID string) (*supabase.SendJo
 
 	ctxKeep, cancel := context.WithCancel(context.Background())
 	active.cancelKeep = cancel
-	go m.keepLockAlive(ctxKeep, lockKey, lockToken)
+	onLockLost := func() {
+		active.update(func(runtime *supabase.SendJobSummary) {
+			runtime.RequestedStop = true
+		})
+	}
+	go m.keepLockAlive(ctxKeep, lockKey, lockToken, onLockLost)
 	go m.runJob(context.Background(), active)
 
 	releaseLock = false
@@ -1019,7 +1029,7 @@ func (m *Manager) releaseActiveJobLock(active *ActiveJob) {
 	m.releaseLock(active.lockKey, active.lockToken)
 }
 
-func (m *Manager) keepLockAlive(ctx context.Context, key, token string) {
+func (m *Manager) keepLockAlive(ctx context.Context, key, token string, onLockLost func()) {
 	if m.locks == nil || key == "" || token == "" {
 		return
 	}
@@ -1040,6 +1050,11 @@ func (m *Manager) keepLockAlive(ctx context.Context, key, token string) {
 			cancel()
 			if err != nil {
 				m.logger.Printf("[worker] failed to refresh lock key=%s err=%v", key, err)
+				if errors.Is(err, locks.ErrLockLost) && onLockLost != nil {
+					m.logger.Printf("[worker] lock lost for key=%s, triggering stop", key)
+					onLockLost()
+					return
+				}
 			}
 		}
 	}
