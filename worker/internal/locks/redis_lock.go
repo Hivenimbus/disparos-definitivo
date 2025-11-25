@@ -21,6 +21,7 @@ type LockProvider interface {
 	Release(ctx context.Context, key, token string) error
 	Refresh(ctx context.Context, key, token string, ttl time.Duration) error
 	ForceRelease(ctx context.Context, key string) error
+	ForceAcquire(ctx context.Context, key string) (string, error)
 }
 
 type RedisLock struct {
@@ -114,6 +115,19 @@ func (r *RedisLock) ForceRelease(ctx context.Context, key string) error {
 		return nil
 	}
 	return r.client.Del(ctx, key).Err()
+}
+
+func (r *RedisLock) ForceAcquire(ctx context.Context, key string) (string, error) {
+	token, err := randomToken()
+	if err != nil {
+		return "", err
+	}
+	// Use Set (upsert) instead of SetNX
+	err = r.client.Set(ctx, key, token, r.ttl).Err()
+	if err != nil {
+		return "", err
+	}
+	return token, nil
 }
 
 func randomToken() (string, error) {

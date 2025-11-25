@@ -105,16 +105,11 @@ func (m *Manager) resumeJob(ctx context.Context, row *supabase.JobRow) error {
 	lockToken, err := m.acquireLock(ctx, lockKey)
 	if err != nil {
 		if errors.Is(err, ErrJobInProgress) {
-			m.logger.Printf("[worker] stale lock detected for user_id=%s, forcing release", row.UserID)
-			if relErr := m.forceReleaseLock(row.UserID); relErr != nil {
-				m.logger.Printf("[worker] failed to force release lock for user_id=%s: %v", row.UserID, relErr)
-				return nil
-			}
-			lockToken, err = m.acquireLock(ctx, lockKey)
+			m.logger.Printf("[worker] stale lock detected for user_id=%s, forcing acquire (overwrite)", row.UserID)
+			// Use ForceAcquire instead of ForceRelease + Acquire to prevent race conditions
+			lockToken, err = m.forceAcquireLock(ctx, lockKey)
 			if err != nil {
-				if errors.Is(err, ErrJobInProgress) {
-					return nil
-				}
+				m.logger.Printf("[worker] failed to force acquire lock for user_id=%s: %v", row.UserID, err)
 				return err
 			}
 		} else {
@@ -245,26 +240,27 @@ func (m *Manager) StartJob(ctx context.Context, userID string) (*supabase.SendJo
 	if err != nil {
 		if errors.Is(err, ErrJobInProgress) {
 			// Auto-recovery: check if the lock is stale by verifying DB state
-			latest, fetchErr := m.supabase.FetchLatestJob(ctx, userID)
+			activeJob, fetchErr := m.supabase.FetchActiveJob(ctx, userID)
 			if fetchErr != nil {
 				return nil, fmt.Errorf("failed to verify job status during lock recovery: %w", fetchErr)
 			}
 
-			hasActiveJob := false
-			if latest != nil {
-				_, finished := finishedStatuses[latest.Status]
-				hasActiveJob = !finished
-			}
+			// If there is an active job in DB that is NOT stale (queued/processing), we can't start a new one.
+			// But wait: if the lock exists AND there is an active job, it might be a zombie or another worker.
+			// The previous logic checked "latest". Now we check "active".
+			
+			// If activeJob exists, we must check if it's genuinely active or just a zombie.
+			// Since we couldn't acquire lock (ErrJobInProgress), someone holds it.
+			// If we are here, it means Redis says "busy".
+			// If DB says "no active job", then Redis is stale -> overwrite.
+			// If DB says "active job exists", then it's a real job running -> error.
 
-			if !hasActiveJob {
-				m.logger.Printf("[worker] found stale lock for user_id=%s with no active job, forcing release", userID)
-				if relErr := m.forceReleaseLock(userID); relErr != nil {
-					return nil, fmt.Errorf("failed to release stale lock: %w", relErr)
-				}
-				// Retry acquire
-				lockToken, err = m.acquireLock(ctx, lockKey)
+			if activeJob == nil {
+				m.logger.Printf("[worker] found stale lock for user_id=%s with no active job in DB, forcing acquire (overwrite)", userID)
+				// Use ForceAcquire to overwrite stale lock atomically
+				lockToken, err = m.forceAcquireLock(ctx, lockKey)
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("failed to force acquire stale lock: %w", err)
 				}
 			} else {
 				return nil, err
@@ -279,6 +275,16 @@ func (m *Manager) StartJob(ctx context.Context, userID string) (*supabase.SendJo
 			m.releaseLock(lockKey, lockToken)
 		}
 	}()
+
+	// Double check: ensure no other active job exists in DB before creating a new one
+	// This prevents race conditions where multiple requests create multiple queued jobs
+	existing, err := m.supabase.FetchActiveJob(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check existing active jobs: %w", err)
+	}
+	if existing != nil {
+		return nil, ErrJobInProgress
+	}
 
 	if err := m.cleanupFinishedJob(ctx, userID); err != nil {
 		return nil, err
@@ -1017,6 +1023,13 @@ func (m *Manager) forceReleaseLock(userID string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	return m.locks.ForceRelease(ctx, key)
+}
+
+func (m *Manager) forceAcquireLock(ctx context.Context, key string) (string, error) {
+	if m.locks == nil {
+		return "", nil
+	}
+	return m.locks.ForceAcquire(ctx, key)
 }
 
 func (m *Manager) releaseActiveJobLock(active *ActiveJob) {

@@ -76,6 +76,22 @@ func (c *Client) UpdateJob(ctx context.Context, jobID string, patch map[string]a
 	return c.do(ctx, http.MethodPatch, "/dashboard_send_jobs", q, patch, &rows, "return=representation")
 }
 
+func (c *Client) FetchActiveJob(ctx context.Context, userID string) (*JobRow, error) {
+	q := url.Values{}
+	q.Set("user_id", "eq."+userID)
+	q.Set("status", "in.(queued,processing)")
+	q.Set("order", "created_at.desc")
+	q.Set("limit", "1")
+	var rows []JobRow
+	if err := c.do(ctx, http.MethodGet, "/dashboard_send_jobs", q, nil, &rows, ""); err != nil {
+		return nil, err
+	}
+	if len(rows) == 0 {
+		return nil, nil
+	}
+	return &rows[0], nil
+}
+
 func (c *Client) FetchLatestJob(ctx context.Context, userID string) (*JobRow, error) {
 	q := url.Values{}
 	q.Set("user_id", "eq."+userID)
