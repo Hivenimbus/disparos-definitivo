@@ -1,6 +1,7 @@
 import { createError, readBody } from 'h3'
 import { requireAuthUser } from '../../utils/auth'
 import { getServiceSupabaseClient } from '../../utils/supabase'
+import { normalizeContactVariableOrNull } from '../../../shared/normalize-contact-variable'
 
 type ContactPayload = {
   name?: string
@@ -19,9 +20,9 @@ const normalizeContact = (contact: ContactPayload, userId: string, createdAt: st
     user_id: userId,
     name: contact.name?.trim() || '',
     whatsapp: contact.whatsapp.trim(),
-    var1: contact.var1?.trim() || null,
-    var2: contact.var2?.trim() || null,
-    var3: contact.var3?.trim() || null,
+    var1: normalizeContactVariableOrNull(contact.var1),
+    var2: normalizeContactVariableOrNull(contact.var2),
+    var3: normalizeContactVariableOrNull(contact.var3),
     created_at: createdAt
   }
 }

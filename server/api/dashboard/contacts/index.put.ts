@@ -1,6 +1,7 @@
 import { createError, readBody } from 'h3'
 import { requireAuthUser } from '../../../utils/auth'
 import { getServiceSupabaseClient } from '../../../utils/supabase'
+import { normalizeContactVariableOrNull } from '../../../../shared/normalize-contact-variable'
 
 type UpdateContactBody = {
   id?: string
@@ -28,9 +29,9 @@ export default defineEventHandler(async (event) => {
   const payload = {
     name: body.name.trim(),
     whatsapp: body.whatsapp.trim(),
-    var1: body.var1?.trim() || null,
-    var2: body.var2?.trim() || null,
-    var3: body.var3?.trim() || null
+    var1: normalizeContactVariableOrNull(body.var1),
+    var2: normalizeContactVariableOrNull(body.var2),
+    var3: normalizeContactVariableOrNull(body.var3)
   }
 
   const { data, error } = await supabase

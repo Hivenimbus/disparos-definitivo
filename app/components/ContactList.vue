@@ -463,6 +463,7 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import * as XLSX from 'xlsx'
+import { normalizeContactVariable } from '~/shared/normalize-contact-variable'
 
 const contacts = ref([])
 const currentPage = ref(1)
@@ -560,15 +561,19 @@ const saveEdit = async () => {
   isSavingContacts.value = true
 
   try {
+    const sanitizedVar1 = normalizeContactVariable(editForm.value.var1)
+    const sanitizedVar2 = normalizeContactVariable(editForm.value.var2)
+    const sanitizedVar3 = normalizeContactVariable(editForm.value.var3)
+
     const { contact } = await $fetch('/api/dashboard/contacts', {
       method: 'PUT',
       body: {
         id: editForm.value.id,
         name: editForm.value.name,
         whatsapp: editForm.value.whatsapp,
-        var1: editForm.value.var1,
-        var2: editForm.value.var2,
-        var3: editForm.value.var3
+        var1: sanitizedVar1,
+        var2: sanitizedVar2,
+        var3: sanitizedVar3
       }
     })
 
@@ -643,16 +648,16 @@ const parseContactLine = (line) => {
     const firstIsWhatsApp = looksLikeWhatsApp(fields[0])
     if (firstIsWhatsApp) {
       result.whatsapp = fields[0].replace(/\D/g, '')
-      result.var1 = fields[1] || ''
-      result.var2 = fields[2] || ''
-      result.var3 = fields[3] || ''
+      result.var1 = normalizeContactVariable(fields[1])
+      result.var2 = normalizeContactVariable(fields[2])
+      result.var3 = normalizeContactVariable(fields[3])
     } else {
       // Name, WhatsApp, and optional variables
       result.name = fields[0]
       result.whatsapp = fields[1].replace(/\D/g, '')
-      if (fields[2]) result.var1 = fields[2]
-      if (fields[3]) result.var2 = fields[3]
-      if (fields[4]) result.var3 = fields[4]
+      result.var1 = normalizeContactVariable(fields[2])
+      result.var2 = normalizeContactVariable(fields[3])
+      result.var3 = normalizeContactVariable(fields[4])
     }
   }
 
@@ -675,6 +680,9 @@ const fetchContacts = async (page = 1) => {
 
     const mappedContacts = (apiContacts ?? []).map((contact) => ({
       ...contact,
+      var1: normalizeContactVariable(contact.var1),
+      var2: normalizeContactVariable(contact.var2),
+      var3: normalizeContactVariable(contact.var3),
       status: validateWhatsApp(contact.whatsapp) ? 'valid' : 'invalid'
     }))
 
@@ -724,9 +732,9 @@ const saveContactsToApi = async (newContacts) => {
     const payload = newContacts.map((contact) => ({
       name: contact.name,
       whatsapp: contact.whatsapp,
-      var1: contact.var1,
-      var2: contact.var2,
-      var3: contact.var3
+      var1: normalizeContactVariable(contact.var1),
+      var2: normalizeContactVariable(contact.var2),
+      var3: normalizeContactVariable(contact.var3)
     }))
 
     const { contacts: createdContacts } = await $fetch('/api/dashboard/contacts', {
@@ -738,6 +746,9 @@ const saveContactsToApi = async (newContacts) => {
 
     return (createdContacts ?? []).map((contact) => ({
       ...contact,
+      var1: normalizeContactVariable(contact.var1),
+      var2: normalizeContactVariable(contact.var2),
+      var3: normalizeContactVariable(contact.var3),
       status: validateWhatsApp(contact.whatsapp) ? 'valid' : 'invalid'
     }))
   } catch (error) {
@@ -1007,6 +1018,10 @@ const processFile = async () => {
             if (row[3]) var2 = String(row[3]).trim()
             if (row[4]) var3 = String(row[4]).trim()
           }
+
+          var1 = normalizeContactVariable(var1)
+          var2 = normalizeContactVariable(var2)
+          var3 = normalizeContactVariable(var3)
         }
 
         if (whatsapp) {
