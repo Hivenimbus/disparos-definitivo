@@ -463,7 +463,7 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import * as XLSX from 'xlsx'
-import { normalizeContactVariable } from '~/shared/normalize-contact-variable'
+import { normalizeContactVariable } from '~~/shared/normalize-contact-variable'
 
 const contacts = ref([])
 const currentPage = ref(1)

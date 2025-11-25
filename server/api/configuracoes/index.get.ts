@@ -1,18 +1,18 @@
 import { createError } from 'h3'
 import { getServiceSupabaseClient } from '../../utils/supabase'
-import { requireAuthUser } from '../../utils/auth-user'
+import { requireAuthUser } from '../../utils/auth'
 
 const DEFAULT_INTERVALO = 10
 const DEFAULT_LIMITE = 1000
 
 export default defineEventHandler(async (event) => {
-  const authUser = requireAuthUser(event)
+  const authUser = await requireAuthUser(event)
   const supabase = getServiceSupabaseClient()
 
   const { data: config, error } = await supabase
     .from('configuracoes')
     .select('id, intervalo_segundos, limite_diario')
-    .eq('user_id', authUser.sub)
+    .eq('user_id', authUser.id)
     .maybeSingle()
 
   if (error) {
@@ -32,7 +32,7 @@ export default defineEventHandler(async (event) => {
   const { data: created, error: createErrorResult } = await supabase
     .from('configuracoes')
     .insert({
-      user_id: authUser.sub,
+      user_id: authUser.id,
       intervalo_segundos: DEFAULT_INTERVALO,
       limite_diario: DEFAULT_LIMITE
     })

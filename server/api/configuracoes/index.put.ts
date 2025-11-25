@@ -1,6 +1,6 @@
 import { createError, readBody } from 'h3'
 import { getServiceSupabaseClient } from '../../utils/supabase'
-import { requireAuthUser } from '../../utils/auth-user'
+import { requireAuthUser } from '../../utils/auth'
 
 type UpdateConfigPayload = {
   intervalo?: number
@@ -34,7 +34,7 @@ const validatePayload = (payload: UpdateConfigPayload) => {
 }
 
 export default defineEventHandler(async (event) => {
-  const authUser = requireAuthUser(event)
+  const authUser = await requireAuthUser(event)
   const payload = (await readBody(event)) as UpdateConfigPayload
   validatePayload(payload)
 
@@ -43,7 +43,7 @@ export default defineEventHandler(async (event) => {
   const { data: existing, error: fetchError } = await supabase
     .from('configuracoes')
     .select('id')
-    .eq('user_id', authUser.sub)
+    .eq('user_id', authUser.id)
     .maybeSingle()
 
   if (fetchError) {
@@ -65,7 +65,7 @@ export default defineEventHandler(async (event) => {
       limite_diario: payload.limite ?? undefined,
       updated_at: new Date().toISOString()
     })
-    .eq('user_id', authUser.sub)
+    .eq('user_id', authUser.id)
     .select('intervalo_segundos, limite_diario')
     .single()
 

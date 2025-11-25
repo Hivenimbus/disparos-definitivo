@@ -117,12 +117,17 @@
               </td>
               <td class="px-4 py-3">
                 <div class="flex items-center space-x-2">
-                  <button @click="openEditModal(user)" class="text-blue-600 hover:text-blue-800 transition-colors">
+                  <button @click="openEditModal(user)" class="text-blue-600 hover:text-blue-800 transition-colors" title="Editar">
                     <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                     </svg>
                   </button>
-                  <button @click="openDeleteModal(user)" class="text-red-600 hover:text-red-800 transition-colors">
+                  <button @click="openRecreateModal(user)" class="text-green-600 hover:text-green-800 transition-colors" title="Recriar Instância">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                  </button>
+                  <button @click="openDeleteModal(user)" class="text-red-600 hover:text-red-800 transition-colors" title="Excluir">
                     <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                     </svg>
@@ -503,6 +508,44 @@
         </div>
       </div>
     </div>
+
+    <div v-if="isRecreateModalOpen" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" @click.self="closeRecreateModal">
+      <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+        <div class="flex items-center justify-center mb-4">
+          <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          </div>
+        </div>
+
+        <h3 class="text-xl font-semibold text-gray-800 text-center mb-2">Confirmar Recriação</h3>
+        <p class="text-gray-600 text-center mb-6">
+          Deseja recriar a instância do Evolution para o usuário <strong>{{ userToRecreate?.nome }}</strong>?
+          Isso pode resolver problemas de conexão.
+        </p>
+        <p v-if="recreateError" class="text-red-600 text-center mb-4">
+          {{ recreateError }}
+        </p>
+
+        <div class="flex justify-end space-x-3">
+          <button
+            @click="closeRecreateModal"
+            class="px-6 py-2 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            @click="confirmRecreate"
+            :disabled="isRecreating"
+            class="px-6 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <span v-if="!isRecreating">Recriar Instância</span>
+            <span v-else>Recriando...</span>
+          </button>
+        </div>
+      </div>
+    </div>
   </section>
 </template>
 
@@ -559,12 +602,17 @@ const currentPage = ref(1)
 const authUser = useAuthUser()
 const isModalOpen = ref(false)
 const isDeleteModalOpen = ref(false)
+const isRecreateModalOpen = ref(false)
 const isEditMode = ref(false)
 const userToDelete = ref<AdminUserItem | null>(null)
+const userToRecreate = ref<AdminUserItem | null>(null)
 const formError = ref('')
 const deleteError = ref('')
+const recreateError = ref('')
 const isSaving = ref(false)
 const isDeleting = ref(false)
+const isRecreating = ref(false)
+const toast = useToast()
 const originalCompanyId = ref<string | null>(null)
 const originalRole = ref<UiRole | null>(null)
 const statusUpdating = ref<Record<string, boolean>>({})
@@ -1105,6 +1153,47 @@ const confirmAdminRoleAssignment = async () => {
   } finally {
     adminPasswordLoading.value = false
     adminPassword.value = ''
+  }
+}
+
+const openRecreateModal = (user: AdminUserItem) => {
+  recreateError.value = ''
+  userToRecreate.value = user
+  isRecreateModalOpen.value = true
+}
+
+const closeRecreateModal = () => {
+  isRecreateModalOpen.value = false
+  userToRecreate.value = null
+  recreateError.value = ''
+}
+
+const confirmRecreate = async () => {
+  if (!userToRecreate.value) return
+
+  isRecreating.value = true
+  recreateError.value = ''
+
+  try {
+    await $fetch(`/api/admin/users/${userToRecreate.value.id}/recreate-instance`, {
+      method: 'POST'
+    })
+    
+    // Sucesso - feedback visual
+    // Se tiver toast
+    if (toast && toast.add) {
+        toast.add({
+            title: 'Sucesso',
+            description: 'Instância recriada com sucesso',
+            type: 'success'
+        })
+    }
+    
+    closeRecreateModal()
+  } catch (error: any) {
+    recreateError.value = error?.statusMessage || 'Erro ao recriar instância.'
+  } finally {
+    isRecreating.value = false
   }
 }
 

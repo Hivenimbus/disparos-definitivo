@@ -1,6 +1,6 @@
 import { createError, readBody } from 'h3'
 import { getServiceSupabaseClient } from '../../utils/supabase'
-import { requireAuthUser } from '../../utils/auth-user'
+import { requireAuthUser } from '../../utils/auth'
 import { verifyPassword, hashPassword } from '../../utils/password'
 
 type PasswordUpdateBody = {
@@ -12,7 +12,7 @@ type PasswordUpdateBody = {
 const MIN_PASSWORD_LENGTH = 8
 
 export default defineEventHandler(async (event) => {
-  const payload = requireAuthUser(event)
+  const payload = await requireAuthUser(event)
   const body = (await readBody(event)) as PasswordUpdateBody
   const supabase = getServiceSupabaseClient()
 
@@ -42,7 +42,7 @@ export default defineEventHandler(async (event) => {
   const { data: user, error } = await supabase
     .from('users')
     .select('id, senha_hash')
-    .eq('id', payload.sub)
+    .eq('id', payload.id)
     .single()
 
   if (error || !user) {
@@ -66,7 +66,7 @@ export default defineEventHandler(async (event) => {
       senha_hash: newPasswordHash,
       updated_at: new Date().toISOString()
     })
-    .eq('id', payload.sub)
+    .eq('id', payload.id)
 
   if (updateError) {
     throw createError({
