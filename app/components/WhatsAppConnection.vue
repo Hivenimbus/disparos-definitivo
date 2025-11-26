@@ -309,9 +309,23 @@ const fetchQrCode = async ({ silent = false }: { silent?: boolean } = {}) => {
     return data
   } catch (error: any) {
     if (!silent) {
+      // Não define erro aqui se for silent, deixa quem chamou tratar
+       // Mas se não for silent, definimos o erro, porém o startConnection vai limpar se tentar o fallback
       errorMessage.value = error?.data?.statusMessage || 'Não foi possível obter o QR Code.'
     }
     throw error
+  }
+}
+
+const recreateInstance = async () => {
+  try {
+    await $fetch('/api/dashboard/whatsapp/recreate', {
+      method: 'POST'
+    })
+    return true
+  } catch (error) {
+    console.error('[WhatsAppConnection] Falha ao recriar instância', error)
+    return false
   }
 }
 
@@ -322,19 +336,66 @@ const startConnection = async () => {
   errorMessage.value = null
   stopQrRefresh()
 
-  try {
-    await fetchQrCode()
+  // Função auxiliar para delay
+  const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
-    await fetchConnectionState({ silent: true })
-    ensurePolling()
-    ensureQrRefresh()
-  } catch (error: any) {
-    if (!errorMessage.value) {
-      errorMessage.value = error?.data?.statusMessage || 'Não foi possível iniciar a conexão.'
+  // Fase 1: Tentar obter QR Code (3 tentativas)
+  let attempts = 0
+  const maxAttempts = 3
+  let qrCodeSuccess = false
+
+  while (attempts < maxAttempts && !qrCodeSuccess) {
+    attempts++
+    try {
+      // Tentativa silenciosa
+      await fetchQrCode({ silent: true })
+      qrCodeSuccess = true
+    } catch (error) {
+      console.warn(`[WhatsAppConnection] Tentativa ${attempts}/${maxAttempts} falhou:`, error)
+      if (attempts < maxAttempts) {
+        await delay(1500) // Espera 1.5s entre tentativas
+      }
     }
-  } finally {
-    isConnecting.value = false
   }
+
+  // Se conseguiu o QR Code nas tentativas iniciais, segue o fluxo normal
+  if (qrCodeSuccess) {
+    try {
+      await fetchConnectionState({ silent: true })
+      ensurePolling()
+      ensureQrRefresh()
+    } catch (error) {
+      console.error('[WhatsAppConnection] Erro ao buscar estado após QR Code', error)
+    } finally {
+      isConnecting.value = false
+    }
+    return
+  }
+
+  // Fase 2: Fallback - Recriar Instância
+  console.warn('[WhatsAppConnection] Falha após tentativas. Iniciando recriação da instância...')
+  const recreated = await recreateInstance()
+  
+  if (recreated) {
+    try {
+      // Aguarda um pouco para a instância inicializar após recriação
+      await delay(2000)
+      
+      // Tentativa final após recriação
+      await fetchQrCode()
+      
+      await fetchConnectionState({ silent: true })
+      ensurePolling()
+      ensureQrRefresh()
+    } catch (retryError: any) {
+      errorMessage.value = retryError?.data?.statusMessage || 'Não foi possível conectar (falha após recriação).'
+    }
+  } else {
+    // Se a recriação falhar, definimos uma mensagem de erro genérica pois as tentativas anteriores foram silenciosas
+    errorMessage.value = 'Não foi possível iniciar a conexão após múltiplas tentativas.'
+  }
+
+  isConnecting.value = false
 }
 
 const disconnectInstance = async () => {
