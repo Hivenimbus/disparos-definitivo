@@ -13,6 +13,7 @@ import (
 
 var (
 	ErrLockNotAcquired = errors.New("lock not acquired")
+	ErrLockLost        = errors.New("lock lost or expired")
 )
 
 type LockProvider interface {
@@ -20,6 +21,7 @@ type LockProvider interface {
 	Release(ctx context.Context, key, token string) error
 	Refresh(ctx context.Context, key, token string, ttl time.Duration) error
 	ForceRelease(ctx context.Context, key string) error
+	ForceAcquire(ctx context.Context, key string) (string, error)
 }
 
 type RedisLock struct {
@@ -95,11 +97,17 @@ func (r *RedisLock) Refresh(ctx context.Context, key, token string, ttl time.Dur
 	if ms <= 0 {
 		ms = r.ttl.Milliseconds()
 	}
-	_, err := refreshScript.Run(ctx, r.client, []string{key}, token, ms).Result()
-	if err == redis.Nil {
-		return nil
+	result, err := refreshScript.Run(ctx, r.client, []string{key}, token, ms).Result()
+	if err != nil {
+		if err == redis.Nil {
+			return ErrLockLost
+		}
+		return err
 	}
-	return err
+	if val, ok := result.(int64); ok && val == 0 {
+		return ErrLockLost
+	}
+	return nil
 }
 
 func (r *RedisLock) ForceRelease(ctx context.Context, key string) error {
@@ -107,6 +115,19 @@ func (r *RedisLock) ForceRelease(ctx context.Context, key string) error {
 		return nil
 	}
 	return r.client.Del(ctx, key).Err()
+}
+
+func (r *RedisLock) ForceAcquire(ctx context.Context, key string) (string, error) {
+	token, err := randomToken()
+	if err != nil {
+		return "", err
+	}
+	// Use Set (upsert) instead of SetNX
+	err = r.client.Set(ctx, key, token, r.ttl).Err()
+	if err != nil {
+		return "", err
+	}
+	return token, nil
 }
 
 func randomToken() (string, error) {

@@ -11,6 +11,9 @@ import (
 	"github.com/jpcb2/disparos-definitivo/worker/internal/locks"
 	"github.com/jpcb2/disparos-definitivo/worker/internal/server"
 	"github.com/jpcb2/disparos-definitivo/worker/internal/supabase"
+	"os/signal"
+	"syscall"
+	"time"
 )
 
 func main() {
@@ -38,7 +41,23 @@ func main() {
 	manager.RecoverActiveJobs(context.Background())
 	httpServer := server.New(manager, cfg.WorkerToken, logger)
 
-	if err := httpServer.ListenAndServe(cfg.WorkerAddr); err != nil {
-		logger.Fatalf("server error: %v", err)
+	go func() {
+		if err := httpServer.ListenAndServe(cfg.WorkerAddr); err != nil {
+			logger.Fatalf("server error: %v", err)
+		}
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	logger.Println("shutting down worker...")
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	manager.Shutdown(ctx)
+	if err := httpServer.Shutdown(ctx); err != nil {
+		logger.Printf("http server shutdown error: %v", err)
 	}
+	logger.Println("worker stopped")
 }

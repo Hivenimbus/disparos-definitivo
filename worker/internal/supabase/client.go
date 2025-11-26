@@ -76,6 +76,22 @@ func (c *Client) UpdateJob(ctx context.Context, jobID string, patch map[string]a
 	return c.do(ctx, http.MethodPatch, "/dashboard_send_jobs", q, patch, &rows, "return=representation")
 }
 
+func (c *Client) FetchActiveJob(ctx context.Context, userID string) (*JobRow, error) {
+	q := url.Values{}
+	q.Set("user_id", "eq."+userID)
+	q.Set("status", "in.(queued,processing)")
+	q.Set("order", "created_at.desc")
+	q.Set("limit", "1")
+	var rows []JobRow
+	if err := c.do(ctx, http.MethodGet, "/dashboard_send_jobs", q, nil, &rows, ""); err != nil {
+		return nil, err
+	}
+	if len(rows) == 0 {
+		return nil, nil
+	}
+	return &rows[0], nil
+}
+
 func (c *Client) FetchLatestJob(ctx context.Context, userID string) (*JobRow, error) {
 	q := url.Values{}
 	q.Set("user_id", "eq."+userID)
@@ -133,14 +149,31 @@ func (c *Client) InsertContactLogs(ctx context.Context, jobID string, contacts [
 }
 
 func (c *Client) LoadJobLogs(ctx context.Context, jobID string) ([]JobLogRow, error) {
-	q := url.Values{}
-	q.Set("job_id", "eq."+jobID)
-	q.Set("order", "sequence.asc")
-	var rows []JobLogRow
-	if err := c.do(ctx, http.MethodGet, "/dashboard_send_job_logs", q, nil, &rows, ""); err != nil {
-		return nil, err
+	const pageSize = 1000
+	allRows := make([]JobLogRow, 0)
+	offset := 0
+	for {
+		q := url.Values{}
+		q.Set("job_id", "eq."+jobID)
+		q.Set("order", "sequence.asc")
+		q.Set("limit", strconv.Itoa(pageSize))
+		if offset > 0 {
+			q.Set("offset", strconv.Itoa(offset))
+		}
+		var rows []JobLogRow
+		if err := c.do(ctx, http.MethodGet, "/dashboard_send_job_logs", q, nil, &rows, ""); err != nil {
+			return nil, err
+		}
+		if len(rows) == 0 {
+			break
+		}
+		allRows = append(allRows, rows...)
+		if len(rows) < pageSize {
+			break
+		}
+		offset += pageSize
 	}
-	return rows, nil
+	return allRows, nil
 }
 
 func (c *Client) UpdateContactLog(ctx context.Context, jobID string, contact ContactRow, patch map[string]any) error {

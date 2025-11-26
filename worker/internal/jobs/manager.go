@@ -82,6 +82,33 @@ func NewManager(
 	}
 }
 
+func (m *Manager) Shutdown(ctx context.Context) {
+	m.activeMu.Lock()
+	defer m.activeMu.Unlock()
+
+	var wg sync.WaitGroup
+	for userID, active := range m.active {
+		m.logger.Printf("[worker] stopping job user_id=%s...", userID)
+		wg.Add(1)
+		go func(u string, a *ActiveJob) {
+			defer wg.Done()
+			a.update(func(runtime *supabase.SendJobSummary) {
+				runtime.RequestedStop = true
+			})
+			// Wait for loop to exit (lock release happens there)
+			// We can just cancel the keep-alive to be sure
+			if a.cancelKeep != nil {
+				a.cancelKeep()
+			}
+		}(userID, active)
+	}
+	// We don't wait for actual job completion here because they run in separate goroutines
+	// and check requestedStop. The important part is signaling stop.
+	// Realistically, we should wait for runJob to finish, but that requires more sync plumbing.
+	// For now, we just signal stop.
+	m.logger.Println("[worker] shutdown signal sent to all jobs")
+}
+
 func (m *Manager) RecoverActiveJobs(ctx context.Context) {
 	rows, err := m.supabase.ListActiveJobs(ctx)
 	if err != nil {
@@ -105,16 +132,11 @@ func (m *Manager) resumeJob(ctx context.Context, row *supabase.JobRow) error {
 	lockToken, err := m.acquireLock(ctx, lockKey)
 	if err != nil {
 		if errors.Is(err, ErrJobInProgress) {
-			m.logger.Printf("[worker] stale lock detected for user_id=%s, forcing release", row.UserID)
-			if relErr := m.forceReleaseLock(row.UserID); relErr != nil {
-				m.logger.Printf("[worker] failed to force release lock for user_id=%s: %v", row.UserID, relErr)
-				return nil
-			}
-			lockToken, err = m.acquireLock(ctx, lockKey)
+			m.logger.Printf("[worker] stale lock detected for user_id=%s, forcing acquire (overwrite)", row.UserID)
+			// Use ForceAcquire instead of ForceRelease + Acquire to prevent race conditions
+			lockToken, err = m.forceAcquireLock(ctx, lockKey)
 			if err != nil {
-				if errors.Is(err, ErrJobInProgress) {
-					return nil
-				}
+				m.logger.Printf("[worker] failed to force acquire lock for user_id=%s: %v", row.UserID, err)
 				return err
 			}
 		} else {
@@ -219,7 +241,12 @@ func (m *Manager) resumeJob(ctx context.Context, row *supabase.JobRow) error {
 
 	ctxKeep, cancel := context.WithCancel(context.Background())
 	active.cancelKeep = cancel
-	go m.keepLockAlive(ctxKeep, lockKey, lockToken)
+	onLockLost := func() {
+		active.update(func(runtime *supabase.SendJobSummary) {
+			runtime.RequestedStop = true
+		})
+	}
+	go m.keepLockAlive(ctxKeep, lockKey, lockToken, onLockLost)
 	go m.runJob(context.Background(), active)
 
 	releaseLock = false
@@ -240,26 +267,27 @@ func (m *Manager) StartJob(ctx context.Context, userID string) (*supabase.SendJo
 	if err != nil {
 		if errors.Is(err, ErrJobInProgress) {
 			// Auto-recovery: check if the lock is stale by verifying DB state
-			latest, fetchErr := m.supabase.FetchLatestJob(ctx, userID)
+			activeJob, fetchErr := m.supabase.FetchActiveJob(ctx, userID)
 			if fetchErr != nil {
 				return nil, fmt.Errorf("failed to verify job status during lock recovery: %w", fetchErr)
 			}
 
-			hasActiveJob := false
-			if latest != nil {
-				_, finished := finishedStatuses[latest.Status]
-				hasActiveJob = !finished
-			}
+			// If there is an active job in DB that is NOT stale (queued/processing), we can't start a new one.
+			// But wait: if the lock exists AND there is an active job, it might be a zombie or another worker.
+			// The previous logic checked "latest". Now we check "active".
+			
+			// If activeJob exists, we must check if it's genuinely active or just a zombie.
+			// Since we couldn't acquire lock (ErrJobInProgress), someone holds it.
+			// If we are here, it means Redis says "busy".
+			// If DB says "no active job", then Redis is stale -> overwrite.
+			// If DB says "active job exists", then it's a real job running -> error.
 
-			if !hasActiveJob {
-				m.logger.Printf("[worker] found stale lock for user_id=%s with no active job, forcing release", userID)
-				if relErr := m.forceReleaseLock(userID); relErr != nil {
-					return nil, fmt.Errorf("failed to release stale lock: %w", relErr)
-				}
-				// Retry acquire
-				lockToken, err = m.acquireLock(ctx, lockKey)
+			if activeJob == nil {
+				m.logger.Printf("[worker] found stale lock for user_id=%s with no active job in DB, forcing acquire (overwrite)", userID)
+				// Use ForceAcquire to overwrite stale lock atomically
+				lockToken, err = m.forceAcquireLock(ctx, lockKey)
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("failed to force acquire stale lock: %w", err)
 				}
 			} else {
 				return nil, err
@@ -274,6 +302,16 @@ func (m *Manager) StartJob(ctx context.Context, userID string) (*supabase.SendJo
 			m.releaseLock(lockKey, lockToken)
 		}
 	}()
+
+	// Double check: ensure no other active job exists in DB before creating a new one
+	// This prevents race conditions where multiple requests create multiple queued jobs
+	existing, err := m.supabase.FetchActiveJob(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check existing active jobs: %w", err)
+	}
+	if existing != nil {
+		return nil, ErrJobInProgress
+	}
 
 	if err := m.cleanupFinishedJob(ctx, userID); err != nil {
 		return nil, err
@@ -338,7 +376,12 @@ func (m *Manager) StartJob(ctx context.Context, userID string) (*supabase.SendJo
 
 	ctxKeep, cancel := context.WithCancel(context.Background())
 	active.cancelKeep = cancel
-	go m.keepLockAlive(ctxKeep, lockKey, lockToken)
+	onLockLost := func() {
+		active.update(func(runtime *supabase.SendJobSummary) {
+			runtime.RequestedStop = true
+		})
+	}
+	go m.keepLockAlive(ctxKeep, lockKey, lockToken, onLockLost)
 	go m.runJob(context.Background(), active)
 
 	releaseLock = false
@@ -1009,6 +1052,13 @@ func (m *Manager) forceReleaseLock(userID string) error {
 	return m.locks.ForceRelease(ctx, key)
 }
 
+func (m *Manager) forceAcquireLock(ctx context.Context, key string) (string, error) {
+	if m.locks == nil {
+		return "", nil
+	}
+	return m.locks.ForceAcquire(ctx, key)
+}
+
 func (m *Manager) releaseActiveJobLock(active *ActiveJob) {
 	if active == nil {
 		return
@@ -1019,7 +1069,7 @@ func (m *Manager) releaseActiveJobLock(active *ActiveJob) {
 	m.releaseLock(active.lockKey, active.lockToken)
 }
 
-func (m *Manager) keepLockAlive(ctx context.Context, key, token string) {
+func (m *Manager) keepLockAlive(ctx context.Context, key, token string, onLockLost func()) {
 	if m.locks == nil || key == "" || token == "" {
 		return
 	}
@@ -1040,6 +1090,11 @@ func (m *Manager) keepLockAlive(ctx context.Context, key, token string) {
 			cancel()
 			if err != nil {
 				m.logger.Printf("[worker] failed to refresh lock key=%s err=%v", key, err)
+				if errors.Is(err, locks.ErrLockLost) && onLockLost != nil {
+					m.logger.Printf("[worker] lock lost for key=%s, triggering stop", key)
+					onLockLost()
+					return
+				}
 			}
 		}
 	}
