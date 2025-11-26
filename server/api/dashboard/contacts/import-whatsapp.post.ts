@@ -65,17 +65,13 @@ export default defineEventHandler(async (event) => {
 
     const supabase = getServiceSupabaseClient()
 
-    // Use upsert to prevent duplicates - if contact with same user_id + whatsapp exists, update it
     const { data, error } = await supabase
       .from('dashboard_contacts')
-      .upsert(uniqueContacts, {
-        onConflict: 'user_id,whatsapp',
-        ignoreDuplicates: false
-      })
+      .insert(uniqueContacts)
       .select('id')
 
     if (error) {
-      console.error('[dashboard/contacts/import-whatsapp] Supabase upsert error', error)
+      console.error('[dashboard/contacts/import-whatsapp] Supabase insert error', error)
       throw createError({
         statusCode: 500,
         statusMessage: 'Não foi possível salvar os contatos importados'

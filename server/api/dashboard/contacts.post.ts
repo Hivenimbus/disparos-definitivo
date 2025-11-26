@@ -11,7 +11,7 @@ type ContactPayload = {
   var3?: string | null
 }
 
-const normalizeContact = (contact: ContactPayload, userId: string) => {
+const normalizeContact = (contact: ContactPayload, userId: string, createdAt: string) => {
   if (!contact?.whatsapp?.trim()) {
     throw createError({ statusCode: 400, statusMessage: 'WhatsApp é obrigatório' })
   }
@@ -22,7 +22,8 @@ const normalizeContact = (contact: ContactPayload, userId: string) => {
     whatsapp: contact.whatsapp.trim(),
     var1: normalizeContactVariableOrNull(contact.var1),
     var2: normalizeContactVariableOrNull(contact.var2),
-    var3: normalizeContactVariableOrNull(contact.var3)
+    var3: normalizeContactVariableOrNull(contact.var3),
+    created_at: createdAt
   }
 }
 
@@ -44,17 +45,17 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Nenhum contato enviado' })
   }
 
-  const records = contactsPayload.map((contact) => normalizeContact(contact, user.id))
+  const now = Date.now()
+  const records = contactsPayload.map((contact, index) => {
+    const createdAt = new Date(now + index).toISOString()
+    return normalizeContact(contact, user.id, createdAt)
+  })
 
   const supabase = getServiceSupabaseClient()
 
-  // Use upsert to prevent duplicates - if contact with same user_id + whatsapp exists, update it
   const { data, error } = await supabase
     .from('dashboard_contacts')
-    .upsert(records, {
-      onConflict: 'user_id,whatsapp',
-      ignoreDuplicates: false
-    })
+    .insert(records)
     .select('id, name, whatsapp, var1, var2, var3, created_at, updated_at')
 
   if (error || !data?.length) {
