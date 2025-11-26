@@ -149,14 +149,31 @@ func (c *Client) InsertContactLogs(ctx context.Context, jobID string, contacts [
 }
 
 func (c *Client) LoadJobLogs(ctx context.Context, jobID string) ([]JobLogRow, error) {
-	q := url.Values{}
-	q.Set("job_id", "eq."+jobID)
-	q.Set("order", "sequence.asc")
-	var rows []JobLogRow
-	if err := c.do(ctx, http.MethodGet, "/dashboard_send_job_logs", q, nil, &rows, ""); err != nil {
-		return nil, err
+	const pageSize = 1000
+	allRows := make([]JobLogRow, 0)
+	offset := 0
+	for {
+		q := url.Values{}
+		q.Set("job_id", "eq."+jobID)
+		q.Set("order", "sequence.asc")
+		q.Set("limit", strconv.Itoa(pageSize))
+		if offset > 0 {
+			q.Set("offset", strconv.Itoa(offset))
+		}
+		var rows []JobLogRow
+		if err := c.do(ctx, http.MethodGet, "/dashboard_send_job_logs", q, nil, &rows, ""); err != nil {
+			return nil, err
+		}
+		if len(rows) == 0 {
+			break
+		}
+		allRows = append(allRows, rows...)
+		if len(rows) < pageSize {
+			break
+		}
+		offset += pageSize
 	}
-	return rows, nil
+	return allRows, nil
 }
 
 func (c *Client) UpdateContactLog(ctx context.Context, jobID string, contact ContactRow, patch map[string]any) error {
