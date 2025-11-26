@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"log"
@@ -16,6 +17,7 @@ type Server struct {
 	token   string
 	mux     *http.ServeMux
 	logger  *log.Logger
+	srv     *http.Server
 }
 
 func New(manager *jobs.Manager, token string, logger *log.Logger) *Server {
@@ -40,7 +42,18 @@ func (s *Server) routes() {
 
 func (s *Server) ListenAndServe(addr string) error {
 	s.logger.Printf("[server] listening on %s", addr)
-	return http.ListenAndServe(addr, s.mux)
+	s.srv = &http.Server{
+		Addr:    addr,
+		Handler: s.mux,
+	}
+	return s.srv.ListenAndServe()
+}
+
+func (s *Server) Shutdown(ctx context.Context) error {
+	if s.srv != nil {
+		return s.srv.Shutdown(ctx)
+	}
+	return nil
 }
 
 func (s *Server) withAuth(next http.Handler) http.Handler {
