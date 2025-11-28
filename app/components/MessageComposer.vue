@@ -15,6 +15,7 @@
     <div class="mb-6">
       <label class="block text-gray-700 font-medium mb-2">Mensagem</label>
       <textarea
+        ref="messageTextarea"
         v-model="message"
         placeholder="Digite sua mensagem..."
         rows="6"
@@ -675,7 +676,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, nextTick } from 'vue'
 
 type DashboardAttachment = {
   id: string
@@ -704,6 +705,7 @@ const createDefaultSpintaxFields = (): SpintaxField[] => ([
   { value: '' }
 ])
 
+const messageTextarea = ref<HTMLTextAreaElement | null>(null)
 const message = ref('')
 const lastSavedMessageBody = ref('')
 const attachments = ref<DashboardAttachment[]>([])
@@ -1491,6 +1493,27 @@ const handleFieldInput = (index) => {
   }
 }
 
+const insertTextAtCursor = async (text: string) => {
+  const textarea = messageTextarea.value
+  if (!textarea) {
+    message.value += text
+    return
+  }
+
+  const start = textarea.selectionStart
+  const end = textarea.selectionEnd
+  const originalText = message.value
+  const scrollTop = textarea.scrollTop
+
+  message.value = originalText.substring(0, start) + text + originalText.substring(end)
+  
+  await nextTick()
+  
+  textarea.focus({ preventScroll: true })
+  textarea.scrollTop = scrollTop
+  textarea.setSelectionRange(start + text.length, start + text.length)
+}
+
 const generateSpintax = () => {
   const validFields = spintaxFields.value
     .filter(field => field.value.trim() !== '')
@@ -1503,12 +1526,7 @@ const generateSpintax = () => {
 
   const spintaxText = `{${validFields.join('|')}}`
 
-  // Add spintax to message with proper spacing
-  if (message.value && !message.value.endsWith(' ') && !message.value.endsWith('\n')) {
-    message.value += ' ' + spintaxText
-  } else {
-    message.value += spintaxText
-  }
+  insertTextAtCursor(spintaxText)
 
   closeSpintaxModal()
 }
@@ -1520,8 +1538,7 @@ const toggleVariableMenu = () => {
 const insertPlaceholder = (placeholder: string) => {
   const trimmed = placeholder.trim()
   if (!trimmed) return
-  const needsSpace = message.value && !message.value.endsWith(' ') && !message.value.endsWith('\n')
-  message.value += needsSpace ? ` ${trimmed}` : trimmed
+  insertTextAtCursor(trimmed)
 }
 
 const insertVariable = (key: VariableKey) => {
