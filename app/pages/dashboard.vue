@@ -1,5 +1,5 @@
 <template>
-  <div class="space-y-6">
+  <div class="space-y-4 md:space-y-6">
     <WhatsAppConnection />
     <ContactList />
     <MessageComposer />
