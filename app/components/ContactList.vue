@@ -9,6 +9,16 @@
       </div>
 
       <div class="flex items-center space-x-3">
+        <button
+          @click="exportContacts"
+          :disabled="isExporting || totalContacts === 0"
+          class="flex items-center space-x-2 px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
+          <span>{{ isExporting ? 'Exportando...' : 'Exportar Contatos' }}</span>
+        </button>
         <div ref="importDropdownRef" class="relative">
           <button
             @click="toggleImportDropdown"
@@ -471,6 +481,7 @@ const totalPages = ref(1)
 const limit = 10
 const isLoadingContacts = ref(false)
 const isSavingContacts = ref(false)
+const isExporting = ref(false)
 const isClearingContacts = ref(false)
 const isImportModalOpen = ref(false)
 const contactListText = ref('')
@@ -757,6 +768,43 @@ const saveContactsToApi = async (newContacts) => {
     return []
   } finally {
     isSavingContacts.value = false
+  }
+}
+
+const exportContacts = async () => {
+  if (isExporting.value) return
+
+  isExporting.value = true
+  try {
+    const { contacts: allContacts } = await $fetch('/api/dashboard/contacts', {
+      query: { export: 'true' }
+    })
+
+    if (!allContacts || allContacts.length === 0) {
+      toast.warning('Nenhum contato para exportar')
+      return
+    }
+
+    const data = allContacts.map(c => ({
+      'Nome': c.name || '',
+      'WhatsApp': c.whatsapp,
+      'Variável 1': c.var1 || '',
+      'Variável 2': c.var2 || '',
+      'Variável 3': c.var3 || '',
+      'Status': validateWhatsApp(c.whatsapp) ? 'Válido' : 'Inválido'
+    }))
+
+    const worksheet = XLSX.utils.json_to_sheet(data)
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Contatos')
+    
+    XLSX.writeFile(workbook, 'contatos.xlsx')
+    toast.success('Exportação concluída')
+  } catch (error) {
+    console.error('[dashboard/contacts] export error', error)
+    toast.error('Erro ao exportar contatos')
+  } finally {
+    isExporting.value = false
   }
 }
 

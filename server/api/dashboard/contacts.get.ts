@@ -10,21 +10,43 @@ export default defineEventHandler(async (event) => {
   const supabase = getServiceSupabaseClient()
 
   const query = getQuery(event)
-  const limitParam = Number(query.limit)
-  const pageParam = Number(query.page)
+  const isExport = query.export === 'true'
+  
+  let data, error
+  let page = 1
+  let limit = DEFAULT_LIMIT
 
-  const limit = Math.min(MAX_LIMIT, Math.max(1, Number.isNaN(limitParam) ? DEFAULT_LIMIT : limitParam))
-  const page = Math.max(1, Number.isNaN(pageParam) ? 1 : pageParam)
-  const from = (page - 1) * limit
-  const to = from + limit - 1
+  if (isExport) {
+    const result = await supabase
+      .from('dashboard_contacts')
+      .select('name, whatsapp, var1, var2, var3, created_at')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: true, nullsFirst: true })
+      .order('id', { ascending: true })
 
-  const { data, error } = await supabase
-    .from('dashboard_contacts')
-    .select('id, name, whatsapp, var1, var2, var3, created_at, updated_at')
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: true, nullsFirst: true })
-    .order('id', { ascending: true })
-    .range(from, to)
+    data = result.data
+    error = result.error
+    limit = data?.length || 0
+  } else {
+    const limitParam = Number(query.limit)
+    const pageParam = Number(query.page)
+
+    limit = Math.min(MAX_LIMIT, Math.max(1, Number.isNaN(limitParam) ? DEFAULT_LIMIT : limitParam))
+    page = Math.max(1, Number.isNaN(pageParam) ? 1 : pageParam)
+    const from = (page - 1) * limit
+    const to = from + limit - 1
+
+    const result = await supabase
+      .from('dashboard_contacts')
+      .select('id, name, whatsapp, var1, var2, var3, created_at, updated_at')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: true, nullsFirst: true })
+      .order('id', { ascending: true })
+      .range(from, to)
+
+    data = result.data
+    error = result.error
+  }
 
   if (error) {
     console.error('[dashboard/contacts] GET error', error)
