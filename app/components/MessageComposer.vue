@@ -322,8 +322,94 @@
         </div>
 
         <div class="mb-6">
-          <label class="block text-gray-700 font-medium mb-2">Legenda (opcional)</label>
+          <div class="flex justify-between items-center mb-2">
+            <label class="block text-gray-700 font-medium">Legenda (opcional)</label>
+            <div class="flex space-x-2">
+              <button
+                @click="openSpintaxModal('caption')"
+                class="text-xs px-2 py-1 text-blue-600 bg-blue-50 border border-blue-200 rounded hover:bg-blue-100 transition-colors flex items-center space-x-1"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                <span>Spintax</span>
+              </button>
+              
+              <div class="relative">
+                <button
+                  @click="toggleCaptionVariableMenu"
+                  class="text-xs px-2 py-1 text-blue-600 bg-blue-50 border border-blue-200 rounded hover:bg-blue-100 transition-colors flex items-center space-x-1"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                  <span>Variável</span>
+                </button>
+
+                <div
+                  v-if="isCaptionVariableMenuOpen"
+                  class="absolute right-0 mt-1 w-56 bg-white border border-gray-200 rounded-lg shadow-xl z-20 py-1"
+                >
+                  <button
+                    v-for="variable in variableOptions"
+                    :key="variable.key"
+                    @click="insertVariable(variable.key, 'caption')"
+                    class="w-full px-3 py-2 text-left hover:bg-blue-50 transition-colors"
+                  >
+                    <div class="flex items-start space-x-2">
+                      <div
+                        :class="[
+                          'flex h-6 w-6 items-center justify-center rounded-full flex-shrink-0',
+                          variable.bgClass,
+                          variable.textClass
+                        ]"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m6-6H6" />
+                        </svg>
+                      </div>
+                      <div>
+                        <p class="text-xs font-semibold text-gray-800">{{ variable.title }}</p>
+                        <p class="text-[10px] text-gray-500">{{ variable.description }}</p>
+                      </div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              <div class="relative">
+                <button
+                  @click="toggleCaptionNameMenu"
+                  class="text-xs px-2 py-1 text-blue-600 bg-blue-50 border border-blue-200 rounded hover:bg-blue-100 transition-colors flex items-center space-x-1"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                  <span>Nome</span>
+                </button>
+
+                <div
+                  v-if="isCaptionNameMenuOpen"
+                  class="absolute right-0 mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-xl z-20 py-1"
+                >
+                  <button
+                    @click="insertNamePlaceholder('nome', 'caption')"
+                    class="w-full px-3 py-2 text-left hover:bg-blue-50 transition-colors text-xs"
+                  >
+                    <p class="font-semibold text-gray-800">Primeiro nome</p>
+                  </button>
+                  <button
+                    @click="insertNamePlaceholder('nome_completo', 'caption')"
+                    class="w-full px-3 py-2 text-left hover:bg-blue-50 transition-colors text-xs"
+                  >
+                    <p class="font-semibold text-gray-800">Nome completo</p>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
           <textarea
+            ref="captionTextarea"
             v-model="caption"
             placeholder="Adicione uma legenda ao seu arquivo..."
             rows="3"
@@ -365,8 +451,94 @@
         </div>
 
         <div class="mb-4">
-          <label class="block text-gray-700 font-medium mb-2">Legenda</label>
+          <div class="flex justify-between items-center mb-2">
+            <label class="block text-gray-700 font-medium">Legenda</label>
+            <div class="flex space-x-2">
+              <button
+                @click="openSpintaxModal('editCaption')"
+                class="text-xs px-2 py-1 text-blue-600 bg-blue-50 border border-blue-200 rounded hover:bg-blue-100 transition-colors flex items-center space-x-1"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                <span>Spintax</span>
+              </button>
+              
+              <div class="relative">
+                <button
+                  @click="toggleEditCaptionVariableMenu"
+                  class="text-xs px-2 py-1 text-blue-600 bg-blue-50 border border-blue-200 rounded hover:bg-blue-100 transition-colors flex items-center space-x-1"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                  <span>Variável</span>
+                </button>
+
+                <div
+                  v-if="isEditCaptionVariableMenuOpen"
+                  class="absolute right-0 mt-1 w-56 bg-white border border-gray-200 rounded-lg shadow-xl z-20 py-1"
+                >
+                  <button
+                    v-for="variable in variableOptions"
+                    :key="variable.key"
+                    @click="insertVariable(variable.key, 'editCaption')"
+                    class="w-full px-3 py-2 text-left hover:bg-blue-50 transition-colors"
+                  >
+                    <div class="flex items-start space-x-2">
+                      <div
+                        :class="[
+                          'flex h-6 w-6 items-center justify-center rounded-full flex-shrink-0',
+                          variable.bgClass,
+                          variable.textClass
+                        ]"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m6-6H6" />
+                        </svg>
+                      </div>
+                      <div>
+                        <p class="text-xs font-semibold text-gray-800">{{ variable.title }}</p>
+                        <p class="text-[10px] text-gray-500">{{ variable.description }}</p>
+                      </div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              <div class="relative">
+                <button
+                  @click="toggleEditCaptionNameMenu"
+                  class="text-xs px-2 py-1 text-blue-600 bg-blue-50 border border-blue-200 rounded hover:bg-blue-100 transition-colors flex items-center space-x-1"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                  <span>Nome</span>
+                </button>
+
+                <div
+                  v-if="isEditCaptionNameMenuOpen"
+                  class="absolute right-0 mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-xl z-20 py-1"
+                >
+                  <button
+                    @click="insertNamePlaceholder('nome', 'editCaption')"
+                    class="w-full px-3 py-2 text-left hover:bg-blue-50 transition-colors text-xs"
+                  >
+                    <p class="font-semibold text-gray-800">Primeiro nome</p>
+                  </button>
+                  <button
+                    @click="insertNamePlaceholder('nome_completo', 'editCaption')"
+                    class="w-full px-3 py-2 text-left hover:bg-blue-50 transition-colors text-xs"
+                  >
+                    <p class="font-semibold text-gray-800">Nome completo</p>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
           <textarea
+            ref="editCaptionTextarea"
             v-model="editingCaption"
             rows="4"
             class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
@@ -706,6 +878,8 @@ const createDefaultSpintaxFields = (): SpintaxField[] => ([
 ])
 
 const messageTextarea = ref<HTMLTextAreaElement | null>(null)
+const captionTextarea = ref<HTMLTextAreaElement | null>(null)
+const editCaptionTextarea = ref<HTMLTextAreaElement | null>(null)
 const message = ref('')
 const lastSavedMessageBody = ref('')
 const attachments = ref<DashboardAttachment[]>([])
@@ -736,6 +910,7 @@ const contactsSummary = ref({
   validTotal: 0
 })
 const isSpintaxModalOpen = ref(false)
+const spintaxTarget = ref<'message' | 'caption' | 'editCaption'>('message')
 const spintaxFields = ref<SpintaxField[]>(createDefaultSpintaxFields())
 const MAX_ATTACHMENTS = 3
 const MAX_FILE_BYTES = 50 * 1024 * 1024
@@ -744,9 +919,13 @@ const attachmentModalError = ref('')
 const isSubmitting = ref(false)
 const isLoadingInitial = ref(true)
 const isVariableMenuOpen = ref(false)
+const isCaptionVariableMenuOpen = ref(false)
+const isEditCaptionVariableMenuOpen = ref(false)
 const variableMenuRef = ref<HTMLElement | null>(null)
 const variableButtonRef = ref<HTMLElement | null>(null)
 const isNameMenuOpen = ref(false)
+const isCaptionNameMenuOpen = ref(false)
+const isEditCaptionNameMenuOpen = ref(false)
 const nameMenuRef = ref<HTMLElement | null>(null)
 const nameButtonRef = ref<HTMLElement | null>(null)
 const toast = useToast()
@@ -1463,7 +1642,9 @@ const sendMessage = async () => {
 }
 
 // Spintax methods
-const openSpintaxModal = () => {
+const openSpintaxModal = (target: 'message' | 'caption' | 'editCaption' = 'message') => {
+  const actualTarget = (typeof target === 'string') ? target : 'message'
+  spintaxTarget.value = actualTarget
   isSpintaxModalOpen.value = true
   // Reset fields to initial 3 empty fields
   spintaxFields.value = createDefaultSpintaxFields()
@@ -1493,19 +1674,37 @@ const handleFieldInput = (index) => {
   }
 }
 
-const insertTextAtCursor = async (text: string) => {
-  const textarea = messageTextarea.value
+const insertTextAtCursor = async (text: string, target: 'message' | 'caption' | 'editCaption' = 'message') => {
+  let textarea: HTMLTextAreaElement | null = null
+  let contentValue = ''
+  
+  if (target === 'caption') {
+    textarea = captionTextarea.value
+    contentValue = caption.value
+  } else if (target === 'editCaption') {
+    textarea = editCaptionTextarea.value
+    contentValue = editingCaption.value
+  } else {
+    textarea = messageTextarea.value
+    contentValue = message.value
+  }
+
   if (!textarea) {
-    message.value += text
+    if (target === 'caption') caption.value += text
+    else if (target === 'editCaption') editingCaption.value += text
+    else message.value += text
     return
   }
 
   const start = textarea.selectionStart
   const end = textarea.selectionEnd
-  const originalText = message.value
   const scrollTop = textarea.scrollTop
 
-  message.value = originalText.substring(0, start) + text + originalText.substring(end)
+  const newText = contentValue.substring(0, start) + text + contentValue.substring(end)
+  
+  if (target === 'caption') caption.value = newText
+  else if (target === 'editCaption') editingCaption.value = newText
+  else message.value = newText
   
   await nextTick()
   
@@ -1526,7 +1725,7 @@ const generateSpintax = () => {
 
   const spintaxText = `{${validFields.join('|')}}`
 
-  insertTextAtCursor(spintaxText)
+  insertTextAtCursor(spintaxText, spintaxTarget.value)
 
   closeSpintaxModal()
 }
@@ -1535,23 +1734,43 @@ const toggleVariableMenu = () => {
   isVariableMenuOpen.value = !isVariableMenuOpen.value
 }
 
-const insertPlaceholder = (placeholder: string) => {
-  const trimmed = placeholder.trim()
-  if (!trimmed) return
-  insertTextAtCursor(trimmed)
+const toggleCaptionVariableMenu = () => {
+  isCaptionVariableMenuOpen.value = !isCaptionVariableMenuOpen.value
 }
 
-const insertVariable = (key: VariableKey) => {
-  insertPlaceholder(`{${key}}`)
+const toggleEditCaptionVariableMenu = () => {
+  isEditCaptionVariableMenuOpen.value = !isEditCaptionVariableMenuOpen.value
+}
+
+const insertPlaceholder = (placeholder: string, target: 'message' | 'caption' | 'editCaption' = 'message') => {
+  const trimmed = placeholder.trim()
+  if (!trimmed) return
+  insertTextAtCursor(trimmed, target)
+}
+
+const insertVariable = (key: VariableKey, target: 'message' | 'caption' | 'editCaption' = 'message') => {
+  insertPlaceholder(`{${key}}`, target)
   isVariableMenuOpen.value = false
+  isCaptionVariableMenuOpen.value = false
+  isEditCaptionVariableMenuOpen.value = false
 }
 
 const toggleNameMenu = () => {
   isNameMenuOpen.value = !isNameMenuOpen.value
 }
 
-const insertNamePlaceholder = (key: 'nome' | 'nome_completo') => {
-  insertPlaceholder(`{${key}}`)
+const toggleCaptionNameMenu = () => {
+  isCaptionNameMenuOpen.value = !isCaptionNameMenuOpen.value
+}
+
+const toggleEditCaptionNameMenu = () => {
+  isEditCaptionNameMenuOpen.value = !isEditCaptionNameMenuOpen.value
+}
+
+const insertNamePlaceholder = (key: 'nome' | 'nome_completo', target: 'message' | 'caption' | 'editCaption' = 'message') => {
+  insertPlaceholder(`{${key}}`, target)
   isNameMenuOpen.value = false
+  isCaptionNameMenuOpen.value = false
+  isEditCaptionNameMenuOpen.value = false
 }
 </script>
