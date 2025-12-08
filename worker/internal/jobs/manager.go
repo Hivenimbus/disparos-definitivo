@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math/rand"
 	"strings"
 	"sync"
 	"time"
@@ -736,7 +737,15 @@ func (m *Manager) runJob(ctx context.Context, active *ActiveJob) {
 		}
 		current = active.snapshot()
 		if active.delay > 0 && current.Processed < current.TotalContacts {
-			time.Sleep(active.delay)
+			// Intervalo aleatório entre -20% e +20% do delay base
+			baseDelay := float64(active.delay)
+			variation := baseDelay * 0.2
+			minDelay := baseDelay - variation
+			// random increment between 0 and 2*variation
+			randomInc := rand.Float64() * (2 * variation)
+			finalDelay := time.Duration(minDelay + randomInc)
+
+			time.Sleep(finalDelay)
 		}
 	}
 

@@ -1,6 +1,6 @@
 <template>
   <div class="space-y-6">
-    <section class="bg-white rounded-lg shadow p-6">
+    <section class="bg-white rounded-lg shadow p-4 md:p-6">
     <div class="flex items-center space-x-2 mb-6">
       <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
@@ -23,11 +23,11 @@
       ></textarea>
     </div>
 
-    <div class="mb-4 flex justify-end space-x-4">
+    <div class="mb-4 flex flex-col md:flex-row md:justify-end gap-2 md:space-x-4">
       <button
         @click="saveMessage()"
         :disabled="isSubmitting"
-        class="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+        class="flex items-center justify-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed w-full md:w-auto"
       >
         <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 12h14m-9 8h4m-8-4h12a2 2 0 002-2V6a2 2 0 00-2-2H7a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -37,7 +37,7 @@
 
       <button
         @click="openSpintaxModal"
-        class="flex items-center space-x-2 px-4 py-2 text-blue-600 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
+        class="flex items-center justify-center space-x-2 px-4 py-2 text-blue-600 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors w-full md:w-auto"
       >
         <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -45,11 +45,11 @@
         <span>Spintax</span>
       </button>
 
-      <div class="relative">
+      <div class="relative w-full md:w-auto">
         <button
           ref="variableButtonRef"
           @click="toggleVariableMenu"
-          class="flex items-center space-x-2 px-4 py-2 text-blue-600 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
+          class="flex items-center justify-center space-x-2 px-4 py-2 text-blue-600 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors w-full"
         >
           <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -60,7 +60,7 @@
         <div
           v-if="isVariableMenuOpen"
           ref="variableMenuRef"
-          class="absolute right-0 mt-2 w-64 bg-white border border-gray-200 rounded-xl shadow-xl z-10 py-2"
+          class="absolute right-0 mt-2 w-full md:w-64 bg-white border border-gray-200 rounded-xl shadow-xl z-10 py-2"
         >
           <button
             v-for="variable in variableOptions"
@@ -89,11 +89,11 @@
         </div>
       </div>
 
-      <div class="relative">
+      <div class="relative w-full md:w-auto">
         <button
           ref="nameButtonRef"
           @click="toggleNameMenu"
-          class="flex items-center space-x-2 px-4 py-2 text-blue-600 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
+          class="flex items-center justify-center space-x-2 px-4 py-2 text-blue-600 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors w-full"
         >
           <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -107,7 +107,7 @@
         <div
           v-if="isNameMenuOpen"
           ref="nameMenuRef"
-          class="absolute right-0 mt-2 w-64 bg-white border border-gray-200 rounded-xl shadow-xl z-10 py-2"
+          class="absolute right-0 mt-2 w-full md:w-64 bg-white border border-gray-200 rounded-xl shadow-xl z-10 py-2"
         >
           <button
             @click="insertNamePlaceholder('nome')"
@@ -147,26 +147,26 @@
 
     <div class="mb-6">
       <h3 class="text-gray-700 font-medium mb-4">Anexos</h3>
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
         <button
           v-for="option in attachmentOptions"
           :key="option.type"
           @click="handleAttachment(option.type)"
-          class="bg-gray-100 hover:bg-gray-200 rounded-lg p-8 flex flex-col items-center justify-center transition-colors cursor-pointer"
+          class="bg-gray-100 hover:bg-gray-200 rounded-lg p-6 md:p-8 flex flex-col items-center justify-center transition-colors cursor-pointer"
         >
-          <svg v-if="option.icon === 'image'" xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 text-blue-600 mb-2" fill="currentColor" viewBox="0 0 24 24">
+          <svg v-if="option.icon === 'image'" xmlns="http://www.w3.org/2000/svg" class="w-10 h-10 md:w-12 md:h-12 text-blue-600 mb-2" fill="currentColor" viewBox="0 0 24 24">
             <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z" />
           </svg>
-          <svg v-else-if="option.icon === 'video'" xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 text-blue-600 mb-2" fill="currentColor" viewBox="0 0 24 24">
+          <svg v-else-if="option.icon === 'video'" xmlns="http://www.w3.org/2000/svg" class="w-10 h-10 md:w-12 md:h-12 text-blue-600 mb-2" fill="currentColor" viewBox="0 0 24 24">
             <path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z" />
           </svg>
-          <svg v-else-if="option.icon === 'audio'" xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 text-blue-600 mb-2" fill="currentColor" viewBox="0 0 24 24">
+          <svg v-else-if="option.icon === 'audio'" xmlns="http://www.w3.org/2000/svg" class="w-10 h-10 md:w-12 md:h-12 text-blue-600 mb-2" fill="currentColor" viewBox="0 0 24 24">
             <path d="M12 3v9.28c-.47-.17-.97-.28-1.5-.28C8.01 12 6 14.01 6 16.5S8.01 21 10.5 21c2.31 0 4.2-1.75 4.45-4H15V6h4V3h-7z" />
           </svg>
-          <svg v-else xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 text-blue-600 mb-2" fill="currentColor" viewBox="0 0 24 24">
+          <svg v-else xmlns="http://www.w3.org/2000/svg" class="w-10 h-10 md:w-12 md:h-12 text-blue-600 mb-2" fill="currentColor" viewBox="0 0 24 24">
             <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" />
           </svg>
-          <span class="text-gray-700 font-medium">{{ option.label }}</span>
+          <span class="text-gray-700 font-medium text-sm md:text-base">{{ option.label }}</span>
         </button>
       </div>
     </div>
@@ -176,13 +176,13 @@
         <div
           v-for="(attachment, index) in attachments"
           :key="attachment.id || index"
-          class="bg-white px-4 py-3 rounded-lg text-sm flex items-start space-x-3 max-w-xs"
+          class="bg-white px-4 py-3 rounded-lg text-sm flex items-start space-x-3 w-full md:max-w-xs"
         >
-          <div class="flex-1 flex space-x-3">
+          <div class="flex-1 flex space-x-3 min-w-0">
               <div v-if="getAttachmentPreview(attachment)" class="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border border-gray-200">
                 <img :src="getAttachmentPreview(attachment)" alt="Preview" class="w-full h-full object-cover">
               </div>
-            <div class="min-w-0">
+            <div class="min-w-0 flex-1">
               <p class="font-medium text-gray-800 break-all">{{ attachment.name }}</p>
               <p class="text-xs text-gray-500 mt-1">{{ formatFileSize(attachment.size) }}</p>
               <p
@@ -217,11 +217,11 @@
       </div>
     </div>
 
-    <div class="flex items-center space-x-3">
+    <div class="flex flex-col-reverse md:flex-row md:items-center justify-end gap-3 md:space-x-3">
       <button
         @click="openClearConfirmModal"
         :disabled="!canClearMessage"
-        class="flex items-center space-x-2 px-6 py-3 text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        class="flex items-center justify-center space-x-2 px-6 py-3 text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed w-full md:w-auto"
       >
         <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 6L6 18M6 6l12 12" />
@@ -231,7 +231,7 @@
 
       <button
         @click="previewMessage"
-        class="flex items-center space-x-2 px-6 py-3 text-gray-700 bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 transition-colors"
+        class="flex items-center justify-center space-x-2 px-6 py-3 text-gray-700 bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 transition-colors w-full md:w-auto"
       >
         <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -243,7 +243,7 @@
       <button
         @click="sendMessage"
         :disabled="isCheckingSendReadiness || isJobActive || isSavingBeforeSend"
-        class="flex items-center space-x-2 px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+        class="flex items-center justify-center space-x-2 px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed w-full md:w-auto"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"

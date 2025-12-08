@@ -1,22 +1,22 @@
 <template>
   <section class="bg-white rounded-lg shadow p-6">
-    <div class="flex items-center justify-between mb-6">
+    <div class="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
       <div class="flex items-center space-x-2">
-        <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-blue-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
         </svg>
         <h2 class="text-xl font-semibold text-gray-800">Gerenciamento de Empresas</h2>
       </div>
 
-      <button @click="openAddModal" class="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <button @click="openAddModal" class="flex items-center justify-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors w-full md:w-auto">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
         </svg>
-        <span>Adicionar Empresa</span>
+        <span class="whitespace-nowrap">Adicionar Empresa</span>
       </button>
     </div>
 
-    <div class="grid grid-cols-4 gap-4 mb-6">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
       <div class="bg-gray-100 rounded-lg p-6 text-center">
         <div class="text-4xl font-bold text-blue-600 mb-2">{{ totalCompanies }}</div>
         <div class="text-gray-600 text-sm">Total de Empresas</div>
@@ -45,100 +45,104 @@
     </div>
 
     <div class="overflow-x-auto">
-      <table class="w-full">
-        <thead>
-          <tr class="bg-gray-100 text-left">
-            <th class="px-4 py-3 text-gray-700 font-semibold">Nome</th>
-            <th class="px-4 py-3 text-gray-700 font-semibold">Data de Vencimento</th>
-            <th class="px-4 py-3 text-gray-700 font-semibold">Usuários</th>
-            <th class="px-4 py-3 text-gray-700 font-semibold">Celular</th>
-            <th class="px-4 py-3 text-gray-700 font-semibold">CPF/CNPJ</th>
-            <th class="px-4 py-3 text-gray-700 font-semibold">Status</th>
-            <th class="px-4 py-3 text-gray-700 font-semibold">Ações</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-if="pending">
-            <td colspan="7" class="px-4 py-8 text-center text-gray-500">
-              Carregando empresas...
-            </td>
-          </tr>
-          <tr v-else-if="error">
-            <td colspan="7" class="px-4 py-8 text-center text-red-600">
-              Ocorreu um erro ao carregar as empresas.
-            </td>
-          </tr>
-          <tr v-else-if="filteredCompanies.length === 0">
-            <td colspan="7" class="px-4 py-8 text-center text-gray-500">
-              Nenhuma empresa cadastrada
-            </td>
-          </tr>
-          <template v-else>
-            <tr
-              v-for="company in paginatedCompanies"
-              :key="company.id"
-              class="border-b border-gray-200 hover:bg-gray-50 transition-colors"
-            >
-            <td class="px-4 py-3 text-gray-800">{{ company.nome }}</td>
-            <td class="px-4 py-3 text-gray-600">{{ formatDate(company.dataVencimento) }}</td>
-            <td class="px-4 py-3">
-              <div class="flex items-center space-x-2">
-                <span class="text-gray-700 font-medium">{{ company.usuariosAtuais }}/{{ company.maxUsuarios }}</span>
-                <div class="flex-1 max-w-[100px] bg-gray-200 rounded-full h-2">
-                  <div 
-                    class="h-2 rounded-full transition-all"
-                    :class="{
-                      'bg-green-500': company.usuariosAtuais < company.maxUsuarios * 0.7,
-                      'bg-yellow-500': company.usuariosAtuais >= company.maxUsuarios * 0.7 && company.usuariosAtuais < company.maxUsuarios,
-                      'bg-red-500': company.usuariosAtuais >= company.maxUsuarios
-                    }"
-                    :style="{ width: `${(company.usuariosAtuais / company.maxUsuarios) * 100}%` }"
-                  ></div>
-                </div>
-              </div>
-            </td>
-            <td class="px-4 py-3 text-gray-600">{{ company.celular || '-' }}</td>
-            <td class="px-4 py-3 text-gray-600">{{ company.cpfCnpj || '-' }}</td>
-            <td class="px-4 py-3">
-              <div class="flex flex-col">
-                <select
-                  :key="`${company.id}-${company.status}`"
-                  @change="handleCompanyStatusChange(company, ($event.target as HTMLSelectElement).value)"
-                  :disabled="companyStatusUpdating[company.id]"
-                  class="px-3 py-1 rounded-full text-xs font-medium border border-transparent focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  :class="{
-                    'bg-green-100 text-green-700': company.status === 'ativo',
-                    'bg-red-100 text-red-700': company.status === 'desativado',
-                    'opacity-50 cursor-not-allowed': companyStatusUpdating[company.id]
-                  }"
+      <div class="inline-block min-w-full align-middle">
+        <div class="overflow-hidden border border-gray-200 shadow sm:rounded-lg">
+          <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+              <tr>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nome</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vencimento</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Usuários</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Celular</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CPF/CNPJ</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
+              </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+              <tr v-if="pending">
+                <td colspan="7" class="px-6 py-4 text-center text-gray-500">
+                  Carregando empresas...
+                </td>
+              </tr>
+              <tr v-else-if="error">
+                <td colspan="7" class="px-6 py-4 text-center text-red-600">
+                  Ocorreu um erro ao carregar as empresas.
+                </td>
+              </tr>
+              <tr v-else-if="filteredCompanies.length === 0">
+                <td colspan="7" class="px-6 py-4 text-center text-gray-500">
+                  Nenhuma empresa cadastrada
+                </td>
+              </tr>
+              <template v-else>
+                <tr
+                  v-for="company in paginatedCompanies"
+                  :key="company.id"
+                  class="hover:bg-gray-50 transition-colors"
                 >
-                  <option value="ativo" :selected="company.status === 'ativo'">Ativo</option>
-                  <option value="desativado" :selected="company.status === 'desativado'">Desativado</option>
-                </select>
-                <p v-if="companyStatusUpdating[company.id]" class="text-[11px] text-gray-500 mt-1">Atualizando...</p>
-                <p v-else-if="companyStatusErrors[company.id]" class="text-[11px] text-red-600 mt-1">
-                  {{ companyStatusErrors[company.id] }}
-                </p>
-              </div>
-            </td>
-            <td class="px-4 py-3">
-              <div class="flex items-center space-x-2">
-                <button @click="openEditModal(company)" class="text-blue-600 hover:text-blue-800 transition-colors">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                  </svg>
-                </button>
-                <button @click="openDeleteModal(company)" class="text-red-600 hover:text-red-800 transition-colors">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                </button>
-              </div>
-            </td>
-            </tr>
-          </template>
-        </tbody>
-      </table>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ company.nome }}</td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ formatDate(company.dataVencimento) }}</td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <div class="flex items-center space-x-2">
+                      <span class="font-medium">{{ company.usuariosAtuais }}/{{ company.maxUsuarios }}</span>
+                      <div class="w-20 bg-gray-200 rounded-full h-2">
+                        <div 
+                          class="h-2 rounded-full transition-all"
+                          :class="{
+                            'bg-green-500': company.usuariosAtuais < company.maxUsuarios * 0.7,
+                            'bg-yellow-500': company.usuariosAtuais >= company.maxUsuarios * 0.7 && company.usuariosAtuais < company.maxUsuarios,
+                            'bg-red-500': company.usuariosAtuais >= company.maxUsuarios
+                          }"
+                          :style="{ width: `${(company.usuariosAtuais / company.maxUsuarios) * 100}%` }"
+                        ></div>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ company.celular || '-' }}</td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ company.cpfCnpj || '-' }}</td>
+                  <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="flex flex-col">
+                      <select
+                        :key="`${company.id}-${company.status}`"
+                        @change="handleCompanyStatusChange(company, ($event.target as HTMLSelectElement).value)"
+                        :disabled="companyStatusUpdating[company.id]"
+                        class="px-2 py-1 rounded-full text-xs font-medium border border-transparent focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        :class="{
+                          'bg-green-100 text-green-800': company.status === 'ativo',
+                          'bg-red-100 text-red-800': company.status === 'desativado',
+                          'opacity-50 cursor-not-allowed': companyStatusUpdating[company.id]
+                        }"
+                      >
+                        <option value="ativo" :selected="company.status === 'ativo'">Ativo</option>
+                        <option value="desativado" :selected="company.status === 'desativado'">Desativado</option>
+                      </select>
+                      <p v-if="companyStatusUpdating[company.id]" class="text-[10px] text-gray-500 mt-1">Atualizando...</p>
+                      <p v-else-if="companyStatusErrors[company.id]" class="text-[10px] text-red-600 mt-1">
+                        {{ companyStatusErrors[company.id] }}
+                      </p>
+                    </div>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <div class="flex items-center space-x-3">
+                      <button @click="openEditModal(company)" class="text-blue-600 hover:text-blue-900" title="Editar">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                      </button>
+                      <button @click="openDeleteModal(company)" class="text-red-600 hover:text-red-900" title="Excluir">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
 
     <div
@@ -171,8 +175,8 @@
       </div>
     </div>
 
-    <div v-if="isModalOpen" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" @click.self="closeModal">
-      <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+    <div v-if="isModalOpen" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 overflow-y-auto" @click.self="closeModal">
+      <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6 my-8 relative">
         <div class="flex items-center justify-between mb-6">
           <h3 class="text-xl font-semibold text-gray-800">{{ isEditMode ? 'Editar Empresa' : 'Adicionar Empresa' }}</h3>
           <button @click="closeModal" class="text-gray-400 hover:text-gray-600">

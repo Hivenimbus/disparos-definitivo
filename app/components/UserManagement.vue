@@ -1,22 +1,22 @@
 <template>
   <section class="bg-white rounded-lg shadow p-6">
-    <div class="flex items-center justify-between mb-6">
+    <div class="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
       <div class="flex items-center space-x-2">
-        <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-blue-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
         </svg>
         <h2 class="text-xl font-semibold text-gray-800">Gerenciamento de Usuários</h2>
       </div>
 
-      <button @click="openAddModal" class="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <button @click="openAddModal" class="flex items-center justify-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors w-full md:w-auto">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
         </svg>
-        <span>Adicionar Usuário</span>
+        <span class="whitespace-nowrap">Adicionar Usuário</span>
       </button>
     </div>
 
-    <div class="grid grid-cols-4 gap-4 mb-6">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
       <div class="bg-gray-100 rounded-lg p-6 text-center">
         <div class="text-4xl font-bold text-blue-600 mb-2">{{ totalUsers }}</div>
         <div class="text-gray-600 text-sm">Total de Usuários</div>
@@ -45,99 +45,103 @@
     </div>
 
     <div class="overflow-x-auto">
-      <table class="w-full">
-        <thead>
-          <tr class="bg-gray-100 text-left">
-            <th class="px-4 py-3 text-gray-700 font-semibold">Nome</th>
-            <th class="px-4 py-3 text-gray-700 font-semibold">Empresa</th>
-            <th class="px-4 py-3 text-gray-700 font-semibold">Email</th>
-            <th class="px-4 py-3 text-gray-700 font-semibold">Celular</th>
-            <th class="px-4 py-3 text-gray-700 font-semibold">Data de Vencimento</th>
-            <th class="px-4 py-3 text-gray-700 font-semibold">Status</th>
-            <th class="px-4 py-3 text-gray-700 font-semibold">Role</th>
-            <th class="px-4 py-3 text-gray-700 font-semibold">Ações</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-if="loadingTable">
-            <td colspan="8" class="px-4 py-8 text-center text-gray-500">
-              Carregando usuários...
-            </td>
-          </tr>
-          <tr v-else-if="listError">
-            <td colspan="8" class="px-4 py-8 text-center text-red-600">
-              Ocorreu um erro ao carregar os usuários.
-            </td>
-          </tr>
-          <tr v-else-if="filteredUsers.length === 0">
-            <td colspan="8" class="px-4 py-8 text-center text-gray-500">
-              Nenhum usuário cadastrado
-            </td>
-          </tr>
-          <template v-else>
-            <tr
-              v-for="user in paginatedUsers"
-              :key="user.id"
-              class="border-b border-gray-200 hover:bg-gray-50 transition-colors"
-            >
-              <td class="px-4 py-3 text-gray-800">{{ user.nome }}</td>
-              <td class="px-4 py-3 text-gray-600">{{ getCompanyName(user) }}</td>
-              <td class="px-4 py-3 text-gray-600">{{ user.email }}</td>
-              <td class="px-4 py-3 text-gray-600">{{ user.celular || '-' }}</td>
-              <td class="px-4 py-3 text-gray-600">{{ formatDate(user.dataVencimento) }}</td>
-              <td class="px-4 py-3">
-                <div class="flex flex-col">
-                  <select
-                    :key="`${user.id}-${user.status}`"
-                    @change="handleStatusChange(user, ($event.target as HTMLSelectElement).value as UiStatus)"
-                    :disabled="statusUpdating[user.id]"
-                    class="px-3 py-1 rounded-full text-xs font-medium border border-transparent focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    :class="{
-                      'bg-green-100 text-green-700': user.status === 'ativo',
-                      'bg-red-100 text-red-700': user.status === 'desativado',
-                      'opacity-50 cursor-not-allowed': statusUpdating[user.id]
-                    }"
-                  >
-                    <option value="ativo" :selected="user.status === 'ativo'">Ativo</option>
-                    <option value="desativado" :selected="user.status === 'desativado'">Desativado</option>
-                  </select>
-                  <p v-if="statusUpdating[user.id]" class="text-[11px] text-gray-500 mt-1">Atualizando...</p>
-                  <p v-else-if="statusErrors[user.id]" class="text-[11px] text-red-600 mt-1">
-                    {{ statusErrors[user.id] }}
-                  </p>
-                </div>
-              </td>
-              <td class="px-4 py-3">
-                <span
-                  class="px-3 py-1 rounded-full text-xs font-medium"
-                  :class="roleBadgeClasses[user.role]"
+      <div class="inline-block min-w-full align-middle">
+        <div class="overflow-hidden border border-gray-200 shadow sm:rounded-lg">
+          <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+              <tr>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nome</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Empresa</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Celular</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vencimento</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
+              </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+              <tr v-if="loadingTable">
+                <td colspan="8" class="px-6 py-4 text-center text-gray-500">
+                  Carregando usuários...
+                </td>
+              </tr>
+              <tr v-else-if="listError">
+                <td colspan="8" class="px-6 py-4 text-center text-red-600">
+                  Ocorreu um erro ao carregar os usuários.
+                </td>
+              </tr>
+              <tr v-else-if="filteredUsers.length === 0">
+                <td colspan="8" class="px-6 py-4 text-center text-gray-500">
+                  Nenhum usuário cadastrado
+                </td>
+              </tr>
+              <template v-else>
+                <tr
+                  v-for="user in paginatedUsers"
+                  :key="user.id"
+                  class="hover:bg-gray-50 transition-colors"
                 >
-                  {{ roleLabels[user.role] }}
-                </span>
-              </td>
-              <td class="px-4 py-3">
-                <div class="flex items-center space-x-2">
-                  <button @click="openEditModal(user)" class="text-blue-600 hover:text-blue-800 transition-colors" title="Editar">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
-                  </button>
-                  <button @click="openRecreateModal(user)" class="text-green-600 hover:text-green-800 transition-colors" title="Recriar Instância">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
-                  </button>
-                  <button @click="openDeleteModal(user)" class="text-red-600 hover:text-red-800 transition-colors" title="Excluir">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
-                </div>
-              </td>
-            </tr>
-          </template>
-        </tbody>
-      </table>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ user.nome }}</td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ getCompanyName(user) }}</td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ user.email }}</td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ user.celular || '-' }}</td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ formatDate(user.dataVencimento) }}</td>
+                  <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="flex flex-col">
+                      <select
+                        :key="`${user.id}-${user.status}`"
+                        @change="handleStatusChange(user, ($event.target as HTMLSelectElement).value as UiStatus)"
+                        :disabled="statusUpdating[user.id]"
+                        class="px-2 py-1 rounded-full text-xs font-medium border border-transparent focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        :class="{
+                          'bg-green-100 text-green-800': user.status === 'ativo',
+                          'bg-red-100 text-red-800': user.status === 'desativado',
+                          'opacity-50 cursor-not-allowed': statusUpdating[user.id]
+                        }"
+                      >
+                        <option value="ativo" :selected="user.status === 'ativo'">Ativo</option>
+                        <option value="desativado" :selected="user.status === 'desativado'">Desativado</option>
+                      </select>
+                      <p v-if="statusUpdating[user.id]" class="text-[10px] text-gray-500 mt-1">Atualizando...</p>
+                      <p v-else-if="statusErrors[user.id]" class="text-[10px] text-red-600 mt-1">
+                        {{ statusErrors[user.id] }}
+                      </p>
+                    </div>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap">
+                    <span
+                      class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full"
+                      :class="roleBadgeClasses[user.role]"
+                    >
+                      {{ roleLabels[user.role] }}
+                    </span>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <div class="flex items-center space-x-3">
+                      <button @click="openEditModal(user)" class="text-blue-600 hover:text-blue-900" title="Editar">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                      </button>
+                      <button @click="openRecreateModal(user)" class="text-green-600 hover:text-green-900" title="Recriar Instância">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                      </button>
+                      <button @click="openDeleteModal(user)" class="text-red-600 hover:text-red-900" title="Excluir">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
 
     <div
@@ -172,9 +176,8 @@
       </div>
     </div>
 
-    <div v-if="isModalOpen" class="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-50">
-      <div class="flex min-h-full items-center justify-center p-4" @click.self="closeModal">
-        <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+    <div v-if="isModalOpen" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 overflow-y-auto" @click.self="closeModal">
+      <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6 my-8 relative">
         <div class="flex items-center justify-between mb-6">
           <h3 class="text-xl font-semibold text-gray-800">{{ isEditMode ? 'Editar Usuário' : 'Adicionar Usuário' }}</h3>
           <button @click="closeModal" class="text-gray-400 hover:text-gray-600">
@@ -419,7 +422,6 @@
             <span v-else>Salvando...</span>
           </button>
         </div>
-      </div>
       </div>
     </div>
 
