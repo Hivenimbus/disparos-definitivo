@@ -269,8 +269,6 @@ const applyState = (state: InstanceStatus | undefined | null) => {
     hasRequestedConnection.value = false
     stopPolling()
     stopQrRefresh()
-  } else {
-    ensurePolling()
   }
 }
 
@@ -426,9 +424,6 @@ const disconnectInstance = async () => {
 
 onMounted(async () => {
   await fetchConnectionState()
-  if (!isConnected.value) {
-    ensurePolling()
-  }
 })
 
 onBeforeUnmount(() => {

@@ -848,7 +848,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, nextTick } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, nextTick, watch } from 'vue'
 
 type DashboardAttachment = {
   id: string
@@ -917,7 +917,7 @@ const MAX_FILE_BYTES = 50 * 1024 * 1024
 const attachmentModalError = ref('')
 
 const isSubmitting = ref(false)
-const isLoadingInitial = ref(true)
+// isLoadingInitial replaced by useFetch pending
 const isVariableMenuOpen = ref(false)
 const isCaptionVariableMenuOpen = ref(false)
 const isEditCaptionVariableMenuOpen = ref(false)
@@ -1000,6 +1000,122 @@ const attachmentOptions = [
   }
 ]
 
+const deriveTypeFromMime = (mime = '') => {
+  if (mime?.startsWith?.('image/')) return 'image'
+  if (mime?.startsWith?.('video/')) return 'video'
+  if (mime?.startsWith?.('audio/')) return 'audio'
+  return 'document'
+}
+
+const normalizeAttachmentPayload = (payload: Record<string, any>) => ({
+  id: payload.id ?? payload?.attachmentId ?? '',
+  fileName: payload.file_name ?? payload.fileName ?? payload.name ?? '',
+  mimeType: payload.mime_type ?? payload.mimeType ?? '',
+  fileSizeBytes: payload.file_size_bytes ?? payload.fileSizeBytes ?? payload.size ?? 0,
+  publicUrl: payload.public_url ?? payload.publicUrl ?? null,
+  caption: payload.caption ?? ''
+})
+
+const mapApiAttachment = (
+  apiAttachment:
+    | DashboardAttachment
+    | {
+        id?: string
+        file_name?: string
+        fileName?: string
+        file_size_bytes?: number
+        fileSizeBytes?: number
+        mime_type?: string
+        mimeType?: string
+        public_url?: string
+        publicUrl?: string
+        caption?: string | null
+      }
+): DashboardAttachment => {
+  if ('persisted' in apiAttachment && apiAttachment.persisted) {
+    return apiAttachment
+  }
+
+  const normalized = normalizeAttachmentPayload(apiAttachment as Record<string, any>)
+
+  return {
+    id: normalized.id,
+    type: deriveTypeFromMime(normalized.mimeType),
+    name: normalized.fileName || 'arquivo',
+    size: typeof normalized.fileSizeBytes === 'number' ? normalized.fileSizeBytes : 0,
+    caption: normalized.caption || '',
+    file: null,
+    mimeType: normalized.mimeType || '',
+    previewUrl: normalized.mimeType?.startsWith?.('image/') ? normalized.publicUrl ?? null : null,
+    publicUrl: normalized.publicUrl || null,
+    persisted: true
+  }
+}
+
+const normalizeApiAttachments = (raw: any[]) => {
+  if (!Array.isArray(raw)) {
+    return []
+  }
+
+  const seen = new Set<string>()
+
+  return raw.reduce<DashboardAttachment[]>((acc, attachment) => {
+    const key = attachment.id || attachment.storage_path || `${attachment.file_name}-${attachment.created_at}`
+    if (seen.has(key)) {
+      return acc
+    }
+    seen.add(key)
+    acc.push(mapApiAttachment(attachment))
+    return acc
+  }, [])
+}
+
+// useFetch for initial message load
+const { data: messagesData, pending: isLoadingInitial, refresh: refreshMessages, error: messagesError } = await useFetch('/api/dashboard/messages', {
+  query: { limit: 1, page: 1 },
+  lazy: true,
+  server: false,
+  transform: (response) => {
+    const lastMessage = response?.messages?.[0]
+    if (lastMessage) {
+      const loadedBody = lastMessage.body || ''
+      return {
+        id: lastMessage.id || null,
+        body: loadedBody,
+        attachments: normalizeApiAttachments(lastMessage.attachments ?? []),
+        lastSavedBody: loadedBody.trim()
+      }
+    }
+    return null
+  }
+})
+
+// Watch for external changes (fetch/refresh) to update local state
+watch(messagesData, (newData) => {
+  if (newData) {
+    currentMessageId.value = newData.id
+    message.value = newData.body
+    attachments.value = newData.attachments
+    lastSavedMessageBody.value = newData.lastSavedBody
+  } else {
+    // If explicitly fetched and got nothing/null, clear (unless we want to preserve user input on error? but transform handles logic)
+    // If newData is null it means no message found on server
+    if (!messagesError.value) {
+        currentMessageId.value = null
+        message.value = ''
+        attachments.value = []
+        lastSavedMessageBody.value = ''
+    }
+  }
+})
+
+watch(messagesError, (error) => {
+  if (error) {
+    console.error('[dashboard/messages] load error', error)
+    toast.error(error?.data?.statusMessage || 'Erro ao carregar mensagem salva')
+  }
+})
+
 const acceptedFileTypes = computed(() => {
   const types = {
     image: 'image/*',
@@ -1065,13 +1181,6 @@ const formatFileSize = (bytes = 0) => {
   const sizes = ['Bytes', 'KB', 'MB', 'GB']
   const i = Math.floor(Math.log(bytes) / Math.log(k))
   return `${Math.round((bytes / Math.pow(k, i)) * 100) / 100} ${sizes[i]}`
-}
-
-const deriveTypeFromMime = (mime = '') => {
-  if (mime?.startsWith?.('image/')) return 'image'
-  if (mime?.startsWith?.('video/')) return 'video'
-  if (mime?.startsWith?.('audio/')) return 'audio'
-  return 'document'
 }
 
 const confirmAttachment = async () => {
@@ -1414,100 +1523,6 @@ const clearMessage = async () => {
   toast.success('Mensagem limpa com sucesso')
 }
 
-const normalizeAttachmentPayload = (payload: Record<string, any>) => ({
-  id: payload.id ?? payload?.attachmentId ?? '',
-  fileName: payload.file_name ?? payload.fileName ?? payload.name ?? '',
-  mimeType: payload.mime_type ?? payload.mimeType ?? '',
-  fileSizeBytes: payload.file_size_bytes ?? payload.fileSizeBytes ?? payload.size ?? 0,
-  publicUrl: payload.public_url ?? payload.publicUrl ?? null,
-  caption: payload.caption ?? ''
-})
-
-const mapApiAttachment = (
-  apiAttachment:
-    | DashboardAttachment
-    | {
-        id?: string
-        file_name?: string
-        fileName?: string
-        file_size_bytes?: number
-        fileSizeBytes?: number
-        mime_type?: string
-        mimeType?: string
-        public_url?: string
-        publicUrl?: string
-        caption?: string | null
-      }
-): DashboardAttachment => {
-  if ('persisted' in apiAttachment && apiAttachment.persisted) {
-    return apiAttachment
-  }
-
-  const normalized = normalizeAttachmentPayload(apiAttachment as Record<string, any>)
-
-  return {
-    id: normalized.id,
-    type: deriveTypeFromMime(normalized.mimeType),
-    name: normalized.fileName || 'arquivo',
-    size: typeof normalized.fileSizeBytes === 'number' ? normalized.fileSizeBytes : 0,
-    caption: normalized.caption || '',
-    file: null,
-    mimeType: normalized.mimeType || '',
-    previewUrl: normalized.mimeType?.startsWith?.('image/') ? normalized.publicUrl ?? null : null,
-    publicUrl: normalized.publicUrl || null,
-    persisted: true
-  }
-}
-
-const normalizeApiAttachments = (raw: any[]) => {
-  if (!Array.isArray(raw)) {
-    return []
-  }
-
-  const seen = new Set<string>()
-
-  return raw.reduce<DashboardAttachment[]>((acc, attachment) => {
-    const key = attachment.id || attachment.storage_path || `${attachment.file_name}-${attachment.created_at}`
-    if (seen.has(key)) {
-      return acc
-    }
-    seen.add(key)
-    acc.push(mapApiAttachment(attachment))
-    return acc
-  }, [])
-}
-
-const loadLastMessage = async (showLoader = true) => {
-  if (showLoader) {
-    isLoadingInitial.value = true
-  }
-  try {
-    const response = await $fetch('/api/dashboard/messages', {
-      query: { limit: 1, page: 1 }
-    })
-    const lastMessage = response?.messages?.[0]
-    if (lastMessage) {
-      currentMessageId.value = lastMessage.id || null
-      const loadedBody = lastMessage.body || ''
-      message.value = loadedBody
-      attachments.value = normalizeApiAttachments(lastMessage.attachments ?? [])
-      lastSavedMessageBody.value = loadedBody.trim()
-    } else {
-      currentMessageId.value = null
-      message.value = ''
-      attachments.value = []
-      lastSavedMessageBody.value = ''
-    }
-  } catch (error) {
-    console.error('[dashboard/messages] load error', error)
-    toast.error(error?.data?.statusMessage || 'Erro ao carregar mensagem salva')
-  } finally {
-    if (showLoader) {
-      isLoadingInitial.value = false
-    }
-  }
-}
-
 const handleVariableMenuClickOutside = (event: MouseEvent) => {
   if (!isVariableMenuOpen.value) return
   const target = event.target as Node
@@ -1533,7 +1548,8 @@ const handleNameMenuClickOutside = (event: MouseEvent) => {
 }
 
 onMounted(() => {
-  loadLastMessage()
+  // useFetch is auto-called due to lazy:true in setup, but explicit refresh can be done if needed.
+  // loadLastMessage() was removed.
   fetchSendStatus().catch(() => {
     // erros já tratados no composable
   })
@@ -1593,7 +1609,9 @@ const saveMessage = async (options: SaveMessageOptions = {}) => {
     })
 
     currentMessageId.value = response?.message?.id || currentMessageId.value
-    await loadLastMessage(false)
+    
+    // Refresh useFetch to ensure consistency
+    await refreshMessages()
 
     const successMessage = options.successMessage || (isAutoSave ? 'Anexo salvo automaticamente!' : 'Mensagem salva com sucesso!')
     if (successMessage) {

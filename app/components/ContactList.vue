@@ -471,15 +471,15 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import * as XLSX from 'xlsx'
 import { normalizeContactVariable } from '~~/shared/normalize-contact-variable'
 
-const contacts = ref([])
+// const contacts = ref([]) // Replaced by useFetch
 const currentPage = ref(1)
-const totalPages = ref(1)
+// const totalPages = ref(1) // Replaced by computed
 const limit = 10
-const isLoadingContacts = ref(false)
+// const isLoadingContacts = ref(false) // Replaced by pending
 const isSavingContacts = ref(false)
 const isExporting = ref(false)
 const isClearingContacts = ref(false)
@@ -502,9 +502,66 @@ const editForm = ref({
   var3: ''
 })
 
-const totalContacts = ref(0)
-const totalValidContacts = ref(0)
+// Validation helper
+const validateWhatsApp = (number) => {
+  const cleaned = number.replace(/\D/g, '')
+  return cleaned.length >= 10 && cleaned.length <= 15
+}
+
+// useFetch implementation
+const { data: contactsData, pending: isLoadingContacts, refresh: refreshContacts, error: contactsError } = await useFetch('/api/dashboard/contacts', {
+  query: computed(() => ({ page: currentPage.value, limit })),
+  lazy: true,
+  watch: [currentPage], // Trigger on page change
+  transform: (response) => {
+    const { contacts: apiContacts, meta } = response || {}
+
+    const mappedContacts = (apiContacts ?? []).map((contact) => ({
+      ...contact,
+      var1: normalizeContactVariable(contact.var1),
+      var2: normalizeContactVariable(contact.var2),
+      var3: normalizeContactVariable(contact.var3),
+      status: validateWhatsApp(contact.whatsapp) ? 'valid' : 'invalid'
+    }))
+
+    const deduplicatedContacts = []
+    const seenContactIds = new Set()
+
+    mappedContacts.forEach((contact) => {
+      const contactIdentifier = contact.id ?? contact.whatsapp ?? Symbol('contact')
+      if (contact.id || contact.whatsapp) {
+        if (seenContactIds.has(contactIdentifier)) {
+          return
+        }
+        seenContactIds.add(contactIdentifier)
+      }
+      deduplicatedContacts.push(contact)
+    })
+
+    return {
+      contacts: deduplicatedContacts,
+      meta
+    }
+  },
+  default: () => ({ contacts: [], meta: { total: 0, validTotal: 0, page: 1 } })
+})
+
+// Error handling
+watch(contactsError, (error) => {
+  if (error) {
+    console.error('[dashboard/contacts] fetch error', error)
+    toast.error(error?.data?.statusMessage || 'Erro ao carregar contatos')
+  }
+})
+
+// Computed properties derived from contactsData
+const contacts = computed(() => contactsData.value?.contacts || [])
+const totalContacts = computed(() => contactsData.value?.meta?.total || 0)
+const totalValidContacts = computed(() => contactsData.value?.meta?.validTotal || 0)
 const validContacts = computed(() => totalValidContacts.value)
+const totalPages = computed(() => Math.max(1, Math.ceil(totalContacts.value / limit)))
+
+
 const isProcessingFile = ref(false)
 const toast = useToast()
 
@@ -590,7 +647,7 @@ const saveEdit = async () => {
 
     if (contact) {
       toast.success('Contato atualizado com sucesso')
-      await fetchContacts(currentPage.value)
+      await refreshContacts()
     }
     closeEditModal()
   } catch (error) {
@@ -677,55 +734,21 @@ const parseContactLine = (line) => {
   return result.whatsapp ? result : null
 }
 
-const validateWhatsApp = (number) => {
-  const cleaned = number.replace(/\D/g, '')
-  return cleaned.length >= 10 && cleaned.length <= 15
-}
-
 const fetchContacts = async (page = 1) => {
-  isLoadingContacts.value = true
-  try {
-    const { contacts: apiContacts, meta } = await $fetch('/api/dashboard/contacts', {
-      query: { page, limit }
-    })
-
-    const mappedContacts = (apiContacts ?? []).map((contact) => ({
-      ...contact,
-      var1: normalizeContactVariable(contact.var1),
-      var2: normalizeContactVariable(contact.var2),
-      var3: normalizeContactVariable(contact.var3),
-      status: validateWhatsApp(contact.whatsapp) ? 'valid' : 'invalid'
-    }))
-
-    const deduplicatedContacts = []
-    const seenContactIds = new Set()
-
-    mappedContacts.forEach((contact) => {
-      const contactIdentifier = contact.id ?? contact.whatsapp ?? Symbol('contact')
-      if (contact.id || contact.whatsapp) {
-        if (seenContactIds.has(contactIdentifier)) {
-          return
-        }
-        seenContactIds.add(contactIdentifier)
-      }
-      deduplicatedContacts.push(contact)
-    })
-
-    contacts.value = deduplicatedContacts
-    currentPage.value = meta?.page || page
-    totalContacts.value = meta?.total ?? contacts.value.length
-    totalValidContacts.value = meta?.validTotal ?? totalValidContacts.value
-    totalPages.value = Math.max(1, Math.ceil(totalContacts.value / limit))
-  } catch (error) {
-    console.error('[dashboard/contacts] fetch error', error)
-    toast.error(error?.data?.statusMessage || 'Erro ao carregar contatos')
-  } finally {
-    isLoadingContacts.value = false
+  // Compatibility wrapper: changing currentPage triggers useFetch
+  if (currentPage.value !== page) {
+    currentPage.value = page
+  } else {
+    // If page is same, force refresh
+    await refreshContacts()
   }
 }
 
 onMounted(() => {
-  fetchContacts(currentPage.value)
+  // useFetch with lazy: true might need initial trigger if not immediate?
+  // Actually lazy: true starts fetch on mount if used in setup.
+  // But if we want to ensure it fetches:
+  // refreshContacts()
   document.addEventListener('click', handleOutsideClick)
 })
 
@@ -837,7 +860,7 @@ const importContacts = async () => {
 
   if (savedContacts.length) {
     toast.success(`Importados ${savedContacts.length} contatos`)
-    await fetchContacts(currentPage.value)
+    await refreshContacts()
     closeImportModal()
   }
 }
@@ -848,7 +871,7 @@ const deleteContact = async (id) => {
       method: 'DELETE',
       body: { contactId: id }
     })
-    await fetchContacts(currentPage.value)
+    await refreshContacts()
     toast.success('Contato removido')
   } catch (error) {
     console.error('[dashboard/contacts] delete error', error)
@@ -879,7 +902,12 @@ const confirmDeleteAllContacts = async () => {
     const { deleted } = await $fetch('/api/dashboard/contacts/clear', {
       method: 'DELETE'
     })
-    await fetchContacts(1)
+    // Reset to page 1
+    if (currentPage.value !== 1) {
+      currentPage.value = 1
+    } else {
+      await refreshContacts()
+    }
     const removed = typeof deleted === 'number' ? deleted : contacts.value.length
     const message = removed
       ? `Removidos ${removed} contato${removed === 1 ? '' : 's'}`
@@ -911,7 +939,7 @@ const applyCountryCodeToContacts = async () => {
       }
     })
 
-    await fetchContacts(currentPage.value)
+    await refreshContacts()
 
     const message = updated
       ? `Código do país aplicado em ${updated} contato${updated === 1 ? '' : 's'}`
@@ -958,7 +986,7 @@ const importContactsFromWhatsApp = async () => {
       toast.warning('Nenhum contato válido encontrado no WhatsApp')
     } else {
       toast.success(`Importados ${imported} contato${imported === 1 ? '' : 's'} do WhatsApp`)
-      await fetchContacts(currentPage.value)
+      await refreshContacts()
     }
   } catch (error) {
     console.error('[dashboard/contacts] import whatsapp error', error)
@@ -1096,7 +1124,7 @@ const processFile = async () => {
 
     if (savedContacts.length) {
       toast.success(`Importados ${savedContacts.length} contatos`)
-      await fetchContacts(currentPage.value)
+      await refreshContacts()
       closeFileImportModal()
     }
   } catch (error) {

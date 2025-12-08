@@ -172,8 +172,9 @@
       </div>
     </div>
 
-    <div v-if="isModalOpen" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" @click.self="closeModal">
-      <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+    <div v-if="isModalOpen" class="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-50">
+      <div class="flex min-h-full items-center justify-center p-4" @click.self="closeModal">
+        <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
         <div class="flex items-center justify-between mb-6">
           <h3 class="text-xl font-semibold text-gray-800">{{ isEditMode ? 'Editar Usuário' : 'Adicionar Usuário' }}</h3>
           <button @click="closeModal" class="text-gray-400 hover:text-gray-600">
@@ -418,6 +419,7 @@
             <span v-else>Salvando...</span>
           </button>
         </div>
+      </div>
       </div>
     </div>
 
