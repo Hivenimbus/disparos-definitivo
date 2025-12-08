@@ -814,7 +814,8 @@ func (m *Manager) handleContactSend(ctx context.Context, active *ActiveJob, cont
 		if mediaType != "audio" {
 			caption := valueOrEmpty(attachment.Caption)
 			if strings.TrimSpace(caption) != "" {
-				payload.Caption = &caption
+				renderedCaption := renderMessage(caption, contact)
+				payload.Caption = &renderedCaption
 			}
 		}
 		if err := m.evolution.SendMedia(ctx, userAPIKey, payload); err != nil {
