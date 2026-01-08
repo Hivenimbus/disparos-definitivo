@@ -157,7 +157,7 @@
   <Teleport to="body">
     <div
       v-if="confirmDeleteId"
-      class="fixed inset-0 z-50 flex items-center justify-center p-4"
+      class="fixed inset-0 z-[100] flex items-center justify-center p-4"
     >
       <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="closeDeleteConfirm"></div>
       <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
