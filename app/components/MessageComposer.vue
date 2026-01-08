@@ -42,6 +42,7 @@
         </button>
         
         <button
+          v-if="messages.length < MAX_MESSAGES"
           @click="addMessageTab"
           class="flex items-center justify-center w-7 h-7 text-blue-600 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
           title="Adicionar nova mensagem"
@@ -985,6 +986,7 @@ const spintaxTarget = ref<'message' | 'caption' | 'editCaption'>('message')
 const spintaxFields = ref<SpintaxField[]>(createDefaultSpintaxFields())
 const MAX_ATTACHMENTS = 3
 const MAX_FILE_BYTES = 50 * 1024 * 1024
+const MAX_MESSAGES = 5
 const attachmentModalError = ref('')
 
 const isSubmitting = ref(false)
@@ -1910,6 +1912,9 @@ const parseMessageBody = (body: string): string[] => {
 
 // Add a new message tab
 const addMessageTab = () => {
+  if (messages.value.length >= MAX_MESSAGES) {
+    return
+  }
   messages.value.push('')
   activeMessageIndex.value = messages.value.length - 1
 }
