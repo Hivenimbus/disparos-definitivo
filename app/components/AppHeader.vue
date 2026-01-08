@@ -33,6 +33,9 @@
                 <svg v-if="item.icon === 'IconDisparos'" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
                 </svg>
+                <svg v-if="item.icon === 'IconMaturador'" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
                 <span class="text-base">{{ item.name }}</span>
               </NuxtLink>
 
@@ -127,6 +130,9 @@
               </svg>
               <svg v-if="item.icon === 'IconDisparos'" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+              </svg>
+              <svg v-if="item.icon === 'IconMaturador'" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
               <span>{{ item.name }}</span>
             </NuxtLink>
@@ -288,6 +294,11 @@ const menuItems = [
     name: 'Disparos',
     path: '/disparos',
     icon: 'IconDisparos'
+  },
+  {
+    name: 'Maturador',
+    path: '/maturador',
+    icon: 'IconMaturador'
   },
   {
     name: 'Configurações',
