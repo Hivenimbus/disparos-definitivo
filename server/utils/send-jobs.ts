@@ -17,8 +17,7 @@ export const startSendJob = async (user: AuthenticatedUser): Promise<SendJobSumm
       body: {
         user_id: user.id
       }
-    },
-    user.id
+    }
   )
   if (!response?.job) {
     throw createError({ statusCode: 500, statusMessage: 'Resposta inválida do worker ao iniciar disparo' })
@@ -32,8 +31,7 @@ export const requestStopSendJob = async (userId: string): Promise<SendJobSummary
     {
       method: 'POST',
       body: { user_id: userId }
-    },
-    userId
+    }
   )
   if (!response?.job) {
     throw createError({ statusCode: 500, statusMessage: 'Resposta inválida do worker ao cancelar disparo' })
@@ -47,8 +45,7 @@ export const pauseSendJob = async (userId: string): Promise<SendJobSummary> => {
     {
       method: 'POST',
       body: { user_id: userId }
-    },
-    userId
+    }
   )
   if (!response?.job) {
     throw createError({ statusCode: 500, statusMessage: 'Resposta inválida do worker ao pausar disparo' })
@@ -62,8 +59,7 @@ export const resumeSendJob = async (userId: string): Promise<SendJobSummary> => 
     {
       method: 'POST',
       body: { user_id: userId }
-    },
-    userId
+    }
   )
   if (!response?.job) {
     throw createError({ statusCode: 500, statusMessage: 'Resposta inválida do worker ao retomar disparo' })
@@ -77,8 +73,7 @@ export const getSendJobStatus = async (userId: string): Promise<SendJobSummary |
     {
       method: 'GET',
       query: { user_id: userId }
-    },
-    userId
+    }
   )
   return response?.job ?? null
 }
@@ -94,16 +89,10 @@ export const finalizeSendJob = async (userId: string, options: FinalizeOptions =
     {
       method: 'POST',
       body: { user_id: userId, force }
-    },
-    userId
+    }
   )
   if (!response?.success) {
     throw createError({ statusCode: 500, statusMessage: 'Falha ao limpar histórico no worker' })
   }
   return { success: true }
 }
-
-
-
-
-

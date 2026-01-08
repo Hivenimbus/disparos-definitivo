@@ -1,9 +1,9 @@
 # Go Worker – Contrato e Fluxo
 
 ## Visão geral
-- O worker Go substitui `server/utils/send-jobs.ts` executando o disparo de contatos em memória e atualizando as tabelas `dashboard_send_jobs` e `dashboard_send_job_logs`.
+- O worker Go executa o disparo de contatos em memória e atualiza as tabelas `dashboard_send_jobs` e `dashboard_send_job_logs`.
 - A comunicação com o Nuxt acontece via HTTP (worker expõe `/jobs/*`). O Nuxt apenas orquestra requisições e continua lendo o status/logs direto do Postgres (via Supabase Service Role).
-- Cada usuário pode ter no máximo um job ativo simultaneamente. O worker mantém um mapa em memória (`user_id` ⇒ job runtime) e também consulta o banco para retomar estado.
+- Cada usuário pode ter no máximo um job ativo simultaneamente. O worker mantém um mapa em memória (`user_id` ⇒ job runtime) com sincronização via mutex, e também consulta o banco para retomar estado.
 
 ## Tabelas envolvidas
 
@@ -130,10 +130,8 @@ Response:
 | `EVOLUTION_API_URL`      | Base URL da Evolution API (sem barra final).             |
 | `EVOLUTION_API_KEY`      | Chave API para chamadas `/message/send*`.                |
 | `DEFAULT_DELAY_SECONDS`  | Delay padrão entre contatos (fallback para config ausente). |
-| `REDIS_URL`              | URL RediSS do Upstash (ex.: `rediss://default:senha@endpoint:6379`). |
-| `REDIS_LOCK_TTL_SECONDS` | TTL do lock distribuído em segundos (padrão: `300`).     |
 
-No Nuxt, adicionar `WORKER_BASE_URL` e `WORKER_TOKEN` em `runtimeConfig` e utilizar esses valores nos handlers `/api/dashboard/send/*`.
+No Nuxt, adicionar `WORKER_SERVICE_URL` e `WORKER_TOKEN` em `runtimeConfig` e utilizar esses valores nos handlers `/api/dashboard/send/*`.
 
 ## Fluxo resumido
 1. Nuxt chama `POST /jobs/start` com `user_id`.
@@ -147,13 +145,5 @@ No Nuxt, adicionar `WORKER_BASE_URL` e `WORKER_TOKEN` em `runtimeConfig` e utili
 5. Nuxt usa `GET /jobs/status` para polling e `POST /jobs/stop`/`/jobs/finish` conforme ações do usuário.
 6. Ao reiniciar, o worker consulta `dashboard_send_jobs` e `dashboard_send_job_logs`, reidrata o snapshot (mensagem, anexos, delay, payload dos contatos) e continua o disparo a partir do primeiro log `pending`. Caso todos os contatos já estejam processados, ele finaliza automaticamente com o status adequado.
 
-## Locks e instâncias múltiplas
-- Cada job adquire um lock Redis com a chave `sendjob:lock:<user_id>`.
-- O lock é obtido via `SETNX` com TTL (`REDIS_LOCK_TTL_SECONDS`). Se já estiver em uso, o worker retorna erro `409 (job already running)` sem tocar no banco.
-- Ao finalizar (ou em caso de erro), o worker executa um script atômico que libera o lock apenas se o token salvo ainda for o mesmo, evitando que duas instâncias apaguem o lock uma da outra.
-- Em cenários com múltiplos workers apontando para o mesmo Redis + Supabase, o lock garante que apenas um processo execute um job por usuário ao mesmo tempo. Em caso de crash, o TTL libera automaticamente a chave.
-
-
-
-
-
+## Sincronização
+O worker utiliza um mutex (`sync.RWMutex`) em memória para garantir que apenas um job por usuário seja executado simultaneamente. O mapa `active` mapeia `user_id` para o job em execução, protegido pelo mutex.

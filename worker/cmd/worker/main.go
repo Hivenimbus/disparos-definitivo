@@ -4,16 +4,15 @@ import (
 	"context"
 	"log"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/jpcb2/disparos-definitivo/worker/internal/config"
 	"github.com/jpcb2/disparos-definitivo/worker/internal/evolution"
 	"github.com/jpcb2/disparos-definitivo/worker/internal/jobs"
-	"github.com/jpcb2/disparos-definitivo/worker/internal/locks"
 	"github.com/jpcb2/disparos-definitivo/worker/internal/server"
 	"github.com/jpcb2/disparos-definitivo/worker/internal/supabase"
-	"os/signal"
-	"syscall"
-	"time"
 )
 
 func main() {
@@ -26,16 +25,10 @@ func main() {
 
 	supabaseClient := supabase.NewClient(cfg.SupabaseRestURL, cfg.SupabaseServiceRole)
 	evolutionClient := evolution.NewClient(cfg.EvolutionAPIURL)
-	lockClient, err := locks.NewRedisLock(cfg.RedisURL, cfg.RedisLockTTLSeconds)
-	if err != nil {
-		logger.Fatalf("redis lock error: %v", err)
-	}
 	manager := jobs.NewManager(
 		supabaseClient,
 		evolutionClient,
-		lockClient,
 		cfg.DefaultDelaySeconds,
-		cfg.RedisLockRefreshSeconds,
 		logger,
 	)
 	manager.RecoverActiveJobs(context.Background())

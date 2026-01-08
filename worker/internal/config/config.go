@@ -8,17 +8,14 @@ import (
 )
 
 type Config struct {
-	WorkerAddr              string
-	WorkerToken             string
-	SupabaseURL             string
-	SupabaseRestURL         string
-	SupabaseServiceRole     string
-	EvolutionAPIURL         string
-	EvolutionAPIKey         string
-	DefaultDelaySeconds     int
-	RedisURL                string
-	RedisLockTTLSeconds     int
-	RedisLockRefreshSeconds int
+	WorkerAddr          string
+	WorkerToken         string
+	SupabaseURL         string
+	SupabaseRestURL     string
+	SupabaseServiceRole string
+	EvolutionAPIURL     string
+	EvolutionAPIKey     string
+	DefaultDelaySeconds int
 }
 
 func Load() (*Config, error) {
@@ -29,17 +26,6 @@ func Load() (*Config, error) {
 	cfg.SupabaseServiceRole = os.Getenv("SUPABASE_SERVICE_ROLE")
 	cfg.EvolutionAPIURL = strings.TrimSuffix(os.Getenv("EVOLUTION_API_URL"), "/")
 	cfg.EvolutionAPIKey = os.Getenv("EVOLUTION_API_KEY")
-	cfg.RedisURL = os.Getenv("REDIS_URL")
-	if v := os.Getenv("REDIS_LOCK_TTL_SECONDS"); v != "" {
-		if parsed, err := strconv.Atoi(v); err == nil {
-			cfg.RedisLockTTLSeconds = parsed
-		}
-	}
-	if v := os.Getenv("REDIS_LOCK_REFRESH_SECONDS"); v != "" {
-		if parsed, err := strconv.Atoi(v); err == nil {
-			cfg.RedisLockRefreshSeconds = parsed
-		}
-	}
 	if v := os.Getenv("DEFAULT_DELAY_SECONDS"); v != "" {
 		if parsed, err := strconv.Atoi(v); err == nil {
 			cfg.DefaultDelaySeconds = parsed
@@ -47,12 +33,6 @@ func Load() (*Config, error) {
 	}
 	if cfg.DefaultDelaySeconds <= 0 {
 		cfg.DefaultDelaySeconds = 10
-	}
-	if cfg.RedisLockTTLSeconds <= 0 {
-		cfg.RedisLockTTLSeconds = 300
-	}
-	if cfg.RedisLockRefreshSeconds <= 0 {
-		cfg.RedisLockRefreshSeconds = 60
 	}
 
 	if cfg.SupabaseURL != "" {
@@ -81,9 +61,6 @@ func (c *Config) Validate() error {
 	}
 	if c.EvolutionAPIKey == "" {
 		missing = append(missing, "EVOLUTION_API_KEY")
-	}
-	if c.RedisURL == "" {
-		missing = append(missing, "REDIS_URL")
 	}
 	if len(missing) > 0 {
 		return fmt.Errorf("missing required env vars: %s", strings.Join(missing, ", "))
