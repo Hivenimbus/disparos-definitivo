@@ -298,7 +298,8 @@ const menuItems = [
   {
     name: 'Maturador',
     path: '/maturador',
-    icon: 'IconMaturador'
+    icon: 'IconMaturador',
+    requiresMaturador: true
   },
   {
     name: 'Configurações',
@@ -336,6 +337,9 @@ const availableMenuItems = computed(() => {
     }
     if (item.requiresManager) {
       return authUser.value?.role === 'manager'
+    }
+    if (item.requiresMaturador) {
+      return authUser.value?.maturadorEnabled === true
     }
     return true
   })

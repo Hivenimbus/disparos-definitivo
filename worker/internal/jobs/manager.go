@@ -2,6 +2,7 @@ package jobs
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -699,7 +700,9 @@ func (m *Manager) handleContactSend(ctx context.Context, active *ActiveJob, cont
 	messagePreview := ""
 
 	if strings.TrimSpace(active.messageBody) != "" {
-		messagePreview = renderMessage(active.messageBody, contact)
+		// Select a random message variant if messageBody is a JSON array
+		selectedMessage := selectMessageVariant(active.messageBody)
+		messagePreview = renderMessage(selectedMessage, contact)
 		if messagePreview != "" {
 			if err := m.evolution.SendText(ctx, userAPIKey, number, messagePreview); err != nil {
 				return messagePreview, err
@@ -787,6 +790,41 @@ func sanitizePhoneNumber(value string) string {
 		}
 	}
 	return builder.String()
+}
+
+// selectMessageVariant selects a random message from a JSON array of messages,
+// or returns the original string if it's not a valid JSON array.
+// This enables "message-level spintax" where users can create multiple message
+// variations and have one picked randomly for each send.
+func selectMessageVariant(template string) string {
+	template = strings.TrimSpace(template)
+	if template == "" {
+		return ""
+	}
+	if !strings.HasPrefix(template, "[") {
+		return template
+	}
+	var variants []string
+	if err := json.Unmarshal([]byte(template), &variants); err != nil {
+		// Not a valid JSON array, return as-is (single message)
+		return template
+	}
+	// Filter out empty strings
+	validVariants := make([]string, 0, len(variants))
+	for _, v := range variants {
+		if strings.TrimSpace(v) != "" {
+			validVariants = append(validVariants, v)
+		}
+	}
+	if len(validVariants) == 0 {
+		return ""
+	}
+	if len(validVariants) == 1 {
+		return validVariants[0]
+	}
+	// Select a random variant
+	idx := rand.Intn(len(validVariants))
+	return validVariants[idx]
 }
 
 func resolveSpintax(text string) string {

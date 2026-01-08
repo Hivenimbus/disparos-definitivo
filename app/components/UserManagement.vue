@@ -57,22 +57,23 @@
                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vencimento</th>
                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Maturador</th>
                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
               </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
               <tr v-if="loadingTable">
-                <td colspan="8" class="px-6 py-4 text-center text-gray-500">
+                <td colspan="9" class="px-6 py-4 text-center text-gray-500">
                   Carregando usuários...
                 </td>
               </tr>
               <tr v-else-if="listError">
-                <td colspan="8" class="px-6 py-4 text-center text-red-600">
+                <td colspan="9" class="px-6 py-4 text-center text-red-600">
                   Ocorreu um erro ao carregar os usuários.
                 </td>
               </tr>
               <tr v-else-if="filteredUsers.length === 0">
-                <td colspan="8" class="px-6 py-4 text-center text-gray-500">
+                <td colspan="9" class="px-6 py-4 text-center text-gray-500">
                   Nenhum usuário cadastrado
                 </td>
               </tr>
@@ -116,6 +117,19 @@
                     >
                       {{ roleLabels[user.role] }}
                     </span>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap">
+                    <button
+                      @click="toggleMaturador(user)"
+                      :disabled="maturadorUpdating[user.id]"
+                      class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                      :class="user.maturadorEnabled ? 'bg-green-500' : 'bg-gray-200'"
+                    >
+                      <span
+                        class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+                        :class="user.maturadorEnabled ? 'translate-x-5' : 'translate-x-0'"
+                      ></span>
+                    </button>
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div class="flex items-center space-x-3">
@@ -404,6 +418,18 @@
               <option value="desativado">Desativado</option>
             </select>
           </div>
+
+          <div>
+            <label class="flex items-center space-x-3 cursor-pointer">
+              <input
+                v-model="userForm.maturadorEnabled"
+                type="checkbox"
+                class="h-5 w-5 rounded border-gray-300 text-green-600 focus:ring-green-500"
+              >
+              <span class="text-gray-700 font-medium">Acesso ao Maturador</span>
+            </label>
+            <p class="text-xs text-gray-500 mt-1 ml-8">Permite que o usuário acesse a funcionalidade de maturação de WhatsApp.</p>
+          </div>
         </div>
 
         <div class="flex justify-end space-x-3">
@@ -573,6 +599,7 @@ type AdminUserItem = {
   statusLabel: StatusLabel
   role: UiRole
   createdAt: string | null
+  maturadorEnabled: boolean
 }
 
 type CompanyItem = {
@@ -594,6 +621,7 @@ type UserFormState = {
   dataVencimento: string
   status: UiStatus
   role: UiRole
+  maturadorEnabled: boolean
 }
 
 type AdminUserResponse = {
@@ -621,6 +649,7 @@ const originalCompanyId = ref<string | null>(null)
 const originalRole = ref<UiRole | null>(null)
 const statusUpdating = ref<Record<string, boolean>>({})
 const statusErrors = ref<Record<string, string>>({})
+const maturadorUpdating = ref<Record<string, boolean>>({})
 const roleLabels: Record<UiRole, string> = {
   admin: 'Admin',
   gerente: 'Gerente',
@@ -652,7 +681,8 @@ const defaultForm = (): UserFormState => ({
   senha: '',
   dataVencimento: '',
   status: 'ativo',
-  role: 'usuario'
+  role: 'usuario',
+  maturadorEnabled: false
 })
 
 const userForm = ref<UserFormState>(defaultForm())
@@ -1011,7 +1041,8 @@ const openEditModal = (user: AdminUserItem) => {
     senha: '',
     dataVencimento: user.dataVencimento || '',
     status: user.status,
-    role: user.role
+    role: user.role,
+    maturadorEnabled: user.maturadorEnabled || false
   }
   updateCompanySearchFromSelection(user.empresaNome || '')
   isModalOpen.value = true
@@ -1055,7 +1086,8 @@ const buildPayload = (isEdit: boolean) => {
     companyId: userForm.value.empresaId,
     dataVencimento: userForm.value.dataVencimento,
     celular: userForm.value.celular || null,
-    cpf: userForm.value.cpf || null
+    cpf: userForm.value.cpf || null,
+    maturadorEnabled: userForm.value.maturadorEnabled
   }
 
   if (!isEdit || userForm.value.senha.trim()) {
@@ -1258,6 +1290,25 @@ const handleStatusChange = async (user: AdminUserItem, nextStatus: UiStatus) => 
     setStatusError(user.id, message)
   } finally {
     setStatusUpdating(user.id, false)
+  }
+}
+
+const toggleMaturador = async (user: AdminUserItem) => {
+  maturadorUpdating.value = { ...maturadorUpdating.value, [user.id]: true }
+
+  try {
+    const response = await $fetch<AdminUserResponse>(`/api/admin/users/${user.id}`, {
+      method: 'PUT',
+      body: {
+        maturadorEnabled: !user.maturadorEnabled
+      }
+    })
+    updateUsersState(response.user)
+  } catch (error) {
+    console.error('Erro ao atualizar maturador:', error)
+  } finally {
+    const { [user.id]: _, ...rest } = maturadorUpdating.value
+    maturadorUpdating.value = rest
   }
 }
 

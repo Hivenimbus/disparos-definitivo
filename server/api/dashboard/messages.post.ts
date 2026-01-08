@@ -83,7 +83,23 @@ export default defineEventHandler(async (event) => {
 
   const attachmentsMeta = parseAttachmentsMeta(fields.attachments_meta)
 
-  if (!body && attachmentsMeta.length === 0) {
+  // Check if body has meaningful content (handles both single message and JSON array)
+  const hasMessageContent = (() => {
+    if (!body) return false
+    if (body.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(body)
+        if (Array.isArray(parsed)) {
+          return parsed.some(msg => typeof msg === 'string' && msg.trim() !== '')
+        }
+      } catch {
+        // Not valid JSON, treat as single message
+      }
+    }
+    return body.trim() !== ''
+  })()
+
+  if (!hasMessageContent && attachmentsMeta.length === 0) {
     throw createError({
       statusCode: 400,
       statusMessage: 'Informe uma mensagem ou anexe pelo menos um arquivo'

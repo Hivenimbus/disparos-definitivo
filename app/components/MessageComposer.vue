@@ -14,6 +14,48 @@
 
     <div class="mb-6">
       <label class="block text-gray-700 font-medium mb-2">Mensagem</label>
+      
+      <!-- Message Tabs -->
+      <div class="flex items-center gap-1 mb-2 flex-wrap">
+        <button
+          v-for="(_, index) in messages"
+          :key="index"
+          @click="switchMessageTab(index)"
+          :class="[
+            'relative group flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded-t-lg border border-b-0 transition-colors',
+            activeMessageIndex === index
+              ? 'bg-white text-blue-600 border-gray-300 z-10 -mb-px'
+              : 'bg-gray-100 text-gray-600 border-gray-200 hover:bg-gray-200'
+          ]"
+        >
+          <span>Msg {{ index + 1 }}</span>
+          <button
+            v-if="messages.length > 1"
+            @click.stop="removeMessageTab(index)"
+            class="ml-1 p-0.5 rounded-full hover:bg-red-100 hover:text-red-600 transition-colors opacity-60 group-hover:opacity-100"
+            title="Remover mensagem"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </button>
+        
+        <button
+          @click="addMessageTab"
+          class="flex items-center justify-center w-7 h-7 text-blue-600 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
+          title="Adicionar nova mensagem"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+          </svg>
+        </button>
+        
+        <span v-if="messages.length > 1" class="ml-2 text-xs text-gray-500">
+          {{ messages.length }} mensagens (spintax aleatório)
+        </span>
+      </div>
+      
       <textarea
         ref="messageTextarea"
         v-model="message"
@@ -575,10 +617,24 @@
           </button>
         </div>
 
-        <div v-if="message || attachments.length > 0" class="space-y-4">
-          <div v-if="message" class="bg-gray-50 rounded-lg p-4">
-            <h4 class="text-sm font-semibold text-gray-700 mb-2">Texto da Mensagem</h4>
-            <p class="text-gray-800 whitespace-pre-wrap">{{ message }}</p>
+        <div v-if="messages.some(m => m.trim()) || attachments.length > 0" class="space-y-4">
+          <div v-if="messages.some(m => m.trim())" class="space-y-3">
+            <h4 class="text-sm font-semibold text-gray-700">
+              {{ messages.filter(m => m.trim()).length > 1 ? `Mensagens (${messages.filter(m => m.trim()).length} variações)` : 'Texto da Mensagem' }}
+            </h4>
+            <div
+              v-for="(msg, index) in messages.filter(m => m.trim())"
+              :key="index"
+              class="bg-gray-50 rounded-lg p-4"
+            >
+              <div v-if="messages.filter(m => m.trim()).length > 1" class="text-xs text-gray-500 mb-2">
+                Variação {{ index + 1 }}
+              </div>
+              <p class="text-gray-800 whitespace-pre-wrap">{{ msg }}</p>
+            </div>
+            <p v-if="messages.filter(m => m.trim()).length > 1" class="text-xs text-blue-600 italic">
+              Uma dessas mensagens será escolhida aleatoriamente para cada disparo.
+            </p>
           </div>
 
           <div v-if="attachments.length > 0" class="space-y-3">
@@ -669,10 +725,24 @@
             </div>
           </div>
 
-          <div v-if="message || attachments.length > 0" class="space-y-4">
-            <div v-if="message" class="bg-gray-50 rounded-lg p-4 border border-gray-100">
-              <h4 class="text-sm font-semibold text-gray-700 mb-2">Mensagem</h4>
-              <p class="text-gray-800 whitespace-pre-wrap">{{ message }}</p>
+          <div v-if="messages.some(m => m.trim()) || attachments.length > 0" class="space-y-4">
+            <div v-if="messages.some(m => m.trim())" class="space-y-3">
+              <h4 class="text-sm font-semibold text-gray-700">
+                {{ messages.filter(m => m.trim()).length > 1 ? `Mensagens (${messages.filter(m => m.trim()).length} variações)` : 'Mensagem' }}
+              </h4>
+              <div
+                v-for="(msg, index) in messages.filter(m => m.trim())"
+                :key="index"
+                class="bg-gray-50 rounded-lg p-4 border border-gray-100"
+              >
+                <div v-if="messages.filter(m => m.trim()).length > 1" class="text-xs text-gray-500 mb-2">
+                  Variação {{ index + 1 }}
+                </div>
+                <p class="text-gray-800 whitespace-pre-wrap">{{ msg }}</p>
+              </div>
+              <p v-if="messages.filter(m => m.trim()).length > 1" class="text-xs text-blue-600 italic">
+                Uma dessas mensagens será escolhida aleatoriamente para cada disparo.
+              </p>
             </div>
 
             <div v-if="attachments.length" class="space-y-3">
@@ -880,8 +950,9 @@ const createDefaultSpintaxFields = (): SpintaxField[] => ([
 const messageTextarea = ref<HTMLTextAreaElement | null>(null)
 const captionTextarea = ref<HTMLTextAreaElement | null>(null)
 const editCaptionTextarea = ref<HTMLTextAreaElement | null>(null)
-const message = ref('')
-const lastSavedMessageBody = ref('')
+const messages = ref<string[]>([''])
+const activeMessageIndex = ref(0)
+const lastSavedMessages = ref<string[]>([''])
 const attachments = ref<DashboardAttachment[]>([])
 const deletingAttachmentIds = ref(new Set<string>())
 const uploadingAttachmentIds = ref(new Set<string>())
@@ -1079,11 +1150,12 @@ const { data: messagesData, pending: isLoadingInitial, refresh: refreshMessages,
     const lastMessage = response?.messages?.[0]
     if (lastMessage) {
       const loadedBody = lastMessage.body || ''
+      const parsedMessages = parseMessageBody(loadedBody)
       return {
         id: lastMessage.id || null,
-        body: loadedBody,
+        messages: parsedMessages,
         attachments: normalizeApiAttachments(lastMessage.attachments ?? []),
-        lastSavedBody: loadedBody.trim()
+        lastSavedMessages: parsedMessages.map(m => m.trim())
       }
     }
     return null
@@ -1094,17 +1166,19 @@ const { data: messagesData, pending: isLoadingInitial, refresh: refreshMessages,
 watch(messagesData, (newData) => {
   if (newData) {
     currentMessageId.value = newData.id
-    message.value = newData.body
+    messages.value = [...newData.messages]
     attachments.value = newData.attachments
-    lastSavedMessageBody.value = newData.lastSavedBody
+    lastSavedMessages.value = [...newData.lastSavedMessages]
+    activeMessageIndex.value = 0
   } else {
     // If explicitly fetched and got nothing/null, clear (unless we want to preserve user input on error? but transform handles logic)
     // If newData is null it means no message found on server
     if (!messagesError.value) {
         currentMessageId.value = null
-        message.value = ''
+        messages.value = ['']
         attachments.value = []
-        lastSavedMessageBody.value = ''
+        lastSavedMessages.value = ['']
+        activeMessageIndex.value = 0
     }
   }
 })
@@ -1395,15 +1469,19 @@ const isAttachmentUploading = (id?: string) => {
 }
 
 const canClearMessage = computed(() => {
-  return message.value.trim().length > 0 || attachments.value.length > 0
+  const hasAnyMessage = messages.value.some(m => m.trim().length > 0)
+  return hasAnyMessage || attachments.value.length > 0
 })
 
 const hasSendableContent = computed(() => canClearMessage.value)
 const hasPendingContentToSave = computed(() => {
-  const trimmedMessage = message.value.trim()
-  const messageChanged = trimmedMessage !== lastSavedMessageBody.value
+  // Check if messages have changed
+  const currentTrimmed = messages.value.map(m => m.trim())
+  const savedTrimmed = lastSavedMessages.value
+  const messagesChanged = currentTrimmed.length !== savedTrimmed.length ||
+    currentTrimmed.some((m, i) => m !== (savedTrimmed[i] || ''))
   const hasUnsavedAttachments = attachments.value.some((attachment) => !attachment.persisted)
-  return messageChanged || hasUnsavedAttachments
+  return messagesChanged || hasUnsavedAttachments
 })
 const isWhatsappReady = computed(
   () => Boolean(lastWhatsappStatus.value?.connected && lastWhatsappStatus.value?.loggedIn)
@@ -1517,9 +1595,10 @@ const clearMessage = async () => {
   })
 
   attachments.value = []
-  message.value = ''
+  messages.value = ['']
+  activeMessageIndex.value = 0
   currentMessageId.value = null
-  lastSavedMessageBody.value = ''
+  lastSavedMessages.value = ['']
   toast.success('Mensagem limpa com sucesso')
 }
 
@@ -1570,14 +1649,16 @@ const saveMessage = async (options: SaveMessageOptions = {}) => {
   }
 
   const formData = new FormData()
-  formData.append('body', message.value.trim())
+  const bodyToSave = getMessageBodyForSave()
+  formData.append('body', bodyToSave)
   if (currentMessageId.value) {
     formData.append('message_id', currentMessageId.value)
   }
 
   const attachmentsToProcess = (options.attachments ?? attachments.value).filter((attachment) => !!attachment.file)
 
-  if (!message.value.trim() && attachmentsToProcess.length === 0) {
+  const hasAnyMessage = messages.value.some(m => m.trim() !== '')
+  if (!hasAnyMessage && attachmentsToProcess.length === 0) {
     toast.warning('Adicione texto ou anexos para salvar.')
     if (!isAutoSave) {
       isSubmitting.value = false
@@ -1790,5 +1871,64 @@ const insertNamePlaceholder = (key: 'nome' | 'nome_completo', target: 'message' 
   isNameMenuOpen.value = false
   isCaptionNameMenuOpen.value = false
   isEditCaptionNameMenuOpen.value = false
+}
+
+// Computed property for current message (two-way binding)
+const message = computed({
+  get: () => messages.value[activeMessageIndex.value] ?? '',
+  set: (value: string) => {
+    if (activeMessageIndex.value >= 0 && activeMessageIndex.value < messages.value.length) {
+      messages.value[activeMessageIndex.value] = value
+    }
+  }
+})
+
+// Helper to get combined message body for saving (as JSON array if multiple)
+const getMessageBodyForSave = (): string => {
+  const validMessages = messages.value.filter(m => m.trim() !== '')
+  if (validMessages.length === 0) return ''
+  if (validMessages.length === 1) return validMessages[0].trim()
+  return JSON.stringify(validMessages.map(m => m.trim()))
+}
+
+// Parse message body from API response
+const parseMessageBody = (body: string): string[] => {
+  if (!body || body.trim() === '') return ['']
+  const trimmed = body.trim()
+  if (trimmed.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(trimmed)
+      if (Array.isArray(parsed) && parsed.every(item => typeof item === 'string')) {
+        return parsed.length > 0 ? parsed : ['']
+      }
+    } catch {
+      // Not valid JSON, treat as single message
+    }
+  }
+  return [trimmed]
+}
+
+// Add a new message tab
+const addMessageTab = () => {
+  messages.value.push('')
+  activeMessageIndex.value = messages.value.length - 1
+}
+
+// Remove a message tab
+const removeMessageTab = (index: number) => {
+  if (messages.value.length <= 1) return
+  messages.value.splice(index, 1)
+  if (activeMessageIndex.value >= messages.value.length) {
+    activeMessageIndex.value = messages.value.length - 1
+  } else if (activeMessageIndex.value > index) {
+    activeMessageIndex.value--
+  }
+}
+
+// Switch to a specific message tab
+const switchMessageTab = (index: number) => {
+  if (index >= 0 && index < messages.value.length) {
+    activeMessageIndex.value = index
+  }
 }
 </script>

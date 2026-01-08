@@ -109,10 +109,31 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 
 definePageMeta({
   middleware: ['auth']
+})
+
+const authUser = useAuthUser()
+const router = useRouter()
+
+// Verificar acesso ao maturador
+watch(
+  () => authUser.value,
+  (user) => {
+    if (user && !user.maturadorEnabled) {
+      router.replace('/dashboard')
+    }
+  },
+  { immediate: true }
+)
+
+// Se não tem acesso, redireciona
+onMounted(() => {
+  if (authUser.value && !authUser.value.maturadorEnabled) {
+    router.replace('/dashboard')
+  }
 })
 
 type ExistingMaturation = {

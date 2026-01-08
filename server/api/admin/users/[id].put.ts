@@ -21,6 +21,7 @@ type UpdateUserPayload = {
   dataVencimento?: string
   celular?: string | null
   cpf?: string | null
+  maturadorEnabled?: boolean
 }
 
 export default defineEventHandler(async (event) => {
@@ -96,6 +97,10 @@ export default defineEventHandler(async (event) => {
 
   if (payload.cpf !== undefined) {
     updates.cpf = payload.cpf?.trim() || null
+  }
+
+  if (payload.maturadorEnabled !== undefined) {
+    updates.maturador_enabled = payload.maturadorEnabled
   }
 
   const companyIdTarget = payload.companyId !== undefined ? payload.companyId : existing.company_id
@@ -185,6 +190,7 @@ export default defineEventHandler(async (event) => {
         'created_at',
         'updated_at',
         'must_change_password',
+        'maturador_enabled',
         'companies:company_id (id, nome, max_usuarios, usuarios_atuais)'
       ].join(', ')
     )

@@ -22,6 +22,7 @@ export default defineEventHandler(async () => {
         'created_at',
         'updated_at',
         'must_change_password',
+        'maturador_enabled',
         'companies:company_id (id, nome, max_usuarios, usuarios_atuais)'
       ].join(', ')
     )

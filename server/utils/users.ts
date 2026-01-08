@@ -29,6 +29,7 @@ export type UserRow = {
   created_at: string
   updated_at: string
   must_change_password: boolean
+  maturador_enabled: boolean
 }
 
 export type UserRowWithCompany = UserRow & {
@@ -50,6 +51,7 @@ export type AdminUserDTO = {
   createdAt: string
   updatedAt: string
   mustChangePassword: boolean
+  maturadorEnabled: boolean
 }
 
 export const normalizeEmail = (email: string) => email.trim().toLowerCase()
@@ -122,7 +124,8 @@ export const mapAdminUserRow = (row: UserRowWithCompany): AdminUserDTO => {
     role: mapRoleToUi(row.role),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
-    mustChangePassword: row.must_change_password
+    mustChangePassword: row.must_change_password,
+    maturadorEnabled: row.maturador_enabled ?? false
   }
 }
 

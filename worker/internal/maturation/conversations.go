@@ -986,7 +986,7 @@ var Conversations = []Conversation{
 		"Vai lá, tchau",
 		"Falou",
 		"👋",
-		"👍"
+		"👍",
 	},
 
 	// Conversa 5: Fim de semana
@@ -1230,7 +1230,7 @@ var Conversations = []Conversation{
 		"Até! Não esquece",
 		"Pode deixar, tá na agenda",
 		"Abraço",
-		"Falou!"
+		"Falou!",
 	},
 
 	// Conversa 6: Compartilhando novidade
@@ -1475,7 +1475,7 @@ var Conversations = []Conversation{
 		"Falou",
 		"👋",
 		"🏠",
-		"🔑"
+		"🔑",
 	},
 
 	// Conversa 7: Pedindo opinião
@@ -1720,7 +1720,7 @@ var Conversations = []Conversation{
 		"Valeu!",
 		"Abraço",
 		"Falou",
-		"Tchau"
+		"Tchau",
 	},
 
 	// Conversa 8: Lembrando de algo
