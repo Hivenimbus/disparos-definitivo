@@ -10,9 +10,17 @@ const processes = []
 let exiting = false
 
 const workerDir = path.join(process.cwd(), 'worker')
-const workerBin = path.join(process.cwd(), 'dist', process.platform === 'win32' ? 'worker.exe' : 'worker')
+const isWindows = process.platform === 'win32'
+
+// Main worker (disparos)
+const workerBin = path.join(process.cwd(), 'dist', isWindows ? 'worker.exe' : 'worker')
 const workerCommand = fs.existsSync(workerBin) ? workerBin : null
 const workerAddr = process.env.WORKER_HTTP_ADDR || ':8080'
+
+// Maturation worker
+const maturationBin = path.join(process.cwd(), 'dist', isWindows ? 'maturation-worker.exe' : 'maturation-worker')
+const maturationCommand = fs.existsSync(maturationBin) ? maturationBin : null
+const maturationAddr = process.env.MATURATION_WORKER_ADDR || ':8081'
 
 const spawnProcess = (label, command, args, options = {}) => {
   const proc = spawn(command, args, {
@@ -74,16 +82,28 @@ process.on('SIGTERM', () => {
   }
 })
 
-// Start single worker instance
-const env = {
+// Start main worker (disparos)
+const workerEnv = {
   ...process.env,
   WORKER_HTTP_ADDR: workerAddr
 }
 
 if (workerCommand) {
-  spawnProcess('go-worker', workerCommand, [], { env })
+  spawnProcess('go-worker', workerCommand, [], { env: workerEnv })
 } else {
-  spawnProcess('go-worker', 'go', ['run', './cmd/worker'], { cwd: workerDir, env })
+  spawnProcess('go-worker', 'go', ['run', './cmd/worker'], { cwd: workerDir, env: workerEnv })
+}
+
+// Start maturation worker
+const maturationEnv = {
+  ...process.env,
+  MATURATION_WORKER_ADDR: maturationAddr
+}
+
+if (maturationCommand) {
+  spawnProcess('maturation-worker', maturationCommand, [], { env: maturationEnv })
+} else {
+  spawnProcess('maturation-worker', 'go', ['run', './cmd/maturation'], { cwd: workerDir, env: maturationEnv })
 }
 
 spawnProcess('nuxt', 'node', ['-r', 'dotenv/config', path.join('.output', 'server', 'index.mjs')])

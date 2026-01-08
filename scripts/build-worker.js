@@ -7,21 +7,40 @@ const projectRoot = process.cwd()
 const distDir = path.join(projectRoot, 'dist')
 fs.mkdirSync(distDir, { recursive: true })
 
-const outputName = process.platform === 'win32' ? 'worker.exe' : 'worker'
-const outputPath = path.join(distDir, outputName)
+const isWindows = process.platform === 'win32'
 
-console.log(`[worker:build] Building Go worker -> ${outputPath}`)
+// Build main worker (disparos)
+const workerOutput = path.join(distDir, isWindows ? 'worker.exe' : 'worker')
+console.log(`[worker:build] Building Go worker -> ${workerOutput}`)
 
-const build = spawnSync('go', ['build', '-o', outputPath, './cmd/worker'], {
+const workerBuild = spawnSync('go', ['build', '-o', workerOutput, './cmd/worker'], {
   cwd: path.join(projectRoot, 'worker'),
   stdio: 'inherit',
-  shell: process.platform === 'win32'
+  shell: isWindows
 })
 
-if (build.status !== 0) {
-  console.error('[worker:build] Build failed')
-  process.exit(build.status ?? 1)
+if (workerBuild.status !== 0) {
+  console.error('[worker:build] Worker build failed')
+  process.exit(workerBuild.status ?? 1)
 }
 
-console.log('[worker:build] Build completed successfully')
+console.log('[worker:build] Worker build completed successfully')
+
+// Build maturation worker
+const maturationOutput = path.join(distDir, isWindows ? 'maturation-worker.exe' : 'maturation-worker')
+console.log(`[worker:build] Building Go maturation worker -> ${maturationOutput}`)
+
+const maturationBuild = spawnSync('go', ['build', '-o', maturationOutput, './cmd/maturation'], {
+  cwd: path.join(projectRoot, 'worker'),
+  stdio: 'inherit',
+  shell: isWindows
+})
+
+if (maturationBuild.status !== 0) {
+  console.error('[worker:build] Maturation worker build failed')
+  process.exit(maturationBuild.status ?? 1)
+}
+
+console.log('[worker:build] Maturation worker build completed successfully')
+console.log('[worker:build] All builds completed!')
 

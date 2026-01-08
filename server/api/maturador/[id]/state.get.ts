@@ -4,24 +4,28 @@ import { requireAuthUser } from '../../../utils/auth'
 import { getEvolutionConfig } from '../../../utils/evolution'
 import { getServiceSupabaseClient } from '../../../utils/supabase'
 
-type EvolutionStatusResponse = {
-  message?: string
-  data?: {
-    Connected?: boolean
-    connected?: boolean
-    LoggedIn?: boolean
-    loggedIn?: boolean
-    Name?: string
-    name?: string
-    MyJid?: string
-    myJid?: string
-  }
+type EvolutionInstance = {
+  id?: string
+  name?: string
+  jid?: string
+  connected?: boolean
+}
+
+// Extrai o número de telefone do JID
+// Ex: "559591711956:93@s.whatsapp.net" -> "559591711956"
+function extractPhoneFromJid(jid: string | undefined | null): string | null {
+  if (!jid) return null
+  // Remove a parte após o @
+  const withoutDomain = jid.split('@')[0]
+  // Remove a parte após o : (se existir)
+  const phoneOnly = withoutDomain.split(':')[0]
+  return phoneOnly || null
 }
 
 export default defineEventHandler(async (event) => {
   const user = await requireAuthUser(event)
   const supabase = getServiceSupabaseClient()
-  const { evolutionApiUrl } = getEvolutionConfig()
+  const { evolutionApiUrl, evolutionApiKey } = getEvolutionConfig()
   const id = getRouterParam(event, 'id')
 
   if (!id) {
@@ -46,58 +50,43 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // Verificar estado da instância A
-  let instanceAConnected = maturation.instance_a_connected
-  let phoneA = maturation.phone_a
-
+  // Buscar todas as instâncias da Evolution API para obter o JID
+  let allInstances: EvolutionInstance[] = []
   try {
-    const responseA = await $fetch<EvolutionStatusResponse>('/instance/status', {
+    const response = await $fetch<{ data?: EvolutionInstance[] }>('/instance/all', {
       baseURL: evolutionApiUrl,
       method: 'GET',
       headers: {
-        apikey: maturation.instance_a_id
+        apikey: evolutionApiKey
       }
     })
-
-    const connectedA = Boolean(responseA?.data?.connected ?? responseA?.data?.Connected)
-    const loggedInA = Boolean(responseA?.data?.loggedIn ?? responseA?.data?.LoggedIn)
-    instanceAConnected = connectedA && loggedInA
-
-    if (instanceAConnected) {
-      const jidA = responseA?.data?.myJid ?? responseA?.data?.MyJid
-      if (jidA) {
-        phoneA = jidA.split('@')[0] || null
-      }
-    }
+    allInstances = response?.data || []
   } catch (e: any) {
-    console.warn('[maturador/state] Erro ao verificar instância A:', e?.message)
+    console.warn('[maturador/state] Erro ao buscar instâncias:', e?.message)
   }
 
-  // Verificar estado da instância B
-  let instanceBConnected = maturation.instance_b_connected
+  // Encontrar instância A pelo nome (que é o UUID)
+  const instanceA = allInstances.find(i => i.name === maturation.instance_a_id)
+  let instanceAConnected = Boolean(instanceA?.connected)
+  let phoneA = maturation.phone_a
+
+  if (instanceAConnected && instanceA?.jid) {
+    const extractedPhone = extractPhoneFromJid(instanceA.jid)
+    if (extractedPhone) {
+      phoneA = extractedPhone
+    }
+  }
+
+  // Encontrar instância B pelo nome (que é o UUID)
+  const instanceB = allInstances.find(i => i.name === maturation.instance_b_id)
+  let instanceBConnected = Boolean(instanceB?.connected)
   let phoneB = maturation.phone_b
 
-  try {
-    const responseB = await $fetch<EvolutionStatusResponse>('/instance/status', {
-      baseURL: evolutionApiUrl,
-      method: 'GET',
-      headers: {
-        apikey: maturation.instance_b_id
-      }
-    })
-
-    const connectedB = Boolean(responseB?.data?.connected ?? responseB?.data?.Connected)
-    const loggedInB = Boolean(responseB?.data?.loggedIn ?? responseB?.data?.LoggedIn)
-    instanceBConnected = connectedB && loggedInB
-
-    if (instanceBConnected) {
-      const jidB = responseB?.data?.myJid ?? responseB?.data?.MyJid
-      if (jidB) {
-        phoneB = jidB.split('@')[0] || null
-      }
+  if (instanceBConnected && instanceB?.jid) {
+    const extractedPhone = extractPhoneFromJid(instanceB.jid)
+    if (extractedPhone) {
+      phoneB = extractedPhone
     }
-  } catch (e: any) {
-    console.warn('[maturador/state] Erro ao verificar instância B:', e?.message)
   }
 
   // Atualizar banco se houver mudanças

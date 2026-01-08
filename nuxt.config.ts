@@ -31,6 +31,7 @@ export default defineNuxtConfig({
     evolutionApiKey: '',
     workerServiceUrl: '',
     workerToken: '',
+    maturationWorkerUrl: '',
     public: {
       appUrl: fallbackAppUrl
     }
