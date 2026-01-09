@@ -24,6 +24,7 @@ COPY worker/go.* ./
 RUN go mod download
 COPY worker ./
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /out/worker ./cmd/worker
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /out/maturation-worker ./cmd/maturation
 
 FROM node:20-alpine AS runner
 WORKDIR /app
@@ -35,6 +36,7 @@ ENV NODE_ENV=production \
 COPY --from=production-deps /app/node_modules ./node_modules
 COPY --from=build /app/.output ./.output
 COPY --from=go-builder /out/worker ./dist/worker
+COPY --from=go-builder /out/maturation-worker ./dist/maturation-worker
 COPY scripts ./scripts
 
 EXPOSE 3000
