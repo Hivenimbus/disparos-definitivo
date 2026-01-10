@@ -8,12 +8,20 @@
         <h2 class="text-xl font-semibold text-gray-800">Gerenciamento de Empresas</h2>
       </div>
 
-      <button @click="openAddModal" class="flex items-center justify-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors w-full md:w-auto">
-        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-        </svg>
-        <span class="whitespace-nowrap">Adicionar Empresa</span>
-      </button>
+      <div class="flex flex-col md:flex-row items-stretch md:items-center gap-2 w-full md:w-auto">
+        <button @click="exportToExcel" class="flex items-center justify-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors w-full md:w-auto">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
+          <span class="whitespace-nowrap">Exportar</span>
+        </button>
+        <button @click="openAddModal" class="flex items-center justify-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors w-full md:w-auto">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+          </svg>
+          <span class="whitespace-nowrap">Adicionar Empresa</span>
+        </button>
+      </div>
     </div>
 
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -311,6 +319,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import * as XLSX from 'xlsx'
 
 const searchQuery = ref('')
 const perPage = 20
@@ -421,6 +430,23 @@ const formatDate = (dateString) => {
   const [year, month, day] = dateString.split('-')
   if (!year || !month || !day) return dateString
   return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`
+}
+
+const exportToExcel = () => {
+  const data = companies.value.map(company => ({
+    'Nome': company.nome,
+    'Vencimento': formatDate(company.dataVencimento),
+    'Usuários Atuais': company.usuariosAtuais,
+    'Máx Usuários': company.maxUsuarios,
+    'Celular': company.celular || '-',
+    'CPF/CNPJ': company.cpfCnpj || '-',
+    'Status': company.status === 'ativo' ? 'Ativo' : 'Desativado'
+  }))
+
+  const ws = XLSX.utils.json_to_sheet(data)
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Empresas')
+  XLSX.writeFile(wb, 'empresas.xlsx')
 }
 
 const resetForm = () => {
