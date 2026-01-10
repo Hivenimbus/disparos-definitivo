@@ -53,7 +53,6 @@
                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nome</th>
                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Empresa</th>
                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Celular</th>
                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vencimento</th>
                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
@@ -63,17 +62,17 @@
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
               <tr v-if="loadingTable">
-                <td colspan="9" class="px-6 py-4 text-center text-gray-500">
+                <td colspan="8" class="px-6 py-4 text-center text-gray-500">
                   Carregando usuários...
                 </td>
               </tr>
               <tr v-else-if="listError">
-                <td colspan="9" class="px-6 py-4 text-center text-red-600">
+                <td colspan="8" class="px-6 py-4 text-center text-red-600">
                   Ocorreu um erro ao carregar os usuários.
                 </td>
               </tr>
               <tr v-else-if="filteredUsers.length === 0">
-                <td colspan="9" class="px-6 py-4 text-center text-gray-500">
+                <td colspan="8" class="px-6 py-4 text-center text-gray-500">
                   Nenhum usuário cadastrado
                 </td>
               </tr>
@@ -86,7 +85,6 @@
                   <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ user.nome }}</td>
                   <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ getCompanyName(user) }}</td>
                   <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ user.email }}</td>
-                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ user.celular || '-' }}</td>
                   <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ formatDate(user.dataVencimento) }}</td>
                   <td class="px-6 py-4 whitespace-nowrap">
                     <div class="flex flex-col">

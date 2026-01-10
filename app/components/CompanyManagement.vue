@@ -61,25 +61,23 @@
                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nome</th>
                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vencimento</th>
                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Usuários</th>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Celular</th>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CPF/CNPJ</th>
                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
               </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
               <tr v-if="pending">
-                <td colspan="7" class="px-6 py-4 text-center text-gray-500">
+                <td colspan="5" class="px-6 py-4 text-center text-gray-500">
                   Carregando empresas...
                 </td>
               </tr>
               <tr v-else-if="error">
-                <td colspan="7" class="px-6 py-4 text-center text-red-600">
+                <td colspan="5" class="px-6 py-4 text-center text-red-600">
                   Ocorreu um erro ao carregar as empresas.
                 </td>
               </tr>
               <tr v-else-if="filteredCompanies.length === 0">
-                <td colspan="7" class="px-6 py-4 text-center text-gray-500">
+                <td colspan="5" class="px-6 py-4 text-center text-gray-500">
                   Nenhuma empresa cadastrada
                 </td>
               </tr>
@@ -107,8 +105,6 @@
                       </div>
                     </div>
                   </td>
-                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ company.celular || '-' }}</td>
-                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ company.cpfCnpj || '-' }}</td>
                   <td class="px-6 py-4 whitespace-nowrap">
                     <div class="flex flex-col">
                       <select
@@ -438,8 +434,6 @@ const exportToExcel = () => {
     'Vencimento': formatDate(company.dataVencimento),
     'Usuários Atuais': company.usuariosAtuais,
     'Máx Usuários': company.maxUsuarios,
-    'Celular': company.celular || '-',
-    'CPF/CNPJ': company.cpfCnpj || '-',
     'Status': company.status === 'ativo' ? 'Ativo' : 'Desativado'
   }))
 
